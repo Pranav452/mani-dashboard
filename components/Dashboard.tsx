@@ -7,14 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
+import { Input } from "@/components/ui/input"
 import dynamic from "next/dynamic"
 
 const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: mod.Map })), {
   ssr: false,
   loading: () => <div className="h-[400px] flex items-center justify-center bg-slate-50 rounded-lg"><span className="text-slate-400 text-sm">Loading map...</span></div>
 })
-import { format, isWithinInterval, parse, isValid, startOfDay, endOfDay, subDays, startOfYear } from "date-fns"
-import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, X, MapPin } from "lucide-react"
+import { format, isWithinInterval, parse, isValid, startOfDay, endOfDay, subDays, startOfYear, differenceInDays } from "date-fns"
+import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, X, MapPin, Search, Download, Clock } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts"
 import { cn } from "@/lib/utils"
 
@@ -232,6 +233,7 @@ export default function Dashboard({ data }: { data: any[] }) {
   })
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
 
   const applyPreset = (preset: "30d" | "90d" | "ytd") => {
     if (!maxDate) return
@@ -293,7 +295,7 @@ export default function Dashboard({ data }: { data: any[] }) {
     return { allProviders: Array.from(all).sort(), availableProviders: available }
   }, [parsedData, selectedMode, dateRange])
 
-  // --- 3. FILTER DATA ---
+  // --- 3. FILTER DATA (with search) ---
   const chartData = useMemo(() => {
     return parsedData.filter(row => {
       // Filter by Computed Mode
@@ -306,17 +308,85 @@ export default function Dashboard({ data }: { data: any[] }) {
       
       if (selectedClient !== "ALL" && row.CONNAME !== selectedClient) return false
       
+      // Search filter
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase()
+        const match = 
+          (row.JOBNO?.toString().toLowerCase().includes(q)) ||
+          (row.LINER_NAME?.toString().toLowerCase().includes(q)) ||
+          (row.CONNAME?.toString().toLowerCase().includes(q)) ||
+          (row.POL?.toString().toLowerCase().includes(q)) ||
+          (row.POD?.toString().toLowerCase().includes(q)) ||
+          (row.ORDERNO?.toString().toLowerCase().includes(q)) ||
+          (row.CONTMAWB?.toString().toLowerCase().includes(q)) ||
+          (row.CONNO?.toString().toLowerCase().includes(q)) ||
+          (row.BLNO?.toString().toLowerCase().includes(q)) ||
+          (row.BOOKNO?.toString().toLowerCase().includes(q))
+        if (!match) return false
+      }
+      
       return true
     })
-  }, [parsedData, selectedMode, selectedClient, dateRange])
+  }, [parsedData, selectedMode, selectedClient, dateRange, searchQuery])
 
-  // --- 4. STATS ---
-  const kpis = useMemo(() => ({
+  // --- 4. EXPORT FUNCTION ---
+  const handleExport = () => {
+    if (!chartData.length) return
+    
+    const headers = ["JOBNO", "MODE", "PROVIDER", "CARRIER", "POL", "POD", "ETD", "ATD", "WEIGHT_KG", "TEU", "CBM", "BOOKNO", "CONNO", "BLNO"]
+    
+    const csvContent = [
+      headers.join(","),
+      ...chartData.map(row => [
+        row.JOBNO || "",
+        row._mode || "",
+        `"${(row.CONNAME || "").replace(/"/g, '""')}"`,
+        `"${(row.LINER_NAME || "").replace(/"/g, '""')}"`,
+        row.POL || "",
+        row.POD || "",
+        row.ETD || "",
+        row.ATD || "",
+        cleanNum(row.CONT_GRWT),
+        cleanNum(row.CONT_TEU),
+        cleanNum(row.CONT_CBM),
+        row.BOOKNO || "",
+        row.CONNO || "",
+        row.BLNO || ""
+      ].join(","))
+    ].join("\n")
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    link.href = URL.createObjectURL(blob)
+    link.download = `logistics_export_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`
+    link.click()
+  }
+
+  // --- 5. STATS ---
+  const kpis = useMemo(() => {
+    // Calculate transit time
+    let transitDays: number[] = []
+    chartData.forEach(row => {
+      const etd = row.ETD ? getValidDate({ ETD: row.ETD }) : null
+      const atd = row.ATD ? getValidDate({ ATD: row.ATD }) : null
+      if (etd && atd && atd > etd) {
+        const days = differenceInDays(atd, etd)
+        if (days > 0 && days < 365) transitDays.push(days) // Reasonable range
+      }
+    })
+    
+    const avgTransit = transitDays.length > 0 
+      ? transitDays.reduce((sum, d) => sum + d, 0) / transitDays.length 
+      : 0
+
+    return {
       shipments: chartData.length,
       weight: chartData.reduce((sum, r) => sum + cleanNum(r.CONT_GRWT), 0),
       teu: chartData.reduce((sum, r) => sum + cleanNum(r.CONT_TEU), 0),
-      cbm: chartData.reduce((sum, r) => sum + cleanNum(r.CONT_CBM), 0)
-  }), [chartData])
+      cbm: chartData.reduce((sum, r) => sum + cleanNum(r.CONT_CBM), 0),
+      avgTransit: Math.round(avgTransit * 10) / 10
+    }
+  }, [chartData])
 
   const metricConfig = {
     weight: { label: "Weight (Tons)", accessor: (row: any) => cleanNum(row.CONT_GRWT) / 1000 },
@@ -533,18 +603,29 @@ export default function Dashboard({ data }: { data: any[] }) {
     <div className="min-h-screen bg-slate-100 p-4 space-y-4">
       
       {/* HEADER & FILTERS */}
-      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between sticky top-0 z-20">
-        <div className="flex gap-3 items-center flex-wrap w-full md:w-auto">
-          <div className="flex items-center gap-2 mr-4 bg-blue-50 px-3 py-1 rounded-md border border-blue-100">
+      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col xl:flex-row gap-3 items-center justify-between sticky top-0 z-20">
+        <div className="flex gap-3 items-center flex-wrap w-full xl:w-auto">
+          <div className="flex items-center gap-2 mr-2 bg-blue-50 px-3 py-1 rounded-md border border-blue-100">
              <Ship className="text-blue-600" size={18} />
-             <span className="font-bold text-blue-900">LogisticsAI</span>
+             <span className="font-bold text-blue-900 hidden md:inline">LogisticsAI</span>
+          </div>
+          
+          {/* SEARCH BAR */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+            <Input 
+              placeholder="Search Job / Container / BL..." 
+              className="pl-9 w-[200px] md:w-[250px] h-9 bg-slate-50 border-slate-200 focus:bg-white transition-colors"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
 
           {/* MODE */}
           <Select value={selectedMode} onValueChange={(val) => {
             setSelectedMode(val); setDateRange({ from: undefined, to: undefined }); setSelectedClient("ALL");
           }}>
-            <SelectTrigger className="w-[140px] font-medium border-slate-200"><SelectValue placeholder="Mode" /></SelectTrigger>
+            <SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Mode" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Modes</SelectItem>
               <SelectItem value="SEA">SEA</SelectItem>
@@ -556,9 +637,9 @@ export default function Dashboard({ data }: { data: any[] }) {
           {/* CALENDAR */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant={"outline"} className={cn("w-[240px] justify-start text-left font-normal border-slate-200", !dateRange.from && "text-muted-foreground")}>
+              <Button variant={"outline"} className={cn("w-[200px] h-9 justify-start text-left font-normal border-slate-200", !dateRange.from && "text-muted-foreground")}>
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange.from ? (dateRange.to ? <>{format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}</> : format(dateRange.from, "LLL dd, y")) : <span>Pick a date</span>}
+                {dateRange.from ? (dateRange.to ? <>{format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd")}</> : format(dateRange.from, "MMM dd, y")) : <span>Date Range</span>}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -569,15 +650,10 @@ export default function Dashboard({ data }: { data: any[] }) {
               />
             </PopoverContent>
           </Popover>
-          <div className="flex gap-2 items-center">
-            <Button variant="outline" size="sm" onClick={() => applyPreset("30d")}>Last 30d</Button>
-            <Button variant="outline" size="sm" onClick={() => applyPreset("90d")}>Last 90d</Button>
-            <Button variant="outline" size="sm" onClick={() => applyPreset("ytd")}>YTD</Button>
-          </div>
 
           {/* PROVIDER */}
           <Select value={selectedClient} onValueChange={setSelectedClient}>
-            <SelectTrigger className="w-[220px] font-medium border-slate-200"><SelectValue placeholder="Select Provider" /></SelectTrigger>
+            <SelectTrigger className="w-[180px] h-9"><SelectValue placeholder="Provider" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Providers</SelectItem>
               {allProviders.map(provider => (
@@ -588,14 +664,26 @@ export default function Dashboard({ data }: { data: any[] }) {
             </SelectContent>
           </Select>
         </div>
-
-        <Button variant="ghost" onClick={() => { setSelectedMode("ALL"); setSelectedClient("ALL"); setDateRange({ from: undefined, to: undefined }) }} className="text-red-500 hover:bg-red-50 hover:text-red-600">
-          <FilterX className="w-4 h-4 mr-2" /> Reset
-        </Button>
+        
+        <div className="flex items-center gap-2 w-full xl:w-auto justify-end">
+          {/* EXPORT BUTTON */}
+          <Button variant="outline" size="sm" className="h-9" onClick={handleExport}>
+            <Download className="w-4 h-4 mr-2" /> Export
+          </Button>
+          
+          <Button variant="ghost" size="sm" onClick={() => { 
+            setSelectedMode("ALL"); 
+            setSelectedClient("ALL"); 
+            setSearchQuery(""); 
+            setDateRange({ from: undefined, to: undefined }) 
+          }} className="text-red-500 h-9 hover:bg-red-50">
+            <FilterX className="w-4 h-4 mr-2" /> Reset
+          </Button>
+        </div>
       </div>
 
       {/* KPI GRID */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="bg-white border-slate-200 shadow-sm">
           <CardHeader className="pb-1.5 flex flex-row items-center justify-between"><CardTitle className="text-xs font-medium text-slate-600">Total Shipments</CardTitle><Box className="w-3.5 h-3.5 text-blue-600" /></CardHeader>
           <CardContent className="pt-0"><div className="text-xl font-bold text-slate-900">{kpis.shipments.toLocaleString()}</div></CardContent>
@@ -611,6 +699,10 @@ export default function Dashboard({ data }: { data: any[] }) {
         <Card className="bg-white border-slate-200 shadow-sm">
           <CardHeader className="pb-1.5 flex flex-row items-center justify-between"><CardTitle className="text-xs font-medium text-slate-600">Total CBM</CardTitle><Layers className="w-3.5 h-3.5 text-purple-600" /></CardHeader>
           <CardContent className="pt-0"><div className="text-xl font-bold text-slate-900">{kpis.cbm.toFixed(1)}</div></CardContent>
+        </Card>
+        <Card className="bg-white border-slate-200 shadow-sm">
+          <CardHeader className="pb-1.5 flex flex-row items-center justify-between"><CardTitle className="text-xs font-medium text-slate-600">Avg Transit</CardTitle><Clock className="w-3.5 h-3.5 text-indigo-600" /></CardHeader>
+          <CardContent className="pt-0"><div className="text-xl font-bold text-slate-900">{kpis.avgTransit > 0 ? `${kpis.avgTransit}` : '-'} <span className="text-xs font-normal text-slate-500">{kpis.avgTransit > 0 ? 'days' : ''}</span></div></CardContent>
         </Card>
       </div>
 
@@ -793,8 +885,8 @@ export default function Dashboard({ data }: { data: any[] }) {
         </Card>
 
         {/* Recent Shipments */}
-        <Card className="col-span-1 md:col-span-2 shadow-sm bg-white border-slate-200">
-          <CardHeader className="pb-3"><CardTitle className="text-base">Recent Shipments</CardTitle><CardDescription className="text-xs">Latest 12 records - Click to view details</CardDescription></CardHeader>
+        <Card className="col-span-1 md:col-span-3 shadow-sm bg-white border-slate-200">
+          <CardHeader className="pb-3"><CardTitle className="text-base">Recent Shipments</CardTitle><CardDescription className="text-xs">Latest records matching filters</CardDescription></CardHeader>
           <CardContent className="pt-0">
             {recentShipments.length > 0 ? (
               <div className="overflow-x-auto">
@@ -803,8 +895,9 @@ export default function Dashboard({ data }: { data: any[] }) {
                     <tr>
                       <th className="py-1.5 px-3 font-medium">Date</th>
                       <th className="py-1.5 px-3 font-medium">Mode</th>
+                      <th className="py-1.5 px-3 font-medium">Job No</th>
                       <th className="py-1.5 px-3 font-medium">Provider</th>
-                      <th className="py-1.5 px-3 font-medium">Lane</th>
+                      <th className="py-1.5 px-3 font-medium">Route</th>
                       <th className="py-1.5 px-3 text-right font-medium">Weight (t)</th>
                     </tr>
                   </thead>
@@ -815,7 +908,7 @@ export default function Dashboard({ data }: { data: any[] }) {
                         onClick={() => handleRowClick(row)}
                         className="hover:bg-slate-50 transition-colors cursor-pointer"
                       >
-                        <td className="py-1.5 px-3 whitespace-nowrap text-slate-700">{row._date ? format(row._date, "yyyy-MM-dd") : "N/A"}</td>
+                        <td className="py-1.5 px-3 text-slate-700">{row._date ? format(row._date, "yyyy-MM-dd") : "N/A"}</td>
                         <td className="py-1.5 px-3">
                           <span className={cn(
                             "px-1.5 py-0.5 rounded text-xs font-medium",
@@ -827,6 +920,7 @@ export default function Dashboard({ data }: { data: any[] }) {
                             {row._mode || "Unknown"}
                           </span>
                         </td>
+                        <td className="py-1.5 px-3 text-slate-700">{row.JOBNO || "-"}</td>
                         <td className="py-1.5 px-3 text-slate-700">{row.CONNAME || "Unknown"}</td>
                         <td className="py-1.5 px-3 text-slate-700">{`${row.POL || "?"} → ${row.POD || "?"}`}</td>
                         <td className="py-1.5 px-3 text-right font-medium text-slate-900">{(cleanNum(row.CONT_GRWT) / 1000).toFixed(2)}</td>
@@ -835,7 +929,7 @@ export default function Dashboard({ data }: { data: any[] }) {
                   </tbody>
                 </table>
               </div>
-            ) : <div className="py-8 flex items-center justify-center text-slate-400 text-sm">No recent shipments</div>}
+            ) : <div className="py-8 text-center text-slate-400">No records found</div>}
           </CardContent>
         </Card>
 
