@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input"
 import { ShipmentDrawer } from "@/components/ShipmentDrawer"
 import dynamic from "next/dynamic"
+import Image from "next/image"
 
 const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: mod.Map })), {
   ssr: false,
@@ -610,14 +611,20 @@ export default function Dashboard({ data }: { data: any[] }) {
   return (
     <div className="min-h-screen bg-slate-100 p-4 space-y-4">
       
-      {/* HEADER & FILTERS */}
-      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col xl:flex-row gap-3 items-center justify-between sticky top-0 z-20">
-        <div className="flex gap-3 items-center flex-wrap w-full xl:w-auto">
-          <div className="flex items-center gap-2 mr-2 bg-blue-50 px-3 py-1 rounded-md border border-blue-100">
-             <Ship className="text-blue-600" size={18} />
-             <span className="font-bold text-blue-900 hidden md:inline">LogisticsAI</span>
+      {/* TOP NAVBAR */}
+      <div className="bg-white px-4 py-3 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between gap-3 sticky top-0 z-30">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 flex items-center justify-center">
+            <Image src="/logo.png" alt="Company Logo" width={40} height={40} />
           </div>
-          
+          <div className="text-xl font-semibold text-slate-900 leading-tight">Manilal Patel Group</div>
+        </div>
+        <div className="text-base font-bold text-slate-600">Management Dashboard</div>
+      </div>
+
+      {/* FILTERS BAR */}
+      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col xl:flex-row gap-3 items-center justify-between sticky top-[70px] z-20">
+        <div className="flex gap-3 items-center flex-wrap w-full xl:w-auto">
           {/* SEARCH BAR */}
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
@@ -674,11 +681,6 @@ export default function Dashboard({ data }: { data: any[] }) {
         </div>
         
         <div className="flex items-center gap-2 w-full xl:w-auto justify-end">
-          {/* AI ANALYST BUTTON (disabled for now) */}
-          <Button className="h-9 bg-slate-300 text-slate-600 cursor-not-allowed" disabled>
-            <MessageSquare className="w-4 h-4 mr-2" /> AI Analyst (coming soon)
-          </Button>
-          
           {/* EXPORT BUTTON */}
           <Button variant="outline" size="sm" className="h-9" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" /> Export
