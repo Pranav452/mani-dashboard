@@ -8,6 +8,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
+import { ChatAgent } from "@/components/ChatAgent"
 import dynamic from "next/dynamic"
 
 const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: mod.Map })), {
@@ -57,6 +58,13 @@ const getComputedMode = (row: any) => {
     return 'SEA-AIR';
   }
   return row.MODE || 'Unknown';
+}
+
+// --- HELPER: Smart Carrier Logic (The Fix) ---
+const getCarrier = (row: any) => {
+  if (row.LINER_NAME && row.LINER_NAME !== "0") return row.LINER_NAME;
+  if (row.CONNAME && row.CONNAME !== "0") return row.CONNAME;
+  return "Unknown";
 }
 
 // --- HELPER: Port Code to Coordinates (Common ports lookup) ---
@@ -251,7 +259,8 @@ export default function Dashboard({ data }: { data: any[] }) {
     return data.map(row => ({
       ...row,
       _date: getValidDate(row),
-      _mode: getComputedMode(row) // We use this new _mode for everything
+      _mode: getComputedMode(row), // We use this new _mode for everything
+      _carrier: getCarrier(row) // NEW: Uses smart fallback
     }))
   }, [data])
 
@@ -419,13 +428,13 @@ export default function Dashboard({ data }: { data: any[] }) {
   const carrierStats = useMemo(() => {
     const stats: Record<string, number> = {}
     chartData.forEach(row => {
-      const c = row.LINER_NAME || "Unknown"
+      const c = row._carrier // Now uses the smart value
       stats[c] = (stats[c] || 0) + 1
     })
     return Object.entries(stats)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 6)
+      .slice(0, 7)
   }, [chartData])
   
   const originStats = useMemo(() => {
@@ -1098,6 +1107,9 @@ export default function Dashboard({ data }: { data: any[] }) {
           </DrawerFooter>
         </DrawerContent>
       </Drawer>
+
+      {/* AI Chat Agent */}
+      <ChatAgent />
     </div>
   )
 }
