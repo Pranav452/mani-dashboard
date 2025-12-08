@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
-import { ChatAgent } from "@/components/ChatAgent"
+import { ShipmentDrawer } from "@/components/ShipmentDrawer"
 import dynamic from "next/dynamic"
 
 const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: mod.Map })), {
@@ -16,7 +15,7 @@ const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: 
   loading: () => <div className="h-[400px] flex items-center justify-center bg-slate-50 rounded-lg"><span className="text-slate-400 text-sm">Loading map...</span></div>
 })
 import { format, isWithinInterval, parse, isValid, startOfDay, endOfDay, subDays, startOfYear, differenceInDays } from "date-fns"
-import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, X, MapPin, Search, Download, Clock } from "lucide-react"
+import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts"
 import { cn } from "@/lib/utils"
 
@@ -675,6 +674,11 @@ export default function Dashboard({ data }: { data: any[] }) {
         </div>
         
         <div className="flex items-center gap-2 w-full xl:w-auto justify-end">
+          {/* AI ANALYST BUTTON (disabled for now) */}
+          <Button className="h-9 bg-slate-300 text-slate-600 cursor-not-allowed" disabled>
+            <MessageSquare className="w-4 h-4 mr-2" /> AI Analyst (coming soon)
+          </Button>
+          
           {/* EXPORT BUTTON */}
           <Button variant="outline" size="sm" className="h-9" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" /> Export
@@ -969,147 +973,12 @@ export default function Dashboard({ data }: { data: any[] }) {
         </Card>
       </div>
 
-      {/* Drawer for Record Details */}
-      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DrawerContent className="max-h-[90vh]">
-          <DrawerHeader className="border-b">
-            <div className="flex items-center justify-between">
-              <div>
-                <DrawerTitle>Shipment Details</DrawerTitle>
-                <DrawerDescription>Complete record information</DrawerDescription>
-              </div>
-              <DrawerClose asChild>
-                <Button variant="ghost" size="icon">
-                  <X className="h-4 w-4" />
-                </Button>
-              </DrawerClose>
-            </div>
-          </DrawerHeader>
-          {selectedRecord && (
-            <div className="overflow-y-auto p-6 space-y-6">
-              {/* Basic Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Date</label>
-                  <div className="text-sm font-semibold mt-1">
-                    {selectedRecord._date ? format(selectedRecord._date, "yyyy-MM-dd") : "N/A"}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Mode</label>
-                  <div className="text-sm font-semibold mt-1">
-                    <span className={cn(
-                      "px-2 py-1 rounded text-xs",
-                      selectedRecord._mode === "SEA" ? "bg-blue-100 text-blue-700" :
-                      selectedRecord._mode === "AIR" ? "bg-purple-100 text-purple-700" :
-                      selectedRecord._mode === "SEA-AIR" ? "bg-orange-100 text-orange-700" :
-                      "bg-slate-100 text-slate-700"
-                    )}>
-                      {selectedRecord._mode || "Unknown"}
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Provider</label>
-                  <div className="text-sm font-semibold mt-1">{selectedRecord.CONNAME || "Unknown"}</div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Carrier</label>
-                  <div className="text-sm font-semibold mt-1">{selectedRecord.LINER_NAME || "Unknown"}</div>
-                </div>
-              </div>
-
-              {/* Route */}
-              <div className="border-t pt-4">
-                <label className="text-xs font-medium text-slate-500">Route</label>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="px-3 py-2 bg-blue-50 rounded-md text-sm font-medium">
-                    {selectedRecord.POL || "?"}
-                  </div>
-                  <span className="text-slate-400">→</span>
-                  <div className="px-3 py-2 bg-green-50 rounded-md text-sm font-medium">
-                    {selectedRecord.POD || "?"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Metrics */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-t pt-4">
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Weight</label>
-                  <div className="text-lg font-bold mt-1">
-                    {(cleanNum(selectedRecord.CONT_GRWT) / 1000).toFixed(2)} <span className="text-sm font-normal text-slate-400">tons</span>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">TEU</label>
-                  <div className="text-lg font-bold mt-1">{cleanNum(selectedRecord.CONT_TEU).toFixed(1)}</div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">CBM</label>
-                  <div className="text-lg font-bold mt-1">{cleanNum(selectedRecord.CONT_CBM).toFixed(1)}</div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Containers</label>
-                  <div className="text-lg font-bold mt-1">{selectedRecord.CONT_QTY || "N/A"}</div>
-                </div>
-              </div>
-
-              {/* Dates */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-                <div>
-                  <label className="text-xs font-medium text-slate-500">ETD</label>
-                  <div className="text-sm mt-1">{selectedRecord.ETD || "N/A"}</div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">ATD</label>
-                  <div className="text-sm mt-1">{selectedRecord.ATD || "N/A"}</div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Doc Received</label>
-                  <div className="text-sm mt-1">{selectedRecord.DOCRECD || "N/A"}</div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500">Doc Date</label>
-                  <div className="text-sm mt-1">{selectedRecord.DOCDT || "N/A"}</div>
-                </div>
-              </div>
-
-              {/* References */}
-              {(selectedRecord.BLNO || selectedRecord.CONNO || selectedRecord.BOOKNO) && (
-                <div className="border-t pt-4">
-                  <label className="text-xs font-medium text-slate-500 mb-2 block">References</label>
-                  <div className="space-y-2">
-                    {selectedRecord.BLNO && (
-                      <div className="text-sm">
-                        <span className="text-slate-500">BL No:</span> <span className="font-mono">{selectedRecord.BLNO}</span>
-                      </div>
-                    )}
-                    {selectedRecord.CONNO && (
-                      <div className="text-sm">
-                        <span className="text-slate-500">Container No:</span> <span className="font-mono">{selectedRecord.CONNO}</span>
-                      </div>
-                    )}
-                    {selectedRecord.BOOKNO && (
-                      <div className="text-sm">
-                        <span className="text-slate-500">Booking No:</span> <span className="font-mono">{selectedRecord.BOOKNO}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          <DrawerFooter className="border-t">
-            <DrawerClose asChild>
-              <Button variant="outline">Close</Button>
-            </DrawerClose>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
-
-      {/* AI Chat Agent */}
-      <ChatAgent />
+      {/* Shipment Detail Drawer */}
+      <ShipmentDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        record={selectedRecord}
+      />
     </div>
   )
 }
