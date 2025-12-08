@@ -373,27 +373,40 @@ export default function Dashboard({ data }: { data: any[] }) {
 
   // --- 5. STATS ---
   const kpis = useMemo(() => {
-    // Calculate transit time
-    let transitDays: number[] = []
-    chartData.forEach(row => {
-      const etd = row.ETD ? getValidDate({ ETD: row.ETD }) : null
-      const atd = row.ATD ? getValidDate({ ATD: row.ATD }) : null
-      if (etd && atd && atd > etd) {
-        const days = differenceInDays(atd, etd)
-        if (days > 0 && days < 365) transitDays.push(days) // Reasonable range
+    // Helper to parse DD-MM-YYYY dates specifically for Transit Calc
+    const parseTransitDate = (dateStr: any) => {
+      if (!dateStr || typeof dateStr !== 'string') return null
+      try {
+        // Handle DD-MM-YYYY
+        if (dateStr.includes('-')) return parse(dateStr, 'dd-MM-yyyy', new Date())
+        return null
+      } catch { return null }
+    }
+
+    let totalTransitDays = 0
+    let transitCount = 0
+
+    chartData.forEach(r => {
+      // Logic: Prefer Actual (ATD/ATA), fallback to Estimated (ETD/ETA)
+      const start = parseTransitDate(r.ATD || r.ETD)
+      const end = parseTransitDate(r.ATA || r.ETA) // Ensure you have ETA/ATA in your DB/Select query!
+
+      if (start && isValid(start) && end && isValid(end)) {
+        const days = differenceInDays(end, start)
+        // Sanity Check: Ignore negative days or impossible values (> 120 days)
+        if (days >= 0 && days < 150) {
+          totalTransitDays += days
+          transitCount++
+        }
       }
     })
-    
-    const avgTransit = transitDays.length > 0 
-      ? transitDays.reduce((sum, d) => sum + d, 0) / transitDays.length 
-      : 0
 
     return {
       shipments: chartData.length,
       weight: chartData.reduce((sum, r) => sum + cleanNum(r.CONT_GRWT), 0),
       teu: chartData.reduce((sum, r) => sum + cleanNum(r.CONT_TEU), 0),
       cbm: chartData.reduce((sum, r) => sum + cleanNum(r.CONT_CBM), 0),
-      avgTransit: Math.round(avgTransit * 10) / 10
+      avgTransit: transitCount > 0 ? (totalTransitDays / transitCount) : 0
     }
   }, [chartData])
 
@@ -715,10 +728,16 @@ export default function Dashboard({ data }: { data: any[] }) {
           <CardHeader className="pb-1.5 flex flex-row items-center justify-between"><CardTitle className="text-xs font-medium text-slate-600">Total CBM</CardTitle><Layers className="w-3.5 h-3.5 text-purple-600" /></CardHeader>
           <CardContent className="pt-0"><div className="text-xl font-bold text-slate-900">{kpis.cbm.toFixed(1)}</div></CardContent>
         </Card>
-        <Card className="bg-white border-slate-200 shadow-sm">
-          <CardHeader className="pb-1.5 flex flex-row items-center justify-between"><CardTitle className="text-xs font-medium text-slate-600">Avg Transit</CardTitle><Clock className="w-3.5 h-3.5 text-indigo-600" /></CardHeader>
-          <CardContent className="pt-0"><div className="text-xl font-bold text-slate-900">{kpis.avgTransit > 0 ? `${kpis.avgTransit}` : '-'} <span className="text-xs font-normal text-slate-500">{kpis.avgTransit > 0 ? 'days' : ''}</span></div></CardContent>
-        </Card>
+        {kpis.avgTransit > 0 && (
+          <Card className="bg-white border-slate-200 shadow-sm">
+            <CardHeader className="pb-1.5 flex flex-row items-center justify-between"><CardTitle className="text-xs font-medium text-slate-600">Avg Transit</CardTitle><Clock className="w-3.5 h-3.5 text-indigo-600" /></CardHeader>
+            <CardContent className="pt-0">
+              <div className="text-xl font-bold text-slate-900">
+                {kpis.avgTransit.toFixed(1)} <span className="text-xs font-normal text-slate-500">days</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* CHARTS */}
