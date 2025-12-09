@@ -16,8 +16,8 @@ const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: 
   loading: () => <div className="h-[400px] flex items-center justify-center bg-slate-50 rounded-lg"><span className="text-slate-400 text-sm">Loading map...</span></div>
 })
 import { format, isWithinInterval, parse, isValid, startOfDay, endOfDay, subDays, startOfYear, differenceInDays } from "date-fns"
-import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare } from "lucide-react"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts"
+import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare, Briefcase } from "lucide-react"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend } from "recharts"
 import { cn } from "@/lib/utils"
 
 // --- HELPER: Number Cleaner ---
@@ -65,6 +65,18 @@ const getCarrier = (row: any) => {
   if (row.LINER_NAME && row.LINER_NAME !== "0") return row.LINER_NAME;
   if (row.CONNAME && row.CONNAME !== "0") return row.CONNAME;
   return "Unknown";
+}
+
+// --- HELPER: Office mapping by Port of Loading ---
+const getOffice = (pol: string) => {
+  if (!pol) return 'Unknown'
+  const p = pol.toUpperCase()
+  if (['DEL', 'NH1', 'ICD'].includes(p)) return 'Delhi'
+  if (['BOM', 'NH2', 'JNPT', 'MUM'].includes(p)) return 'Mumbai'
+  if (['MAA', 'CHN'].includes(p)) return 'Chennai'
+  if (['BLR'].includes(p)) return 'Bangalore'
+  if (['CCU', 'KH1'].includes(p)) return 'Kolkata'
+  return 'Other'
 }
 
 // --- HELPER: Port Code to Coordinates (Common ports lookup) ---
@@ -231,9 +243,18 @@ const getPortCoords = (portCode: string): [number, number] | null => {
   return null
 }
 
-export default function Dashboard({ data }: { data: any[] }) {
+type ShipmentRecord = {
+  [key: string]: any;
+  _date?: Date | null;
+  _mode?: string;
+  _carrier?: string;
+  _office?: string;
+}
+
+export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
   const [selectedMode, setSelectedMode] = useState<string>("ALL")
   const [selectedClient, setSelectedClient] = useState<string>("ALL")
+  const [selectedOffice, setSelectedOffice] = useState<string>("ALL")
   const [trendMetric, setTrendMetric] = useState<"weight" | "teu" | "cbm" | "shipments">("weight")
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
@@ -255,12 +276,13 @@ export default function Dashboard({ data }: { data: any[] }) {
   }
 
   // --- 1. PARSE DATA & COMPUTE MODE ---
-  const parsedData = useMemo(() => {
+  const parsedData = useMemo<ShipmentRecord[]>(() => {
     return data.map(row => ({
       ...row,
       _date: getValidDate(row),
       _mode: getComputedMode(row), // We use this new _mode for everything
-      _carrier: getCarrier(row) // NEW: Uses smart fallback
+      _carrier: getCarrier(row), // NEW: Uses smart fallback
+      _office: getOffice(row.POL)
     }))
   }, [data])
 
@@ -272,6 +294,8 @@ export default function Dashboard({ data }: { data: any[] }) {
 
     parsedData.forEach(row => {
       if (selectedMode !== "ALL" && row._mode !== selectedMode) return
+      if (selectedOffice !== "ALL" && row._office !== selectedOffice) return
+      if (selectedClient !== "ALL" && row.CONNAME !== selectedClient) return
       if (row._date) {
         if (row._date < min) min = row._date
         if (row._date > max) max = row._date
@@ -281,18 +305,22 @@ export default function Dashboard({ data }: { data: any[] }) {
     
     if (!hasData) return { minDate: new Date(), maxDate: new Date() }
     return { minDate: min, maxDate: max }
-  }, [parsedData, selectedMode])
+  }, [parsedData, selectedMode, selectedOffice, selectedClient])
 
-  const { allProviders, availableProviders } = useMemo(() => {
+  const { allProviders, availableProviders, offices } = useMemo(() => {
     const all = new Set<string>()
     const available = new Set<string>()
+    const officesSet = new Set<string>()
 
     parsedData.forEach(row => {
       const provider = row.CONNAME || "Unknown"
+      const office = row._office || "Unknown"
       all.add(provider)
+      officesSet.add(office)
       
       // Filter by Computed Mode
       if (selectedMode !== "ALL" && row._mode !== selectedMode) return
+      if (selectedOffice !== "ALL" && row._office !== selectedOffice) return
       
       // Filter by Date
       if (dateRange.from && dateRange.to && row._date) {
@@ -301,14 +329,21 @@ export default function Dashboard({ data }: { data: any[] }) {
       
       available.add(provider)
     })
-    return { allProviders: Array.from(all).sort(), availableProviders: available }
-  }, [parsedData, selectedMode, dateRange])
+    return { 
+      allProviders: Array.from(all).sort(), 
+      availableProviders: available,
+      offices: Array.from(officesSet).sort()
+    }
+  }, [parsedData, selectedMode, dateRange, selectedOffice])
 
   // --- 3. FILTER DATA (with search) ---
-  const chartData = useMemo(() => {
+  const chartData = useMemo<ShipmentRecord[]>(() => {
     return parsedData.filter(row => {
       // Filter by Computed Mode
       if (selectedMode !== "ALL" && row._mode !== selectedMode) return false
+
+      // Filter by Office
+      if (selectedOffice !== "ALL" && row._office !== selectedOffice) return false
       
       if (dateRange.from && dateRange.to) {
         if (!row._date) return false 
@@ -336,7 +371,7 @@ export default function Dashboard({ data }: { data: any[] }) {
       
       return true
     })
-  }, [parsedData, selectedMode, selectedClient, dateRange, searchQuery])
+  }, [parsedData, selectedMode, selectedClient, selectedOffice, dateRange, searchQuery])
 
   // --- 4. EXPORT FUNCTION ---
   const handleExport = () => {
@@ -372,7 +407,7 @@ export default function Dashboard({ data }: { data: any[] }) {
   }
 
   // --- 5. STATS ---
-  const kpis = useMemo(() => {
+  const kpis = useMemo((): { shipments: number; weight: number; teu: number; cbm: number; avgTransit: number } => {
     // Helper to parse DD-MM-YYYY dates specifically for Transit Calc
     const parseTransitDate = (dateStr: any) => {
       if (!dateStr || typeof dateStr !== 'string') return null
@@ -383,10 +418,17 @@ export default function Dashboard({ data }: { data: any[] }) {
       } catch { return null }
     }
 
+    const uniqueJobs = new globalThis.Map<string, ShipmentRecord>()
+    chartData.forEach((r, idx) => {
+      const key = r.JOBNO ? String(r.JOBNO) : `__${idx}`
+      if (!uniqueJobs.has(key)) uniqueJobs.set(key, r)
+    })
+    const uniqueRows = Array.from(uniqueJobs.values()) as ShipmentRecord[]
+
     let totalTransitDays = 0
     let transitCount = 0
 
-    chartData.forEach(r => {
+    uniqueRows.forEach((r: ShipmentRecord) => {
       // Logic: Prefer Actual (ATD/ATA), fallback to Estimated (ETD/ETA)
       const start = parseTransitDate(r.ATD || r.ETD)
       const end = parseTransitDate(r.ATA || r.ETA) // Ensure you have ETA/ATA in your DB/Select query!
@@ -402,10 +444,10 @@ export default function Dashboard({ data }: { data: any[] }) {
     })
 
     return {
-      shipments: chartData.length,
-      weight: chartData.reduce((sum, r) => sum + cleanNum(r.CONT_GRWT), 0),
-      teu: chartData.reduce((sum, r) => sum + cleanNum(r.CONT_TEU), 0),
-      cbm: chartData.reduce((sum, r) => sum + cleanNum(r.CONT_CBM), 0),
+      shipments: uniqueRows.length,
+      weight: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_GRWT), 0),
+      teu: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0),
+      cbm: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0),
       avgTransit: transitCount > 0 ? (totalTransitDays / transitCount) : 0
     }
   }, [chartData])
@@ -419,10 +461,14 @@ export default function Dashboard({ data }: { data: any[] }) {
 
   const monthlyTrend = useMemo(() => {
     const stats: Record<string, number> = {}
-    chartData.forEach(row => {
+    const seenJobs = new Set<string>()
+    chartData.forEach((row, idx) => {
+      const jobKey = row.JOBNO ? String(row.JOBNO) : `__${idx}`
+      if (seenJobs.has(jobKey)) return
+      seenJobs.add(jobKey)
       if (!row._date) return
-      const key = format(row._date, 'yyyy-MM')
-      stats[key] = (stats[key] || 0) + metricConfig[trendMetric].accessor(row)
+      const monthKey = format(row._date, 'yyyy-MM')
+      stats[monthKey] = (stats[monthKey] || 0) + metricConfig[trendMetric].accessor(row)
     })
     return Object.entries(stats)
       .map(([date, val]) => ({ date, val: Math.round(val * 100) / 100 }))
@@ -431,17 +477,43 @@ export default function Dashboard({ data }: { data: any[] }) {
 
   const modeStats = useMemo(() => {
     const stats: Record<string, number> = {}
-    chartData.forEach(row => {
+    const seenJobs = new Set<string>()
+    chartData.forEach((row, idx) => {
+      const jobKey = row.JOBNO ? String(row.JOBNO) : `__${idx}`
+      if (seenJobs.has(jobKey)) return
+      seenJobs.add(jobKey)
       const m = row._mode || "Unknown" // Use computed mode
       stats[m] = (stats[m] || 0) + 1
     })
     return Object.entries(stats).map(([name, value]) => ({ name, value }))
   }, [chartData])
 
+  const clientMix = useMemo(() => {
+    const map: Record<string, { SEA: number, AIR: number, 'SEA-AIR': number }> = {}
+    const seenJobs = new Set<string>()
+
+    chartData.forEach((r, idx) => {
+      const jobKey = r.JOBNO ? String(r.JOBNO) : `__${idx}`
+      if (seenJobs.has(jobKey)) return
+      seenJobs.add(jobKey)
+
+      const client = r.CONNAME || "Unknown"
+      if (!map[client]) map[client] = { SEA: 0, AIR: 0, 'SEA-AIR': 0 }
+      if (r._mode === 'SEA' || r._mode === 'AIR' || r._mode === 'SEA-AIR') {
+        map[client][r._mode] += 1
+      }
+    })
+
+    return Object.entries(map)
+      .map(([name, counts]) => ({ name, ...counts, total: counts.SEA + counts.AIR + counts['SEA-AIR'] }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8)
+  }, [chartData])
+
   const carrierStats = useMemo(() => {
     const stats: Record<string, number> = {}
     chartData.forEach(row => {
-      const c = row._carrier // Now uses the smart value
+      const c = row._carrier || "Unknown" // Now uses the smart value
       stats[c] = (stats[c] || 0) + 1
     })
     return Object.entries(stats)
@@ -662,6 +734,17 @@ export default function Dashboard({ data }: { data: any[] }) {
             </SelectContent>
           </Select>
 
+          {/* OFFICE */}
+          <Select value={selectedOffice} onValueChange={setSelectedOffice}>
+            <SelectTrigger className="w-[150px] h-9"><SelectValue placeholder="Office" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Offices</SelectItem>
+              {offices.map(office => (
+                <SelectItem key={office} value={office}>{office}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           {/* CALENDAR */}
           <Popover>
             <PopoverTrigger asChild>
@@ -702,6 +785,7 @@ export default function Dashboard({ data }: { data: any[] }) {
           <Button variant="ghost" size="sm" onClick={() => { 
             setSelectedMode("ALL"); 
             setSelectedClient("ALL"); 
+            setSelectedOffice("ALL");
             setSearchQuery(""); 
             setDateRange({ from: undefined, to: undefined }) 
           }} className="text-red-500 h-9 hover:bg-red-50">
@@ -713,8 +797,16 @@ export default function Dashboard({ data }: { data: any[] }) {
       {/* KPI GRID */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="bg-white border-slate-200 shadow-sm">
-          <CardHeader className="pb-1.5 flex flex-row items-center justify-between"><CardTitle className="text-xs font-medium text-slate-600">Total Shipments</CardTitle><Box className="w-3.5 h-3.5 text-blue-600" /></CardHeader>
-          <CardContent className="pt-0"><div className="text-xl font-bold text-slate-900">{kpis.shipments.toLocaleString()}</div></CardContent>
+          <CardHeader className="pb-1.5 flex flex-row items-center justify-between">
+            <CardTitle className="text-xs font-medium text-slate-600">Total Jobs</CardTitle>
+            <Box className="w-3.5 h-3.5 text-blue-600" />
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-xl font-bold text-slate-900">{kpis.shipments.toLocaleString()}</div>
+            <div className="text-xs text-slate-400 mt-1 font-medium">
+              in {chartData.length.toLocaleString()} Containers
+            </div>
+          </CardContent>
         </Card>
         <Card className="bg-white border-slate-200 shadow-sm">
           <CardHeader className="pb-1.5 flex flex-row items-center justify-between"><CardTitle className="text-xs font-medium text-slate-600">Gross Weight</CardTitle><Anchor className="w-3.5 h-3.5 text-emerald-600" /></CardHeader>
@@ -830,6 +922,27 @@ export default function Dashboard({ data }: { data: any[] }) {
                  </BarChart>
                </ResponsiveContainer>
              ) : <div className="h-full flex items-center justify-center text-slate-400">No data available</div>}
+          </CardContent>
+        </Card>
+
+        {/* Client Volume by Mode */}
+        <Card className="col-span-1 shadow-sm bg-white border-slate-200">
+          <CardHeader className="pb-3"><CardTitle className="text-base">Client Volume by Mode</CardTitle></CardHeader>
+          <CardContent className="h-[260px] pt-0">
+            {clientMix.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={clientMix} layout="vertical" margin={{ left: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" width={120} tick={{fontSize: 10}} axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
+                  <Bar dataKey="SEA" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} barSize={18} />
+                  <Bar dataKey="AIR" stackId="a" fill="#10b981" radius={[0, 4, 4, 0]} barSize={18} />
+                  <Bar dataKey="SEA-AIR" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={18} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <div className="h-full flex items-center justify-center text-slate-400">No client mode data</div>}
           </CardContent>
         </Card>
 
