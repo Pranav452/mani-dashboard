@@ -599,11 +599,22 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
   }, [chartData])
 
   const recentShipments = useMemo(() => {
-    return chartData
-      .filter(r => r._date)
-      .sort((a, b) => (b._date as Date).getTime() - (a._date as Date).getTime())
-      .slice(0, 12)
-  }, [chartData])
+    // 1. Sort by Date (Newest first), handle missing dates safely
+    const sorted = [...chartData].sort((a, b) => {
+      const dateA = a._date ? a._date.getTime() : 0
+      const dateB = b._date ? b._date.getTime() : 0
+      return dateB - dateA
+    })
+
+    // 2. SMART LIMIT:
+    // If user is searching, SHOW EVERYTHING (No limit).
+    // If user is just browsing, show only Top 12.
+    if (searchQuery) {
+      return sorted
+    }
+    
+    return sorted.slice(0, 12)
+  }, [chartData, searchQuery])
 
   const mapMarkers = useMemo(() => {
     const markers: Array<{ lat: number; lng: number; label: string; popup: string }> = []
