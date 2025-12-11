@@ -1196,7 +1196,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
           
           
           {/* RIGHT COLUMN (SIDE PANEL) */}
-          <div className="flex flex-col space-y-4 lg:space-y-5 min-h-0 lg:w-[340px]">
+          <div className="flex flex-col space-y-4 lg:space-y-1.5  min-h-0 lg:w-[340px]">
             
             {/* QUICK SNAPSHOT */}
             <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden flex-shrink-0 lg:h-[380px] mb-6">
