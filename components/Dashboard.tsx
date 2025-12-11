@@ -893,14 +893,14 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
       <main className="max-w-[1400px] mx-auto px-4 md:px-6 py-5 space-y-5">
         
         {/* MAIN LAYOUT GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4 lg:gap-5 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4 lg:gap-5 items-stretch">
           
           {/* LEFT COLUMN (MAIN CONTENT) */}
-          <div className="space-y-6">
+          <div className="flex flex-col space-y-6 min-h-0">
             
             {/* SECTION 1: DELIVERIES (METRICS) */}
             <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
-              <CardHeader className="pb-0">
+              <CardHeader className="pb-3">
                 <CardTitle className="text-lg font-bold text-slate-900">Deliveries</CardTitle>
               </CardHeader>
               <CardContent>
@@ -987,8 +987,8 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
             </Card>
             
             {/* SECTION 2: REVENUE AND COSTS (VOLUME TRENDS) */}
-            <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-slate-100">
+            <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden flex-1 min-h-0">
+              <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-100">
                 <div>
                   <CardTitle className="text-lg font-bold text-slate-900">Shipment Volume Analysis</CardTitle>
                 </div>
@@ -1009,7 +1009,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                    </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="p-6 min-h-0">
                 <div className="h-[300px] w-full" onClick={() => toggleDrilldown('shipment-volume')}>
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={monthlyTrendWithPrev}>
@@ -1192,11 +1192,206 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               </Card>
             </div>
 
-            {/* MODE INSIGHTS WIDE CARD */}
-            <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
+          </div>
+          
+          
+          {/* RIGHT COLUMN (SIDE PANEL) */}
+          <div className="flex flex-col space-y-4 lg:space-y-5 min-h-0 lg:w-[340px]">
+            
+            {/* QUICK SNAPSHOT */}
+            <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden flex-shrink-0 lg:h-[380px] mb-6">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold text-slate-900"> Quick Snapshot</CardTitle>
+                <CardDescription className="text-xs text-slate-500">Compact overview for the right column</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-white rounded-lg border border-slate-100">
+                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">On-Time</div>
+                  <div className="flex items-end justify-between">
+                    <span className="text-xl font-semibold text-slate-900">92%</span>
+                    <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+4%</span>
+                  </div>
+                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full w-[92%] bg-emerald-500" />
+                  </div>
+                </div>
+                <div className="p-3 bg-white rounded-lg border border-slate-100">
+                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Exceptions</div>
+                  <div className="flex items-end justify-between">
+                    <span className="text-xl font-semibold text-slate-900">18</span>
+                    <span className="text-xs text-amber-600 flex items-center gap-1"><ArrowDownRight className="w-3 h-3" />-3</span>
+                  </div>
+                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full w-[35%] bg-amber-500" />
+                  </div>
+                </div>
+                <div className="p-3 bg-white rounded-lg border border-slate-100">
+                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Utilization</div>
+                  <div className="flex items-end justify-between">
+                    <span className="text-xl font-semibold text-slate-900">78%</span>
+                    <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+2%</span>
+                  </div>
+                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full w-[78%] bg-slate-900" />
+                  </div>
+                </div>
+                <div className="p-3 bg-white rounded-lg border border-slate-100">
+                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Gross Margin</div>
+                  <div className="flex items-end justify-between">
+                    <span className="text-xl font-semibold text-slate-900">24%</span>
+                    <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+1.4%</span>
+                  </div>
+                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full w-[24%] bg-emerald-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* INVOICES / SHIPMENTS LIST */}
+            <Card className="shadow-none border border-slate-200 rounded-xl ">
+              <CardHeader className="pb-0  px-6">
+                <div className="flex items-center justify-between mb-6">
+                   <h2 className="text-lg font-bold text-slate-900">Invoices</h2>
+                   <div className="flex items-center gap-2">
+                     <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => toggleDrilldown('invoices')}>
+                       {drilldowns['invoices'] ? 'Hide drilldown' : 'Show drilldown'}
+                     </Button>
+                     <MoreVertical className="w-4 h-3.5  text-slate-400" />
+                   </div>
+                </div>
+                
+                {/* STATUS CARDS */}
+                <div className="grid grid-cols-3 gap-2 mb-2.5 ">
+                   <div className="space-y-0.5">
+                      <div className="text-[10px] font-semibold text-slate-400 uppercase">Paid</div>
+                      <div className="text-base font-bold text-slate-900">$169K</div>
+                   </div>
+                   <div className="space-y-1 border-l border-slate-100 pl-3">
+                      <div className="text-[10px] font-semibold text-slate-400 uppercase">Pending</div>
+                      <div className="text-base font-bold text-slate-900">$95K</div>
+                   </div>
+                   <div className="space-y-1 border-l border-slate-100 pl-3">
+                      <div className="text-[10px] font-semibold text-slate-400 uppercase">Unpaid</div>
+                      <div className="text-base font-bold text-slate-900">$64K</div>
+                   </div>
+                </div>
+
+                <div className="h-1.5 w-full bg-slate-100 rounded-full mb-6 overflow-hidden">
+                   <div className="h-full w-[65%] bg-emerald-500 rounded-full" />
+                </div>
+
+                {/* TABS */}
+                <div className="flex items-center gap-1 border-b border-slate-100 mb-4 overflow-x-auto">
+                   {(["ALL", "SEA", "AIR", "SEA-AIR"] as const).map(tab => (
+                     <button
+                       key={tab}
+                       onClick={() => setSelectedTab(tab)}
+                       className={cn(
+                         "px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                         selectedTab === tab 
+                           ? "border-slate-900 text-slate-900" 
+                           : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                       )}
+                     >
+                       {tab === "ALL" ? "All" : tab}
+                     </button>
+                   ))}
+                </div>
+
+                {/* SEARCH */}
+                <div className="relative ">
+                   <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                   <Input 
+                      placeholder="Search invoice..." 
+                      className="pl-8 h-8 text-xs bg-slate-50 border-slate-200"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                   />
+                </div>
+              </CardHeader>
+              
+              <CardContent className="p-0 flex-1 overflow-auto min-h-0 max-h-[600px]">
+                <div className="divide-y divide-slate-50">
+                   {recentShipments
+                     .filter(s => selectedTab === "ALL" || s._mode === selectedTab)
+                     .map((row, idx) => (
+                     <div 
+                       key={idx} 
+                       className="px-6 py-4 hover:bg-slate-50 cursor-pointer transition-colors flex items-center justify-between group"
+                      onClick={() => {
+                        toggleDrilldown('invoices')
+                        handleRowClick(row)
+                      }}
+                     >
+                        <div className="flex items-center gap-3">
+                           {/* Checkbox placeholder */}
+                           <div className="w-4 h-4 rounded border border-slate-300 flex items-center justify-center text-white group-hover:border-slate-400">
+                              <Check className="w-3 h-3 opacity-0 group-hover:opacity-100 text-slate-400" />
+                           </div>
+                           
+                           {/* Icon based on Mode */}
+                           <div className={cn(
+                             "w-8 h-8 rounded-full flex items-center justify-center",
+                             row._mode === "SEA" ? "bg-blue-100 text-blue-600" :
+                             row._mode === "AIR" ? "bg-purple-100 text-purple-600" :
+                             "bg-orange-100 text-orange-600"
+                           )}>
+                             {row._mode === "SEA" ? <Ship className="w-4 h-4" /> : row._mode === "AIR" ? <PlaneIcon /> : <Layers className="w-4 h-4" />}
+                           </div>
+                           
+                           <div>
+                              <div className="text-sm font-semibold text-slate-900">{row.CONNAME || "Unknown Client"}</div>
+                              <div className="text-xs text-slate-500">{row.JOBNO} • {row._date ? format(row._date, "MM/dd/yy") : "N/A"}</div>
+                           </div>
+                        </div>
+                        
+                        <div className="text-right">
+                           <div className="text-sm font-bold text-slate-900">${(cleanNum(row.CONT_GRWT) * 0.5).toLocaleString()}</div>
+                           <MoreVertical className="w-4 h-4 text-slate-300 ml-auto mt-1 opacity-0 group-hover:opacity-100" />
+                        </div>
+                     </div>
+                   ))}
+                   
+                   {recentShipments.length === 0 && (
+                     <div className="p-8 text-center text-slate-400 text-sm">No records found</div>
+                   )}
+                </div>
+              </CardContent>
+              {drilldowns['invoices'] && (
+                <div className="px-6 pb-4 border-t border-slate-100 bg-slate-50">
+                  <div className="flex items-center justify-between py-3">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">Inline drilldown</div>
+                      <div className="text-xs text-slate-500">Recent selections mirrored below</div>
+                    </div>
+                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setDrawerOpen(true)}>
+                      Open drawer
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {recentShipments.slice(0, 4).map((row, idx) => (
+                      <div key={`drill-${idx}`} className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                          <div className="text-sm font-semibold text-slate-900 truncate max-w-[180px]">{row.CONNAME || 'Unknown Client'}</div>
+                        </div>
+                        <div className="text-xs text-slate-500">{row._date ? format(row._date, "dd MMM") : 'N/A'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+
+          </div>
+
+        </div>
+                {/* MODE INSIGHTS WIDE CARD */}
+                <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <PieChartIcon className="w-4 h-4" /> Mode insights (wide)
+                  <PieChartIcon className="w-4 h-4" /> Mode insights
                 </CardTitle>
                 <CardDescription className="text-xs text-slate-500">Distribution, trends, and top lanes</CardDescription>
               </CardHeader>
@@ -1553,201 +1748,6 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                  </div>
                </CardContent>
              </Card>
-
-          </div>
-          
-          {/* RIGHT COLUMN (SIDE PANEL) */}
-          <div className="space-y-4 lg:space-y-5 lg:w-[340px]">
-            
-            {/* QUICK SNAPSHOT */}
-            <Card className="shadow-sm border border-slate-200 rounded-xl overflow-hidden">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold text-slate-900">Executive Snapshot</CardTitle>
-                <CardDescription className="text-xs text-slate-500">Compact overview for the right column</CardDescription>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-white rounded-lg border border-slate-100">
-                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">On-Time</div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900">92%</span>
-                    <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+4%</span>
-                  </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full w-[92%] bg-emerald-500" />
-                  </div>
-                </div>
-                <div className="p-3 bg-white rounded-lg border border-slate-100">
-                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Exceptions</div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900">18</span>
-                    <span className="text-xs text-amber-600 flex items-center gap-1"><ArrowDownRight className="w-3 h-3" />-3</span>
-                  </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full w-[35%] bg-amber-500" />
-                  </div>
-                </div>
-                <div className="p-3 bg-white rounded-lg border border-slate-100">
-                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Utilization</div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900">78%</span>
-                    <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+2%</span>
-                  </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full w-[78%] bg-slate-900" />
-                  </div>
-                </div>
-                <div className="p-3 bg-white rounded-lg border border-slate-100">
-                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Gross Margin</div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900">24%</span>
-                    <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+1.4%</span>
-                  </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full w-[24%] bg-emerald-500" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* INVOICES / SHIPMENTS LIST */}
-            <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden h-full flex flex-col">
-              <CardHeader className="pb-0 pt-6 px-6">
-                <div className="flex items-center justify-between mb-6">
-                   <h2 className="text-lg font-bold text-slate-900">Invoices</h2>
-                   <div className="flex items-center gap-2">
-                     <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => toggleDrilldown('invoices')}>
-                       {drilldowns['invoices'] ? 'Hide drilldown' : 'Show drilldown'}
-                     </Button>
-                     <MoreVertical className="w-4 h-4 text-slate-400" />
-                   </div>
-                </div>
-                
-                {/* STATUS CARDS */}
-                <div className="grid grid-cols-3 gap-2 mb-6">
-                   <div className="space-y-1">
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase">Paid</div>
-                      <div className="text-base font-bold text-slate-900">$169K</div>
-                   </div>
-                   <div className="space-y-1 border-l border-slate-100 pl-3">
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase">Pending</div>
-                      <div className="text-base font-bold text-slate-900">$95K</div>
-                   </div>
-                   <div className="space-y-1 border-l border-slate-100 pl-3">
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase">Unpaid</div>
-                      <div className="text-base font-bold text-slate-900">$64K</div>
-                   </div>
-                </div>
-
-                <div className="h-1.5 w-full bg-slate-100 rounded-full mb-6 overflow-hidden">
-                   <div className="h-full w-[65%] bg-emerald-500 rounded-full" />
-                </div>
-
-                {/* TABS */}
-                <div className="flex items-center gap-1 border-b border-slate-100 mb-4 overflow-x-auto">
-                   {(["ALL", "SEA", "AIR", "SEA-AIR"] as const).map(tab => (
-                     <button
-                       key={tab}
-                       onClick={() => setSelectedTab(tab)}
-                       className={cn(
-                         "px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-                         selectedTab === tab 
-                           ? "border-slate-900 text-slate-900" 
-                           : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                       )}
-                     >
-                       {tab === "ALL" ? "All" : tab}
-                     </button>
-                   ))}
-                </div>
-
-                {/* SEARCH */}
-                <div className="relative mb-2">
-                   <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                   <Input 
-                      placeholder="Search invoice..." 
-                      className="pl-8 h-8 text-xs bg-slate-50 border-slate-200"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                   />
-                </div>
-              </CardHeader>
-              
-              <CardContent className="p-0 flex-1 overflow-auto max-h-[600px]">
-                <div className="divide-y divide-slate-50">
-                   {recentShipments
-                     .filter(s => selectedTab === "ALL" || s._mode === selectedTab)
-                     .map((row, idx) => (
-                     <div 
-                       key={idx} 
-                       className="px-6 py-4 hover:bg-slate-50 cursor-pointer transition-colors flex items-center justify-between group"
-                      onClick={() => {
-                        toggleDrilldown('invoices')
-                        handleRowClick(row)
-                      }}
-                     >
-                        <div className="flex items-center gap-3">
-                           {/* Checkbox placeholder */}
-                           <div className="w-4 h-4 rounded border border-slate-300 flex items-center justify-center text-white group-hover:border-slate-400">
-                              <Check className="w-3 h-3 opacity-0 group-hover:opacity-100 text-slate-400" />
-                           </div>
-                           
-                           {/* Icon based on Mode */}
-                           <div className={cn(
-                             "w-8 h-8 rounded-full flex items-center justify-center",
-                             row._mode === "SEA" ? "bg-blue-100 text-blue-600" :
-                             row._mode === "AIR" ? "bg-purple-100 text-purple-600" :
-                             "bg-orange-100 text-orange-600"
-                           )}>
-                             {row._mode === "SEA" ? <Ship className="w-4 h-4" /> : row._mode === "AIR" ? <PlaneIcon /> : <Layers className="w-4 h-4" />}
-                           </div>
-                           
-                           <div>
-                              <div className="text-sm font-semibold text-slate-900">{row.CONNAME || "Unknown Client"}</div>
-                              <div className="text-xs text-slate-500">{row.JOBNO} • {row._date ? format(row._date, "MM/dd/yy") : "N/A"}</div>
-                           </div>
-                        </div>
-                        
-                        <div className="text-right">
-                           <div className="text-sm font-bold text-slate-900">${(cleanNum(row.CONT_GRWT) * 0.5).toLocaleString()}</div>
-                           <MoreVertical className="w-4 h-4 text-slate-300 ml-auto mt-1 opacity-0 group-hover:opacity-100" />
-                        </div>
-                     </div>
-                   ))}
-                   
-                   {recentShipments.length === 0 && (
-                     <div className="p-8 text-center text-slate-400 text-sm">No records found</div>
-                   )}
-                </div>
-              </CardContent>
-              {drilldowns['invoices'] && (
-                <div className="px-6 pb-4 border-t border-slate-100 bg-slate-50">
-                  <div className="flex items-center justify-between py-3">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">Inline drilldown</div>
-                      <div className="text-xs text-slate-500">Recent selections mirrored below</div>
-                    </div>
-                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setDrawerOpen(true)}>
-                      Open drawer
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {recentShipments.slice(0, 4).map((row, idx) => (
-                      <div key={`drill-${idx}`} className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                          <div className="text-sm font-semibold text-slate-900 truncate max-w-[180px]">{row.CONNAME || 'Unknown Client'}</div>
-                        </div>
-                        <div className="text-xs text-slate-500">{row._date ? format(row._date, "dd MMM") : 'N/A'}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
-
-          </div>
-
-        </div>
       </main>
 
       {/* Shipment Detail Drawer */}
@@ -1757,6 +1757,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
         record={selectedRecord}
       />
     </div>
+    
   )
 }
 
