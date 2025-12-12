@@ -40,7 +40,7 @@ const financialSections = [
   }
 ]
 
-export default function FinancialsPage() {
+function FinancialsPageContent() {
   const hero = (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-5 shadow-lg">
       <div className="space-y-2">
@@ -156,4 +156,8 @@ function HeroStat({ label, value, trend, positive }: { label: string; value: str
       </div>
     </div>
   )
+}
+
+export default function FinancialsPage() {
+  return <FinancialsPageContent />
 }

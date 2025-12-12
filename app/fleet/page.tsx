@@ -38,7 +38,7 @@ const fleetSections = [
   }
 ]
 
-export default function FleetPage() {
+function FleetPageContent() {
   const hero = (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 rounded-2xl bg-gradient-to-r from-emerald-900 via-cyan-800 to-sky-700 text-white p-5 shadow-lg">
       <div className="space-y-2 lg:col-span-2">
@@ -147,4 +147,8 @@ function HeroTile({ label, value, trend, positive }: { label: string; value: str
       </div>
     </div>
   )
+}
+
+export default function FleetPage() {
+  return <FleetPageContent />
 }

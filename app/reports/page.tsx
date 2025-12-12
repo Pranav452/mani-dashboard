@@ -32,7 +32,7 @@ const reportSections = [
   }
 ]
 
-export default function ReportsPage() {
+function ReportsPageContent() {
   const hero = (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl bg-gradient-to-r from-slate-800 via-slate-700 to-indigo-700 text-white p-5 shadow-lg">
       <div className="space-y-2">
@@ -137,4 +137,8 @@ function HeroTile({ label, value, trend, positive }: { label: string; value: str
       </div>
     </div>
   )
+}
+
+export default function ReportsPage() {
+  return <ReportsPageContent />
 }

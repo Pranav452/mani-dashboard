@@ -37,7 +37,7 @@ const customerSections = [
   }
 ]
 
-export default function CustomersPage() {
+function CustomersPageContent() {
   const hero = (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl bg-gradient-to-r from-indigo-900 via-purple-800 to-fuchsia-700 text-white p-5 shadow-lg">
       <div className="space-y-2">
@@ -143,4 +143,8 @@ function HeroTile({ label, value, trend, positive }: { label: string; value: str
       </div>
     </div>
   )
+}
+
+export default function CustomersPage() {
+  return <CustomersPageContent />
 }

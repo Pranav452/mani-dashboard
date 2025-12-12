@@ -1,12 +1,19 @@
+import { Suspense } from 'react'
 import { getShipments } from './actions'
 import Dashboard from '@/components/Dashboard'
+import { DashboardSkeleton } from '@/components/DashboardSkeleton'
 
-export default async function Home() {
+async function DashboardWrapper() {
   const data = await getShipments()
+  return <Dashboard data={data} />
+}
 
+export default function Home() {
   return (
     <main>
-      <Dashboard data={data} />
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardWrapper />
+      </Suspense>
     </main>
   )
 }
