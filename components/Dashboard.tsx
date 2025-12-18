@@ -746,8 +746,10 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               <Image src="/logo.png" alt="Logo" fill className="object-contain" />
             </div>
             <div className="flex flex-col">
-              <h1 className="text-lg md:text-xl font-semibold text-slate-900 leading-tight">Management Dashboard</h1>
-              <span className="text-[11px] text-slate-500 font-normal">by Manilal Patel</span>
+              <h1 className="text-lg md:text-xl font-semibold text-slate-900 leading-tight">
+                Management Dashboard <span className="text-[15px] font-bold text-red-700 ml-1">For HAPPYCHIC</span>
+              </h1>
+              <span className="text-[13px] text-dark-blue-500 font-normal">by Manilal Patel</span>
             </div>
           </div>
           
