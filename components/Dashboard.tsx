@@ -20,6 +20,7 @@ import { format, isWithinInterval, parse, isValid, startOfDay, endOfDay, subDays
 import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare, Briefcase, LayoutDashboard, FileText, Users, BarChart3, PieChart as PieChartIcon, Settings, MoreVertical, Check, ArrowUpRight, ArrowDownRight, Printer } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend, LineChart, Line } from "recharts"
 import { cn } from "@/lib/utils"
+import { ComingSoonTooltip } from "@/components/ui/tooltip"
 
 // --- HELPER: Number Cleaner ---
 const cleanNum = (val: any) => {
@@ -416,8 +417,184 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
     link.click()
   }
 
-  // --- 5. STATS ---
-  const kpis = useMemo((): { shipments: number; weight: number; teu: number; cbm: number; avgTransit: number } => {
+  // --- TRANSIT TIME CALCULATIONS (implementing formulas from previous dashboard) ---
+  const transitTimeLegs = useMemo(() => {
+    const parseDate = (dateStr: any) => {
+      if (!dateStr) return null
+      if (typeof dateStr === 'string' && dateStr.includes('-')) {
+        return parse(dateStr, 'dd-MM-yyyy', new Date())
+      }
+      return null
+    }
+
+    const legs = {
+      pickupToArrival: [] as number[],
+      pickupToDelivery: [] as number[],
+      departureToArrival: [] as number[],
+      departureToDelivery: [] as number[]
+    }
+
+    chartData.forEach(row => {
+      const cargoRecpt = parseDate(row.CARGORECPT)
+      const atd = parseDate(row.ATD)
+      const ata = parseDate(row.ATA)
+      const delivery = parseDate(row.DELIVERY)
+
+      // Pickup to Arrival (equivalent to AvgTT_Pickup_Arrival)
+      if (cargoRecpt && ata && isValid(cargoRecpt) && isValid(ata) && ata >= cargoRecpt) {
+        const days = differenceInDays(ata, cargoRecpt)
+        if (days >= 0 && days < 150) legs.pickupToArrival.push(days)
+      }
+
+      // Pickup to Last Delivery (equivalent to AvgTT_Pickup_LastDelivery)
+      if (cargoRecpt && delivery && isValid(cargoRecpt) && isValid(delivery) && delivery >= cargoRecpt) {
+        const days = differenceInDays(delivery, cargoRecpt)
+        if (days >= 0 && days < 150) legs.pickupToDelivery.push(days)
+      }
+
+      // Departure to Arrival (equivalent to AvgTT_Departure_Arrival)
+      if (atd && ata && isValid(atd) && isValid(ata) && ata >= atd) {
+        const days = differenceInDays(ata, atd)
+        if (days >= 0 && days < 150) legs.departureToArrival.push(days)
+      }
+
+      // Departure to Last Delivery (equivalent to AvgTT_Departure_LastDelivery)
+      if (atd && delivery && isValid(atd) && isValid(delivery) && delivery >= atd) {
+        const days = differenceInDays(delivery, atd)
+        if (days >= 0 && days < 150) legs.departureToDelivery.push(days)
+      }
+    })
+
+    // Calculate statistics (equivalent to DAX AVERAGEX, MINX, MAXX, MEDIANX, STDEVX.P)
+    const calculateStats = (arr: number[]) => {
+      if (arr.length === 0) return { avg: 0, min: 0, max: 0, median: 0, stddev: 0, count: 0 }
+      const sorted = [...arr].sort((a, b) => a - b)
+      const avg = arr.reduce((a, b) => a + b, 0) / arr.length // AVERAGEX equivalent
+      const min = sorted[0] // MINX equivalent
+      const max = sorted[sorted.length - 1] // MAXX equivalent
+      const median = sorted.length % 2 === 0
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2 // MEDIANX equivalent
+        : sorted[Math.floor(sorted.length / 2)]
+      const variance = arr.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / arr.length
+      const stddev = Math.sqrt(variance) // STDEVX.P equivalent
+
+      return { avg, min, max, median, stddev, count: arr.length }
+    }
+
+    return {
+      pickupToArrival: calculateStats(legs.pickupToArrival),
+      pickupToDelivery: calculateStats(legs.pickupToDelivery),
+      departureToArrival: calculateStats(legs.departureToArrival),
+      departureToDelivery: calculateStats(legs.departureToDelivery)
+    }
+  }, [chartData])
+
+  // On-time performance calculation (equivalent to DAX logic)
+  const onTimePerformance = useMemo(() => {
+    const parseDate = (dateStr: any) => {
+      if (!dateStr || typeof dateStr !== 'string') return null
+      if (dateStr.includes('-')) return parse(dateStr, 'dd-MM-yyyy', new Date())
+      return null
+    }
+
+    let onTimeCount = 0
+    let totalCount = 0
+
+    chartData.forEach(row => {
+      const ata = parseDate(row.ATA)
+      const eta = parseDate(row.ETA)
+
+      if (ata && eta && isValid(ata) && isValid(eta)) {
+        totalCount++
+        if (ata <= eta) onTimeCount++
+      }
+    })
+
+    return {
+      onTimeCount,
+      totalCount,
+      percentage: totalCount > 0 ? (onTimeCount / totalCount) * 100 : 0
+    }
+  }, [chartData])
+
+  // Period comparisons (current month vs previous month, current year vs previous year)
+  const transitTimeComparisons = useMemo(() => {
+    const parseDate = (dateStr: any) => {
+      if (!dateStr || typeof dateStr !== 'string') return null
+      if (dateStr.includes('-')) return parse(dateStr, 'dd-MM-yyyy', new Date())
+      return null
+    }
+
+    // Group transit times by current month and previous month
+    const currentMonth = new Date()
+    const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
+
+    const currentMonthKey = format(currentMonth, 'yyyy-MM')
+    const prevMonthKey = format(prevMonth, 'yyyy-MM')
+
+    const monthlyStats: Record<string, { departureToArrival: number[]; count: number }> = {}
+
+    chartData.forEach(row => {
+      if (!row._date) return
+      const monthKey = format(row._date, 'yyyy-MM')
+
+      if (!monthlyStats[monthKey]) {
+        monthlyStats[monthKey] = { departureToArrival: [], count: 0 }
+      }
+
+      // Calculate departure to arrival for this shipment
+      const atd = parseDate(row.ATD)
+      const ata = parseDate(row.ATA)
+
+      if (atd && ata && isValid(atd) && isValid(ata) && ata >= atd) {
+        const days = differenceInDays(ata, atd)
+        if (days >= 0 && days < 150) {
+          monthlyStats[monthKey].departureToArrival.push(days)
+        }
+      }
+      monthlyStats[monthKey].count++
+    })
+
+    const currentAvg = monthlyStats[currentMonthKey]
+      ? monthlyStats[currentMonthKey].departureToArrival.reduce((a, b) => a + b, 0) / monthlyStats[currentMonthKey].departureToArrival.length || 0
+      : 0
+
+    const prevAvg = monthlyStats[prevMonthKey]
+      ? monthlyStats[prevMonthKey].departureToArrival.reduce((a, b) => a + b, 0) / monthlyStats[prevMonthKey].departureToArrival.length || 0
+      : 0
+
+    const percentageChange = prevAvg > 0 ? ((currentAvg - prevAvg) / prevAvg) * 100 : 0
+
+    return {
+      currentMonth: {
+        avg: currentAvg,
+        count: monthlyStats[currentMonthKey]?.count || 0
+      },
+      previousMonth: {
+        avg: prevAvg,
+        count: monthlyStats[prevMonthKey]?.count || 0
+      },
+      percentageChange,
+      color: percentageChange > 0 ? 'red' : percentageChange < 0 ? 'green' : 'gray'
+    }
+  }, [chartData])
+
+  // --- 5. STATS (moved here to access transit metrics) ---
+  const kpis = useMemo((): {
+    shipments: number;
+    weight: number;
+    teu: number;
+    cbm: number;
+    avgTransit: number;
+    utilization: number;
+    onTimePercentage: number;
+    totalTransitLegs: {
+      pickupToArrival: number;
+      pickupToDelivery: number;
+      departureToArrival: number;
+      departureToDelivery: number;
+    }
+  } => {
     // Helper to parse DD-MM-YYYY dates specifically for Transit Calc
     const parseTransitDate = (dateStr: any) => {
       if (!dateStr || typeof dateStr !== 'string') return null
@@ -453,13 +630,112 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
       }
     })
 
+    // Calculate utilization (average of CONT_UTILIZATION where > 0)
+    const utilizationData = uniqueRows
+      .map(r => cleanNum(r.CONT_UTILIZATION))
+      .filter(util => util > 0)
+    const avgUtilization = utilizationData.length > 0
+      ? utilizationData.reduce((sum, val) => sum + val, 0) / utilizationData.length
+      : 0
+
     return {
       shipments: uniqueRows.length,
       weight: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_GRWT), 0),
       teu: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0),
       cbm: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0),
-      avgTransit: transitCount > 0 ? (totalTransitDays / transitCount) : 0
+      avgTransit: transitCount > 0 ? (totalTransitDays / transitCount) : 0,
+      utilization: avgUtilization,
+      onTimePercentage: onTimePerformance.percentage,
+      totalTransitLegs: {
+        pickupToArrival: transitTimeLegs.pickupToArrival.count,
+        pickupToDelivery: transitTimeLegs.pickupToDelivery.count,
+        departureToArrival: transitTimeLegs.departureToArrival.count,
+        departureToDelivery: transitTimeLegs.departureToDelivery.count
+      }
     }
+  }, [chartData, onTimePerformance, transitTimeLegs])
+
+  // --- OFFICE ANALYTICS ---
+  const officeStats = useMemo(() => {
+    const stats: Record<string, { shipments: number; clients: Record<string, number> }> = {}
+
+    chartData.forEach(row => {
+      const office = row._office || "Unknown"
+      const client = row.CONNAME || "Unknown"
+
+      if (!stats[office]) {
+        stats[office] = { shipments: 0, clients: {} }
+      }
+      stats[office].shipments++
+      stats[office].clients[client] = (stats[office].clients[client] || 0) + 1
+    })
+
+    return Object.entries(stats).map(([office, data]) => {
+      const topClient = Object.entries(data.clients)
+        .sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A"
+
+      return {
+        office,
+        shipments: data.shipments,
+        topClient,
+        topClientCount: data.clients[topClient] || 0
+      }
+    }).sort((a, b) => b.shipments - a.shipments)
+  }, [chartData])
+
+  // Office peak season (monthly volume per office)
+  const officeMonthlyTrend = useMemo(() => {
+    const stats: Record<string, Record<string, number>> = {}
+
+    chartData.forEach(row => {
+      if (!row._date) return
+      const office = row._office || "Unknown"
+      const month = format(row._date, 'yyyy-MM')
+
+      if (!stats[office]) stats[office] = {}
+      stats[office][month] = (stats[office][month] || 0) + 1
+    })
+
+    // Find peak month for each office
+    return Object.entries(stats).map(([office, months]) => {
+      const peakMonth = Object.entries(months)
+        .sort((a, b) => b[1] - a[1])[0]
+
+      return {
+        office,
+        peakMonth: peakMonth ? format(new Date(peakMonth[0] + '-01'), 'MMM yyyy') : 'N/A',
+        peakCount: peakMonth ? peakMonth[1] : 0,
+        monthlyData: months
+      }
+    })
+  }, [chartData])
+
+  // Client seasonality (monthly trends per client)
+  const clientMonthlyTrend = useMemo(() => {
+    const stats: Record<string, Record<string, number>> = {}
+
+    chartData.forEach(row => {
+      if (!row._date) return
+      const client = row.CONNAME || "Unknown"
+      const month = format(row._date, 'yyyy-MM')
+
+      if (!stats[client]) stats[client] = {}
+      stats[client][month] = (stats[client][month] || 0) + 1
+    })
+
+    return Object.entries(stats)
+      .map(([client, months]) => ({
+        client,
+        monthlyData: Object.entries(months)
+          .map(([month, count]) => ({ month, count }))
+          .sort((a, b) => a.month.localeCompare(b.month))
+      }))
+      .sort((a, b) => {
+        const aTotal = a.monthlyData.reduce((sum, m) => sum + m.count, 0)
+        const bTotal = b.monthlyData.reduce((sum, m) => sum + m.count, 0)
+        return bTotal - aTotal
+      })
+      .slice(0, 10) // Top 10 clients
   }, [chartData])
 
   const metricConfig = {
@@ -901,7 +1177,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
             {/* SECTION 1: DELIVERIES (METRICS) */}
             <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-bold text-slate-900">Deliveries</CardTitle>
+                <CardTitle className="text-lg font-bold text-slate-900">Deliveries for Nakul</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1079,20 +1355,24 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 </div>
                 
                 <div className="flex items-center gap-6 mt-4 pt-4 border-t border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                    <span className="text-sm text-slate-600 font-medium">Revenue</span>
-                  </div>
-                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-pink-500" />
-                    <span className="text-sm text-slate-600 font-medium">Costs</span>
-                  </div>
-
-
-                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-slate-900" />
-                    <span className="text-sm text-slate-600 font-medium">Net Profit</span>
-                  </div>
+                  <ComingSoonTooltip message="Revenue, costs, and profit data is not available in the current schema. Only volume metrics (weight, TEU, CBM) can be displayed.">
+                    <div className="flex items-center gap-2 cursor-help">
+                      <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                      <span className="text-sm text-slate-600 font-medium">Weight (Tons)</span>
+                    </div>
+                  </ComingSoonTooltip>
+                  <ComingSoonTooltip message="Revenue, costs, and profit data is not available in the current schema. Only volume metrics (TEU, CBM) can be displayed.">
+                    <div className="flex items-center gap-2 cursor-help">
+                      <div className="w-3 h-3 rounded-full bg-blue-500" />
+                      <span className="text-sm text-slate-600 font-medium">TEU</span>
+                    </div>
+                  </ComingSoonTooltip>
+                  <ComingSoonTooltip message="Revenue, costs, and profit data is not available in the current schema. Only volume metrics (CBM) can be displayed.">
+                    <div className="flex items-center gap-2 cursor-help">
+                      <div className="w-3 h-3 rounded-full bg-purple-500" />
+                      <span className="text-sm text-slate-600 font-medium">CBM</span>
+                    </div>
+                  </ComingSoonTooltip>
                   <div className="ml-auto flex items-center gap-2">
                     <span className="text-xs text-slate-400">Vs previous period</span>
                     <button
@@ -1134,62 +1414,86 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               </CardContent>
             </Card>
 
-            {/* MODE & COSTS */}
+            {/* TRANSIT TIME ANALYSIS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base font-bold text-slate-900">Balance and costs</CardTitle>
+                  <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <Clock className="w-4 h-4" /> Transit Time Analysis
+                  </CardTitle>
                   <MoreVertical className="w-4 h-4 text-slate-400" />
                 </CardHeader>
                 <CardContent className="h-[250px] relative">
-                  <div className="absolute top-4 left-6">
-                    <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">Cash Balance</div>
-                    <div className="text-2xl font-bold text-slate-900">$126K</div>
+                  <div className="absolute top-4 left-6 space-y-2">
+                    <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">Avg Transit Time</div>
+                    <div className="text-2xl font-bold text-slate-900">{kpis.avgTransit.toFixed(1)} days</div>
+                    <div className="text-xs text-slate-500">Departure to Arrival</div>
                   </div>
-                  <div className="mt-12 h-[180px]">
+                  <div className="mt-16 h-[140px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={modeStats}>
+                      <BarChart data={[
+                        { name: 'Pickup→Arrival', value: transitTimeLegs.pickupToArrival.avg, count: transitTimeLegs.pickupToArrival.count },
+                        { name: 'Pickup→Delivery', value: transitTimeLegs.pickupToDelivery.avg, count: transitTimeLegs.pickupToDelivery.count },
+                        { name: 'Departure→Arrival', value: transitTimeLegs.departureToArrival.avg, count: transitTimeLegs.departureToArrival.count },
+                        { name: 'Departure→Delivery', value: transitTimeLegs.departureToDelivery.avg, count: transitTimeLegs.departureToDelivery.count }
+                      ].filter(item => item.count > 0)}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10}} />
-                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}} />
-                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                          {modeStats.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                        </Bar>
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 9}} angle={-45} textAnchor="end" height={60} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10}} />
+                        <Tooltip
+                          cursor={{fill: '#f8fafc'}}
+                          contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}}
+                          formatter={(value: any, name: string, props: any) => [
+                            `${value.toFixed(1)} days (${props.payload.count} shipments)`,
+                            name
+                          ]}
+                        />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#10b981" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
+
+                  {/* Period Comparison */}
+                  {transitTimeComparisons.previousMonth.count > 0 && (
+                    <div className="mt-2 pt-3 border-t border-slate-100">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Vs previous month:</span>
+                        <span className={cn(
+                          "font-medium",
+                          transitTimeComparisons.color === 'green' ? "text-green-600" :
+                          transitTimeComparisons.color === 'red' ? "text-red-600" : "text-slate-600"
+                        )}>
+                          {transitTimeComparisons.percentageChange > 0 ? '+' : ''}
+                          {transitTimeComparisons.percentageChange.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
+                        <span>This month: {transitTimeComparisons.currentMonth.avg.toFixed(1)} days</span>
+                        <span>Last month: {transitTimeComparisons.previousMonth.avg.toFixed(1)} days</span>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-              <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
-                <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base font-bold text-slate-900">Costs by category</CardTitle>
-                  <MoreVertical className="w-4 h-4 text-slate-400" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex h-2 rounded-full overflow-hidden bg-slate-100 mb-6">
-                    <div className="bg-emerald-500 w-[35%]" />
-                    <div className="bg-slate-800 w-[25%]" />
-                    <div className="bg-yellow-400 w-[15%]" />
-                    <div className="bg-slate-300 w-[25%]" />
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {laneStats.slice(0, 5).map((lane, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className={cn("w-2 h-2 rounded-full", idx === 0 ? "bg-emerald-500" : idx === 1 ? "bg-slate-800" : idx === 2 ? "bg-yellow-400" : "bg-slate-300")} />
-                          <span className="text-slate-600 truncate max-w-[150px]">{lane.name}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-semibold text-slate-900">${(lane.weight * 120).toLocaleString()}</span>
-                          <span className="text-slate-400 text-xs w-8 text-right">{Math.round((lane.weight / (kpis.weight/1000)) * 100)}%</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <ComingSoonTooltip
+                message="Financial cost data is not available in the current shipment schema. Revenue and cost fields need to be added to enable cost analysis."
+                disabled={true}
+              >
+                <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
+                  <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                    <CardTitle className="text-base font-bold text-slate-900">Financial Analysis</CardTitle>
+                    <MoreVertical className="w-4 h-4 text-slate-400" />
+                  </CardHeader>
+                  <CardContent className="h-[250px] flex items-center justify-center">
+                    <div className="text-center space-y-2">
+                      <div className="text-4xl text-slate-300">💰</div>
+                      <div className="text-sm text-slate-500">Financial data not available</div>
+                      <div className="text-xs text-slate-400">Revenue, costs, and profitability metrics require additional schema fields</div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </ComingSoonTooltip>
             </div>
 
           </div>
@@ -1208,11 +1512,11 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 <div className="p-3 bg-white rounded-lg border border-slate-100">
                   <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">On-Time</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900">92%</span>
-                    <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+4%</span>
+                    <span className="text-xl font-semibold text-slate-900">{onTimePerformance.percentage.toFixed(1)}%</span>
+                    <span className="text-xs text-slate-500">({onTimePerformance.onTimeCount}/{onTimePerformance.totalCount} shipments)</span>
                   </div>
                   <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full w-[92%] bg-emerald-500" />
+                    <div className="h-full" style={{ width: `${onTimePerformance.percentage}%`, backgroundColor: onTimePerformance.percentage >= 90 ? '#10b981' : onTimePerformance.percentage >= 80 ? '#f59e0b' : '#dc2626' }} />
                   </div>
                 </div>
                 <div className="p-3 bg-white rounded-lg border border-slate-100">
@@ -1228,23 +1532,30 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 <div className="p-3 bg-white rounded-lg border border-slate-100">
                   <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Utilization</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900">78%</span>
-                    <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+2%</span>
+                    <span className="text-xl font-semibold text-slate-900">{kpis.utilization.toFixed(1)}%</span>
+                    <span className="text-xs text-slate-500">Container utilization</span>
                   </div>
                   <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full w-[78%] bg-slate-900" />
+                    <div className="h-full" style={{ width: `${Math.min(kpis.utilization, 100)}%`, backgroundColor: kpis.utilization >= 80 ? '#10b981' : kpis.utilization >= 60 ? '#f59e0b' : '#dc2626' }} />
                   </div>
                 </div>
-                <div className="p-3 bg-white rounded-lg border border-slate-100">
-                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Gross Margin</div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900">24%</span>
-                    <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+1.4%</span>
+                <ComingSoonTooltip message="Profitability metrics like gross margin are not available in the current shipment schema. Revenue and cost fields need to be added to calculate margins.">
+                  <div className="p-3 bg-white rounded-lg border border-slate-100 relative">
+                    <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Gross Margin</div>
+                    <div className="flex items-end justify-between">
+                      <span className="text-xl font-semibold text-slate-900">N/A</span>
+                      <span className="text-xs text-slate-500">Not available</span>
+                    </div>
+                    <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full w-[0%] bg-slate-300" />
+                    </div>
+                    <div className="absolute inset-0 bg-slate-50/50 rounded-lg flex items-center justify-center">
+                      <span className="text-xs font-medium text-slate-500 bg-white px-2 py-1 rounded shadow-sm border">
+                        Coming Soon
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full w-[24%] bg-emerald-500" />
-                  </div>
-                </div>
+                </ComingSoonTooltip>
               </CardContent>
             </Card>
             
@@ -1387,6 +1698,100 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
           </div>
 
         </div>
+
+            {/* OFFICE ANALYTICS WIDE CARD */}
+            <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" /> Office Performance Analytics
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">Shipments, major clients, and peak seasons by office</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Office Shipments Overview */}
+                  <div className="p-4 rounded-lg border border-slate-200 bg-white">
+                    <div className="text-sm font-semibold text-slate-900 mb-3">Shipments by Office</div>
+                    <div className="space-y-3">
+                      {officeStats.slice(0, 5).map((office, idx) => (
+                        <div key={office.office} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className={cn("w-3 h-3 rounded-full", COLORS[idx % COLORS.length])} />
+                            <span className="text-slate-700">{office.office}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-semibold text-slate-900">{office.shipments}</span>
+                            <span className="text-slate-400 text-xs">
+                              {Math.round((office.shipments / kpis.shipments) * 100)}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Major Client by Office */}
+                  <div className="p-4 rounded-lg border border-slate-200 bg-white">
+                    <div className="text-sm font-semibold text-slate-900 mb-3">Major Client by Office</div>
+                    <div className="space-y-3">
+                      {officeStats.slice(0, 5).map((office, idx) => (
+                        <div key={`client-${office.office}`} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className={cn("w-3 h-3 rounded-full", COLORS[idx % COLORS.length])} />
+                            <div>
+                              <div className="text-slate-700">{office.office}</div>
+                              <div className="text-xs text-slate-500 truncate max-w-[120px]">{office.topClient}</div>
+                            </div>
+                          </div>
+                          <span className="font-semibold text-slate-900">{office.topClientCount}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Peak Season Analysis */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-lg border border-slate-200 bg-white">
+                    <div className="text-sm font-semibold text-slate-900 mb-3">Peak Season by Office</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {officeMonthlyTrend.slice(0, 4).map((office, idx) => (
+                        <div key={`peak-${office.office}`} className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                          <div className="text-xs text-slate-500 mb-1">{office.office}</div>
+                          <div className="text-sm font-semibold text-slate-900">{office.peakMonth}</div>
+                          <div className="text-xs text-slate-600">{office.peakCount} shipments</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Client Seasonality Preview */}
+                  <div className="p-4 rounded-lg border border-slate-200 bg-white">
+                    <div className="text-sm font-semibold text-slate-900 mb-3">Client Traffic Patterns</div>
+                    <div className="space-y-2">
+                      {clientMonthlyTrend.slice(0, 4).map((client, idx) => {
+                        const total = client.monthlyData.reduce((sum, m) => sum + m.count, 0)
+                        const peakMonth = client.monthlyData.reduce((max, m) =>
+                          m.count > max.count ? m : max, client.monthlyData[0])
+                        return (
+                          <div key={`season-${client.client}`} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <div className={cn("w-2 h-2 rounded-full", COLORS[idx % COLORS.length])} />
+                              <span className="text-slate-700 truncate max-w-[100px]">{client.client}</span>
+                            </div>
+                            <div className="text-xs text-slate-500 text-right">
+                              <div>{format(new Date(peakMonth.month + '-01'), 'MMM')}</div>
+                              <div>{peakMonth.count} peak</div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
                 {/* MODE INSIGHTS WIDE CARD */}
                 <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">

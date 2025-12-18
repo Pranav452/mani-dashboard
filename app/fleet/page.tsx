@@ -1,39 +1,52 @@
+"use client"
+
 import { ReactNode } from "react"
 import { PremiumPageShell } from "@/components/PremiumPageShell"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Truck, Anchor, ArrowUpRight, ArrowDownRight, Navigation } from "lucide-react"
+import { ComingSoonTooltip } from "@/components/ui/tooltip"
 
 const fleetSections = [
   {
     title: "Fleet Utilization",
-    subtitle: "Example cards with premium styling",
+    subtitle: "Fleet metrics not available in current schema",
     content: (
-      <div className="grid grid-cols-2 gap-3">
-        <FleetTile label="Active trucks" value="86%" trend="+3%" positive />
-        <FleetTile label="Marine capacity" value="74%" trend="+1%" positive icon={<Anchor className="w-4 h-4 text-slate-500" />} />
-        <FleetTile label="Idle assets" value="12" trend="-2" />
-        <FleetTile label="Maintenance" value="6 scheduled" trend="+1" />
-      </div>
+      <ComingSoonTooltip
+        message="Fleet utilization, truck counts, marine capacity, and asset tracking data are not available in the current shipment schema. Fleet management system integration required."
+        disabled={true}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <FleetTile label="Active trucks" value="N/A" trend="-" />
+          <FleetTile label="Marine capacity" value="N/A" trend="-" icon={<Anchor className="w-4 h-4 text-slate-500" />} />
+          <FleetTile label="Idle assets" value="N/A" trend="-" />
+          <FleetTile label="Maintenance" value="N/A" trend="-" />
+        </div>
+      </ComingSoonTooltip>
     )
   },
   {
     title: "Route Health",
-    subtitle: "Placeholder for charts/mini tables",
+    subtitle: "Operational metrics (Coming Soon)",
     content: (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
-          <div>
-            <div className="text-xs text-slate-500">On-time arrivals</div>
-            <div className="text-lg font-semibold text-slate-900">91%</div>
+      <ComingSoonTooltip
+        message="Route health, on-time arrivals, dwell times, and operational exceptions require fleet management and GPS tracking system data. Current schema only contains shipment information."
+        disabled={true}
+      >
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <div>
+              <div className="text-xs text-slate-500">On-time arrivals</div>
+              <div className="text-lg font-semibold text-slate-900">N/A</div>
+            </div>
+            <Truck className="w-5 h-5 text-slate-500" />
           </div>
-          <Truck className="w-5 h-5 text-slate-500" />
+          <div className="grid grid-cols-2 gap-2">
+            <FleetTile label="Avg dwell" value="N/A" trend="-" />
+            <FleetTile label="Open exceptions" value="N/A" trend="-" />
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <FleetTile label="Avg dwell" value="9.2 hrs" trend="-0.6" positive />
-          <FleetTile label="Open exceptions" value="14" trend="+2" />
-        </div>
-      </div>
+      </ComingSoonTooltip>
     )
   }
 ]
@@ -43,19 +56,37 @@ function FleetPageContent() {
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 rounded-2xl bg-gradient-to-r from-emerald-900 via-cyan-800 to-sky-700 text-white p-5 shadow-lg">
       <div className="space-y-2 lg:col-span-2">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-cyan-100">
-          <Navigation className="w-4 h-4" /> Fleet readiness
+          <Navigation className="w-4 h-4" /> Fleet management
         </div>
-        <div className="text-2xl font-semibold">Network & utilization</div>
-        <p className="text-sm text-cyan-100 max-w-lg">Availability, routes, and maintenance capacity at a glance.</p>
-        <Button size="sm" variant="secondary" className="text-slate-900">Dispatch board</Button>
+        <div className="text-2xl font-semibold">Coming Soon</div>
+        <p className="text-sm text-cyan-100 max-w-lg">Fleet tracking, utilization, and operational metrics require fleet management system integration. Current shipment data does not include vehicle or asset information.</p>
+        <ComingSoonTooltip message="Dispatch board requires fleet management system with GPS tracking and real-time vehicle data.">
+          <Button size="sm" variant="secondary" className="text-slate-900 opacity-50 cursor-not-allowed">Dispatch board</Button>
+        </ComingSoonTooltip>
       </div>
       <div className="rounded-xl bg-white/10 border border-white/10 p-4 space-y-3">
-        <HeroTile label="Active trucks" value="86%" trend="+3%" positive />
-        <HeroTile label="Marine capacity" value="74%" trend="+1%" positive />
+        <ComingSoonTooltip message="Active truck counts and utilization require fleet management system integration.">
+          <div className="cursor-help">
+            <HeroTile label="Active trucks" value="N/A" trend="-" />
+          </div>
+        </ComingSoonTooltip>
+        <ComingSoonTooltip message="Marine vessel capacity and utilization require maritime fleet management system.">
+          <div className="cursor-help">
+            <HeroTile label="Marine capacity" value="N/A" trend="-" />
+          </div>
+        </ComingSoonTooltip>
       </div>
       <div className="rounded-xl bg-white/10 border border-white/10 p-4 space-y-3">
-        <HeroTile label="Idle assets" value="12" trend="-2" />
-        <HeroTile label="Open exceptions" value="14" trend="+2" />
+        <ComingSoonTooltip message="Idle asset tracking requires fleet management system with asset monitoring.">
+          <div className="cursor-help">
+            <HeroTile label="Idle assets" value="N/A" trend="-" />
+          </div>
+        </ComingSoonTooltip>
+        <ComingSoonTooltip message="Exception tracking requires operational management system integration.">
+          <div className="cursor-help">
+            <HeroTile label="Open exceptions" value="N/A" trend="-" />
+          </div>
+        </ComingSoonTooltip>
       </div>
     </div>
   )
@@ -78,23 +109,20 @@ function FleetPageContent() {
     ...fleetSections,
     {
       title: "Safety & Compliance",
-      subtitle: "Additional rows to keep layout dense",
+      subtitle: "Fleet safety metrics (Coming Soon)",
       content: (
-        <div className="space-y-2 text-sm">
-          {[
-            { name: "Inspections", value: "92% on time", trend: "+2%" },
-            { name: "Incidents", value: "3 this month", trend: "-1" },
-            { name: "Certifications", value: "78% valid", trend: "-4%" },
-          ].map(item => (
-            <div key={item.name} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
-              <div className="font-semibold text-slate-900">{item.name}</div>
-              <div className="flex items-center gap-3">
-                <span className="text-slate-500">{item.value}</span>
-                <span className={item.trend.startsWith("-") ? "text-amber-600 text-xs" : "text-emerald-600 text-xs"}>{item.trend}</span>
-              </div>
+        <ComingSoonTooltip
+          message="Safety metrics, inspections, incidents, and compliance certifications require fleet management system with safety monitoring and regulatory compliance tracking."
+          disabled={true}
+        >
+          <div className="p-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center">
+            <div className="text-center space-y-2">
+              <div className="text-4xl text-slate-300">🛡️</div>
+              <div className="text-sm text-slate-500">Safety & compliance metrics not available</div>
+              <div className="text-xs text-slate-400">Requires fleet management system</div>
             </div>
-          ))}
-        </div>
+          </div>
+        </ComingSoonTooltip>
       )
     }
   ]

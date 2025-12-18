@@ -1,41 +1,54 @@
+"use client"
+
 import { PremiumPageShell } from "@/components/PremiumPageShell"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowUpRight, ArrowDownRight, Wallet, Sparkles } from "lucide-react"
+import { ComingSoonTooltip } from "@/components/ui/tooltip"
 
 const financialSections = [
   {
     title: "Revenue & Margin",
-    subtitle: "Snapshot of monthly performance",
+    subtitle: "Financial metrics not available in current schema",
     content: (
-      <div className="grid grid-cols-2 gap-3">
-        <StatTile label="Net revenue" value="$1.24M" trend="+6.1%" positive />
-        <StatTile label="Gross margin" value="24.3%" trend="+1.2%" positive />
-        <StatTile label="Deductions" value="$82K" trend="-3.4%" />
-        <StatTile label="DSO" value="41 days" trend="-2 days" positive />
-      </div>
+      <ComingSoonTooltip
+        message="Revenue, margin, deductions, and DSO metrics are not available in the current shipment schema. Financial data fields need to be added to enable financial reporting."
+        disabled={true}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <StatTile label="Net revenue" value="N/A" trend="-" />
+          <StatTile label="Gross margin" value="N/A" trend="-" />
+          <StatTile label="Deductions" value="N/A" trend="-" />
+          <StatTile label="DSO" value="N/A" trend="-" />
+        </div>
+      </ComingSoonTooltip>
     )
   },
   {
     title: "Cash & Payables",
-    subtitle: "Working capital view",
+    subtitle: "Working capital view (Coming Soon)",
     content: (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
-          <div>
-            <div className="text-xs text-slate-500">Cash on hand</div>
-            <div className="text-lg font-semibold text-slate-900">$640K</div>
+      <ComingSoonTooltip
+        message="Cash, payables, receivables, and working capital metrics are not available in the current shipment schema. Accounting system integration required."
+        disabled={true}
+      >
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+            <div>
+              <div className="text-xs text-slate-500">Cash on hand</div>
+              <div className="text-lg font-semibold text-slate-900">N/A</div>
+            </div>
+            <Wallet className="w-5 h-5 text-slate-500" />
           </div>
-          <Wallet className="w-5 h-5 text-slate-500" />
+          <div className="grid grid-cols-2 gap-2">
+            <StatTile label="Payables" value="N/A" trend="-" />
+            <StatTile label="Receivables" value="N/A" trend="-" />
+          </div>
+          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-full w-[0%] bg-slate-300" />
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <StatTile label="Payables" value="$190K" trend="+2.0%" />
-          <StatTile label="Receivables" value="$320K" trend="+4.4%" positive />
-        </div>
-        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-          <div className="h-full w-[62%] bg-emerald-500" />
-        </div>
-      </div>
+      </ComingSoonTooltip>
     )
   }
 ]
@@ -45,31 +58,51 @@ function FinancialsPageContent() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-5 shadow-lg">
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-200">
-          <Sparkles className="w-4 h-4" /> Executive overview
+          <Sparkles className="w-4 h-4" /> Financial analytics
         </div>
-        <div className="text-2xl font-semibold">Financial posture</div>
-        <p className="text-sm text-slate-200 max-w-sm">Revenue, margin, and liquidity pulse for the current period.</p>
-        <div className="flex gap-3">
-          <Button size="sm" variant="secondary" className="text-slate-900">View P&L</Button>
-          <Button size="sm" variant="ghost" className="text-white hover:text-white border-white/30">Export</Button>
-        </div>
+        <div className="text-2xl font-semibold">Coming Soon</div>
+        <p className="text-sm text-slate-200 max-w-sm">Financial metrics and reporting require accounting system integration. Current shipment data does not include revenue, costs, or profitability information.</p>
+        <ComingSoonTooltip message="P&L and detailed financial reports require accounting system data integration.">
+          <Button size="sm" variant="secondary" className="text-slate-900 opacity-50 cursor-not-allowed">View P&L</Button>
+        </ComingSoonTooltip>
+        <ComingSoonTooltip message="Financial data export requires accounting system integration.">
+          <Button size="sm" variant="ghost" className="text-white hover:text-white border-white/30 opacity-50 cursor-not-allowed">Export</Button>
+        </ComingSoonTooltip>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <HeroStat label="Revenue" value="$1.24M" trend="+6.1%" positive />
-        <HeroStat label="Gross margin" value="24.3%" trend="+1.2%" positive />
-        <HeroStat label="Cash" value="$640K" trend="+4.0%" positive />
-        <HeroStat label="DSO" value="41 days" trend="-2.0" />
+        <ComingSoonTooltip message="Revenue data not available in current schema. Requires accounting system integration.">
+          <div className="cursor-help">
+            <HeroStat label="Revenue" value="N/A" trend="-" />
+          </div>
+        </ComingSoonTooltip>
+        <ComingSoonTooltip message="Margin calculations require revenue and cost data from accounting system.">
+          <div className="cursor-help">
+            <HeroStat label="Gross margin" value="N/A" trend="-" />
+          </div>
+        </ComingSoonTooltip>
+        <ComingSoonTooltip message="Cash balance data requires accounting system integration.">
+          <div className="cursor-help">
+            <HeroStat label="Cash" value="N/A" trend="-" />
+          </div>
+        </ComingSoonTooltip>
+        <ComingSoonTooltip message="DSO calculation requires accounts receivable data from accounting system.">
+          <div className="cursor-help">
+            <HeroStat label="DSO" value="N/A" trend="-" />
+          </div>
+        </ComingSoonTooltip>
       </div>
-      <div className="rounded-xl bg-white/10 border border-white/10 p-4">
-        <div className="text-xs uppercase text-slate-200 mb-2">Cash runway</div>
-        <div className="h-2 rounded-full bg-white/20 overflow-hidden mb-3">
-          <div className="h-full w-[68%] bg-emerald-300" />
+      <ComingSoonTooltip message="Cash runway analysis requires cash flow data from accounting system.">
+        <div className="rounded-xl bg-white/10 border border-white/10 p-4 cursor-help">
+          <div className="text-xs uppercase text-slate-200 mb-2">Cash runway</div>
+          <div className="h-2 rounded-full bg-white/20 overflow-hidden mb-3">
+            <div className="h-full w-[0%] bg-slate-400" />
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-200">Not available</span>
+            <span className="font-semibold">N/A days</span>
+          </div>
         </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-200">68% of plan</span>
-          <span className="font-semibold">120 days</span>
-        </div>
-      </div>
+      </ComingSoonTooltip>
     </div>
   )
 
@@ -91,22 +124,20 @@ function FinancialsPageContent() {
     ...financialSections,
     {
       title: "Forecast vs Actuals",
-      subtitle: "Example table to reduce whitespace",
+      subtitle: "Financial forecasting requires accounting system data",
       content: (
-        <div className="space-y-2 text-sm">
-          {["Q1", "Q2", "Q3", "Q4"].map((q, idx) => (
-            <div key={q} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-slate-900">{q}</span>
-                <span className="text-slate-500">Plan ${(900 + idx * 80).toLocaleString()}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-slate-500">Actual ${(880 + idx * 70).toLocaleString()}</span>
-                <span className={idx % 2 === 0 ? "text-emerald-600 text-xs" : "text-amber-600 text-xs"}>{idx % 2 === 0 ? "+3.2%" : "-1.4%"}</span>
-              </div>
+        <ComingSoonTooltip
+          message="Forecast vs actuals analysis requires budget/forecast data and actual financial results from accounting system. Current shipment schema only contains operational data."
+          disabled={true}
+        >
+          <div className="p-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center">
+            <div className="text-center space-y-2">
+              <div className="text-4xl text-slate-300">📈</div>
+              <div className="text-sm text-slate-500">Financial forecasting not available</div>
+              <div className="text-xs text-slate-400">Requires accounting system integration</div>
             </div>
-          ))}
-        </div>
+          </div>
+        </ComingSoonTooltip>
       )
     }
   ]
