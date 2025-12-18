@@ -72,18 +72,36 @@ function ReportsPageContent() {
     ...reportSections,
     {
       title: "Recent runs",
-      subtitle: "Populate lower area to avoid whitespace",
+      subtitle: "Archive of generated reports",
       content: (
-        <div className="space-y-2 text-sm">
-          {["Ops daily", "Exec weekly", "Finance flash", "Customer CSAT"].map((name, idx) => (
-            <div key={name} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
-              <div className="font-semibold text-slate-900">{name}</div>
-              <div className="flex items-center gap-3">
-                <span className="text-slate-500">{idx % 2 === 0 ? "6am UTC" : "Fridays"}</span>
-                <span className="text-emerald-600 text-xs">Success</span>
-              </div>
-            </div>
-          ))}
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+             <div className="grid grid-cols-4 gap-4 p-3 bg-slate-50 text-xs font-semibold text-slate-500 border-b border-slate-200">
+                <div className="col-span-2">Report Name</div>
+                <div>Generated</div>
+                <div className="text-right">Action</div>
+             </div>
+             <div className="divide-y divide-slate-100">
+                {[
+                  { name: "Global Logistics Summary Q3", date: "Today, 10:00 AM", type: "PDF" },
+                  { name: "Carrier Performance Scorecard", date: "Yesterday", type: "XLSX" },
+                  { name: "Cost Analysis - SEA Freight", date: "Oct 24, 2024", type: "PDF" },
+                  { name: "Carbon Footprint Disclosure", date: "Oct 22, 2024", type: "PDF" },
+                  { name: "Weekly Operations Brief", date: "Oct 20, 2024", type: "PPTX" }
+                ].map((report, idx) => (
+                  <div key={idx} className="grid grid-cols-4 gap-4 p-3 text-sm items-center hover:bg-slate-50 transition-colors">
+                    <div className="col-span-2 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                            {report.type}
+                        </div>
+                        <span className="font-medium text-slate-900">{report.name}</span>
+                    </div>
+                    <div className="text-slate-500">{report.date}</div>
+                    <div className="text-right">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50">Download</Button>
+                    </div>
+                  </div>
+                ))}
+             </div>
         </div>
       )
     }

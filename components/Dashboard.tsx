@@ -17,49 +17,16 @@ const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: 
   loading: () => <div className="h-[400px] flex items-center justify-center bg-slate-50 rounded-lg"><span className="text-slate-400 text-sm">Loading map...</span></div>
 })
 import { format, isWithinInterval, parse, isValid, startOfDay, endOfDay, subDays, startOfYear, differenceInDays } from "date-fns"
-import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare, Briefcase, LayoutDashboard, FileText, Users, BarChart3, PieChart as PieChartIcon, Settings, MoreVertical, Check, ArrowUpRight, ArrowDownRight, Printer } from "lucide-react"
+import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare, Briefcase, LayoutDashboard, FileText, Users, BarChart3, PieChart as PieChartIcon, Settings, MoreVertical, Check, ArrowUpRight, ArrowDownRight, Printer, DollarSign, Leaf, TrendingUp, TrendingDown, Activity } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend, LineChart, Line } from "recharts"
 import { cn } from "@/lib/utils"
 
-// --- HELPER: Number Cleaner ---
-const cleanNum = (val: any) => {
-  if (typeof val === 'number') return val
-  if (!val) return 0
-  const str = String(val).replace(/,/g, '')
-  const num = parseFloat(str)
-  return isNaN(num) ? 0 : num
-}
+// Import Logic
+import { cleanNum, getValidDate, getComputedMode, calculateTEU, calculateUniqueTEU, generateFinancials, generateEmissions, filterData } from "@/lib/dashboard-logic"
 
-// --- HELPER: Smart Date Parser ---
-const getValidDate = (row: any) => {
-  const candidates = [row.ETD, row.ATD, row.DOCRECD, row.DOCDT]
-  for (const dateStr of candidates) {
-    if (!dateStr) continue;
-    if (typeof dateStr === 'string' && dateStr.includes('-')) {
-      const parsed = parse(dateStr, 'dd-MM-yyyy', new Date())
-      if (isValid(parsed)) return parsed
-    }
-    if (typeof dateStr === 'number' || (typeof dateStr === 'string' && !dateStr.includes('-'))) {
-      const str = String(dateStr)
-      if (str.length === 8) {
-        const parsed = parse(str, 'yyyyMMdd', new Date())
-        if (isValid(parsed)) return parsed
-      }
-    }
-  }
-  return null
-}
+// Import Shadcn Chart Components
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 
-// --- HELPER: Detect Real Mode (Fixes SEA-AIR issue) ---
-const getComputedMode = (row: any) => {
-  // SQL PROOF: ISDIFFAIR = '2' means SEA-AIR
-  const isDiffAir = String(row.ISDIFFAIR);
-  
-  if (isDiffAir === '2' || isDiffAir === 'YES' || isDiffAir === '1') {
-    return 'SEA-AIR';
-  }
-  return row.MODE || 'Unknown';
-}
 
 // --- HELPER: Smart Carrier Logic (The Fix) ---
 const getCarrier = (row: any) => {
@@ -287,13 +254,22 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
 
   // --- 1. PARSE DATA & COMPUTE MODE ---
   const parsedData = useMemo<ShipmentRecord[]>(() => {
-    return data.map(row => ({
-      ...row,
-      _date: getValidDate(row),
-      _mode: getComputedMode(row), // We use this new _mode for everything
-      _carrier: getCarrier(row), // NEW: Uses smart fallback
-      _office: getOffice(row.POL)
-    }))
+    return data.map(row => {
+      const mode = getComputedMode(row);
+      const financials = generateFinancials(row); // Inject Mock Money
+      const environment = generateEmissions(row); // Inject Mock CO2
+
+      return {
+        ...row,
+        _date: getValidDate(row),
+        _mode: mode, // We use this new _mode for everything
+        _carrier: getCarrier(row), // NEW: Uses smart fallback
+        _office: getOffice(row.POL),
+        _teu: calculateTEU(row.CONT_CONTSIZE, row.CONT_CONTSTATUS, mode), // Real TEU Logic
+        _financials: financials,
+        _env: environment
+      }
+    })
   }, [data])
 
   // --- 2. WATERFALL LOGIC ---
@@ -383,7 +359,18 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
     })
   }, [parsedData, selectedMode, selectedClient, selectedOffice, dateRange, searchQuery])
 
-  // --- 4. EXPORT FUNCTION ---
+  // --- 4. CHART DATA GENERATORS ---
+  const getTrend = (key: string, accessor: (r: any) => number) => {
+    const map: Record<string, number> = {}
+    chartData.forEach(r => {
+      if (!r._date) return
+      const k = format(r._date, 'MMM yyyy')
+      map[k] = (map[k] || 0) + accessor(r)
+    })
+    return Object.entries(map).map(([name, value]) => ({ name, value }))
+  }
+
+  // --- 5. EXPORT FUNCTION ---
   const handleExport = () => {
     if (!chartData.length) return
     
@@ -417,7 +404,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
   }
 
   // --- 5. STATS ---
-  const kpis = useMemo((): { shipments: number; weight: number; teu: number; cbm: number; avgTransit: number } => {
+  const kpis = useMemo((): { shipments: number; weight: number; teu: number; cbm: number; avgTransit: number; revenue: number; profit: number; co2: number } => {
     // Helper to parse DD-MM-YYYY dates specifically for Transit Calc
     const parseTransitDate = (dateStr: any) => {
       if (!dateStr || typeof dateStr !== 'string') return null
@@ -456,9 +443,12 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
     return {
       shipments: uniqueRows.length,
       weight: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_GRWT), 0),
-      teu: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0),
+      teu: calculateUniqueTEU(chartData), // FIXED: Now uses deduplicated container TEU calculation
       cbm: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0),
-      avgTransit: transitCount > 0 ? (totalTransitDays / transitCount) : 0
+      avgTransit: transitCount > 0 ? (totalTransitDays / transitCount) : 0,
+      revenue: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._financials?.revenue || 0), 0),
+      profit: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._financials?.profit || 0), 0),
+      co2: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._env?.co2 || 0), 0)
     }
   }, [chartData])
 
@@ -616,6 +606,20 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
       .slice(0, 8)
   }, [chartData])
 
+  const statusStats = useMemo(() => {
+      const stats: Record<string, number> = {}
+      chartData.forEach(row => {
+          let s = (row.CONT_CONTSTATUS || 'Unknown').toUpperCase()
+          // Simplify statuses
+          if (s.includes('FCL')) s = 'FCL'
+          else if (s.includes('LCL')) s = 'LCL'
+          else if (s.includes('MTY')) s = 'Empty'
+          else s = 'Other'
+          stats[s] = (stats[s] || 0) + 1
+      })
+      return Object.entries(stats).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
+  }, [chartData])
+
   const recentShipments = useMemo(() => {
     // 1. Sort by Date (Newest first), handle missing dates safely
     const sorted = [...chartData].sort((a, b) => {
@@ -755,7 +759,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               <Link href="/financials">Financials</Link>
             </Button>
             <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900" asChild>
-              <Link href="/customers">Customers</Link>
+              <Link href="/environmental">Environmental Impact</Link>
             </Button>
             <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900" asChild>
               <Link href="/fleet">Fleet</Link>
@@ -890,10 +894,11 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
         </div>
       </div>
 
+      {/* MAIN DASHBOARD CONTENT */}
       <main className="max-w-[1400px] mx-auto px-4 md:px-6 py-5 space-y-5">
-        
+
         {/* MAIN LAYOUT GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4 lg:gap-5 items-stretch">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4 lg:gap-5 items-stretch">
           
           {/* LEFT COLUMN (MAIN CONTENT) */}
           <div className="flex flex-col space-y-6 min-h-0">
@@ -1494,14 +1499,34 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                     </div>
                   </div>
                   <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                    <div className="text-xs text-slate-500 mb-2">Mode vs clients</div>
-                    <div className="space-y-2 text-sm">
-                      {clientStats.slice(0, 4).map((client, idx) => (
-                        <div key={`client-wide-${idx}`} className="flex items-center justify-between">
-                          <span className="text-slate-700 truncate pr-2">{client.name}</span>
-                          <span className="text-slate-900 font-semibold">{client.shipments} files</span>
-                        </div>
-                      ))}
+                    <div className="text-xs text-slate-500 mb-2">Container Status</div>
+                    <div className="h-[140px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={statusStats}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={40}
+                                    outerRadius={60}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                >
+                                    {statusStats.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div className="flex justify-center gap-4 text-[10px] text-slate-500">
+                        {statusStats.slice(0, 3).map((s, i) => (
+                            <div key={s.name} className="flex items-center gap-1">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                                {s.name}
+                            </div>
+                        ))}
                     </div>
                   </div>
                 </div>
@@ -1748,7 +1773,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                  </div>
                </CardContent>
              </Card>
-      </main>
+          </main>
 
       {/* Shipment Detail Drawer */}
       <ShipmentDrawer
@@ -1758,6 +1783,33 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
       />
     </div>
     
+  )
+}
+
+// --- SUB-COMPONENTS ---
+function KPICard({ title, value, unit, sub, icon }: any) {
+  return (
+    <Card className="shadow-sm border-l-4 border-l-slate-800">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="text-xs font-medium text-slate-500 uppercase">{title}</CardTitle>
+        {icon}
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold text-slate-900">{value} <span className="text-sm font-normal text-slate-400">{unit}</span></div>
+        {sub && <div className="text-xs text-slate-400 mt-1">{sub}</div>}
+      </CardContent>
+    </Card>
+  )
+}
+
+function ChartCard({ title, children }: any) {
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="pb-2"><CardTitle className="text-base">{title}</CardTitle></CardHeader>
+      <CardContent className="h-[300px]">
+        <ResponsiveContainer width="100%" height="100%">{children}</ResponsiveContainer>
+      </CardContent>
+    </Card>
   )
 }
 

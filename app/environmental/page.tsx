@@ -1,13 +1,13 @@
 import { Suspense } from 'react'
 import { getShipments } from '../actions'
-import FinancialsDashboard from '@/components/FinancialsDashboard'
+import EnvironmentalDashboard from '@/components/EnvironmentalDashboard'
 import { DashboardSkeleton } from '@/components/DashboardSkeleton'
 
-export default async function FinancialsPage() {
+export default async function EnvironmentalPage() {
   const data = await getShipments()
   return (
     <Suspense fallback={<DashboardSkeleton />}>
-      <FinancialsDashboard data={data} />
+      <EnvironmentalDashboard data={data} />
     </Suspense>
   )
 }

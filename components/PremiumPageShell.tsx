@@ -12,6 +12,7 @@ type PremiumSection = {
   title: string
   subtitle?: string
   content: ReactNode
+  className?: string
 }
 
 type PremiumPageShellProps = {
@@ -43,7 +44,7 @@ export function PremiumPageShell({ title, description, sections, active = "finan
               <Link href="/financials">Financials</Link>
             </Button>
             <Button variant="ghost" size="sm" asChild className={`font-medium ${active === "customers" ? "text-slate-900 bg-slate-100" : "text-slate-500 hover:text-slate-900"}`}>
-              <Link href="/customers">Customers</Link>
+              <Link href="/environmental">Environmental Impact</Link>
             </Button>
             <Button variant="ghost" size="sm" asChild className={`font-medium ${active === "fleet" ? "text-slate-900 bg-slate-100" : "text-slate-500 hover:text-slate-900"}`}>
               <Link href="/fleet">Fleet</Link>
@@ -89,7 +90,7 @@ export function PremiumPageShell({ title, description, sections, active = "finan
 
         <div className={`grid grid-cols-1 ${gridCols} gap-4`}>
           {sections.map(section => (
-            <Card key={section.title} className="border border-slate-200 shadow-sm">
+            <Card key={section.title} className={`border border-slate-200 shadow-sm ${section.className || ""}`}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold text-slate-900">{section.title}</CardTitle>
                 {section.subtitle && <CardDescription className="text-xs text-slate-500">{section.subtitle}</CardDescription>}
