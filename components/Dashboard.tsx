@@ -17,9 +17,10 @@ const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: 
   loading: () => <div className="h-[400px] flex items-center justify-center bg-slate-50 rounded-lg"><span className="text-slate-400 text-sm">Loading map...</span></div>
 })
 import { format, isWithinInterval, parse, isValid, startOfDay, endOfDay, subDays, startOfYear, differenceInDays } from "date-fns"
-import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare, Briefcase, LayoutDashboard, FileText, Users, BarChart3, PieChart as PieChartIcon, Settings, MoreVertical, Check, ArrowUpRight, ArrowDownRight, Printer, DollarSign, Leaf, TrendingUp, TrendingDown, Activity } from "lucide-react"
+import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare, Briefcase, LayoutDashboard, FileText, Users, BarChart3, PieChart as PieChartIcon, Settings, MoreVertical, Check, ArrowUpRight, ArrowDownRight, Printer, DollarSign, Leaf, TrendingUp, TrendingDown, Activity, Snowflake } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend, LineChart, Line } from "recharts"
 import { cn } from "@/lib/utils"
+import Snowfall from 'react-snowfall'
 
 // Import Logic
 import { cleanNum, getValidDate, getComputedMode, calculateTEU, calculateUniqueTEU, generateFinancials, generateEmissions, filterData } from "@/lib/dashboard-logic"
@@ -236,6 +237,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
   const [hoveredChart, setHoveredChart] = useState<string | null>(null)
   const [selectedModeFilter, setSelectedModeFilter] = useState<string | null>(null)
   const [drilldowns, setDrilldowns] = useState<Record<string, boolean>>({})
+  const [showSnow, setShowSnow] = useState(false)
   const toggleDrilldown = (key: string) => {
     setDrilldowns(prev => ({ ...prev, [key]: !prev[key] }))
   }
@@ -891,10 +893,31 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               >
                 <Download className="w-4 h-4 mr-2" /> Export
               </Button>
+
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full border-slate-200 bg-white hover:bg-slate-50 p-0"
+                onClick={() => setShowSnow(!showSnow)}
+              >
+                <Snowflake className="w-4 h-4 text-slate-500" />
+              </Button>
             </div>
           </div>
         </div>
       </div>
+
+      {showSnow && (
+        <Snowfall
+          style={{
+            position: 'fixed',
+            width: '100vw',
+            height: '100vh',
+            zIndex: 9999,
+          }}
+          snowflakeCount={200}
+        />
+      )}
 
       {/* MAIN DASHBOARD CONTENT */}
       <main className="max-w-[1400px] mx-auto px-4 md:px-6 py-5 space-y-5">
