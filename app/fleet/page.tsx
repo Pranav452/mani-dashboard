@@ -107,7 +107,7 @@ export default function FleetPage() {
 
   const fleetSections = [
     {
-      title: "Fleet Utilization",
+      title: "Container Utilization",
       subtitle: "Asset performance and allocation",
       content: (
         <div className="grid grid-cols-2 gap-3">

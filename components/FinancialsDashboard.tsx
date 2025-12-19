@@ -150,17 +150,17 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
           <Sparkles className="w-4 h-4" /> Executive overview
         </div>
         <div className="text-2xl font-semibold">Financial posture</div>
-        <p className="text-sm text-slate-200 max-w-sm">Revenue, margin, and liquidity pulse for the current period.</p>
+        <p className="text-sm text-slate-200 max-w-sm">Invoicing, freight, and liquidity pulse for the current period.</p>
         <div className="flex gap-3">
           <Button size="sm" variant="secondary" className="text-slate-900">View P&L</Button>
           <Button size="sm" variant="ghost" className="text-white hover:text-white border-white/30">Export</Button>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <HeroStat label="Revenue" value={`$${(kpis.revenue / 1000000).toFixed(2)}M`} trend="+6.1%" positive />
-        <HeroStat label="Gross margin" value={`${kpis.margin.toFixed(1)}%`} trend="+1.2%" positive />
-        <HeroStat label="Profit" value={`$${(kpis.profit / 1000).toFixed(0)}K`} trend="+4.0%" positive />
-        <HeroStat label="Cost" value={`$${(kpis.cost / 1000000).toFixed(2)}M`} trend="-2.0%" />
+        <HeroStat label="Pending Invoices" value={`$${(kpis.revenue / 1000000).toFixed(2)}M`} trend="+6.1%" positive />
+        <HeroStat label="Sea Freight Monthly" value={`${kpis.margin.toFixed(1)}%`} trend="+1.2%" positive />
+        <HeroStat label="Air Invoices Pending" value={`$${(kpis.profit / 1000).toFixed(0)}K`} trend="+4.0%" positive />
+        <HeroStat label="Sea Wise Monthly" value={`$${(kpis.cost / 1000000).toFixed(2)}M`} trend="-2.0%" />
       </div>
       <div className="rounded-xl bg-white/10 border border-white/10 p-4">
         <div className="text-xs uppercase text-slate-200 mb-2">Profit Target</div>
@@ -177,12 +177,12 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
 
   const sections = [
     {
-      title: "Revenue & Margin Analysis",
+      title: "Invoicing & Freight Analysis",
       subtitle: "Monthly performance breakdown",
       content: (
         <div className="grid grid-cols-1 gap-6">
             <div className="h-[450px] w-full bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                <h4 className="text-sm font-semibold mb-4 text-slate-700">Revenue vs Cost Trend</h4>
+                <h4 className="text-sm font-semibold mb-4 text-slate-700">Invoicing vs Expense Trend</h4>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={monthlyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <defs>
@@ -196,13 +196,13 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                     <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} tickFormatter={(value) => `$${value/1000}k`} />
                     <Tooltip contentStyle={{backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0'}} />
                     <Legend verticalAlign="top" height={36}/>
-                    <Area name="Revenue" type="monotone" dataKey="revenue" stroke="#10b981" fillOpacity={1} fill="url(#colorRev)" strokeWidth={2} />
-                    <Area name="Cost" type="monotone" dataKey="cost" stroke="#ef4444" fillOpacity={0} strokeDasharray="5 5" strokeWidth={2} />
+                    <Area name="Invoiced" type="monotone" dataKey="revenue" stroke="#10b981" fillOpacity={1} fill="url(#colorRev)" strokeWidth={2} />
+                    <Area name="Expenses" type="monotone" dataKey="cost" stroke="#ef4444" fillOpacity={0} strokeDasharray="5 5" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
             </div>
             <div className="h-[450px] w-full bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                <h4 className="text-sm font-semibold mb-4 text-slate-700">Top Clients by Profit</h4>
+                <h4 className="text-sm font-semibold mb-4 text-slate-700">Top Clients by Volume</h4>
                 <div className="h-[380px] w-full">
                     <ChartContainer config={{
                         label: { color: "var(--background)" },
@@ -249,7 +249,7 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                 </div>
                 <div className="flex items-center gap-2 mt-4 text-sm text-slate-500">
                     <TrendingUp className="h-4 w-4 text-emerald-600" />
-                    <span>Top contributors to margin this period</span>
+                    <span>Top contributors to freight this period</span>
                 </div>
             </div>
         </div>

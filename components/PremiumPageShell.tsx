@@ -33,7 +33,10 @@ export function PremiumPageShell({ title, description, sections, active = "finan
       <header className="bg-white/90 border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-[1200px] mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div>
-            <h1 className="text-lg md:text-xl font-semibold">{title}</h1>
+            <h1 className="text-lg md:text-xl font-semibold flex items-center gap-2">
+              {title}
+              <span className="text-[13px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">For HAPPYCHIC</span>
+            </h1>
             <p className="text-xs text-slate-500">{description}</p>
           </div>
           <nav className="hidden md:flex items-center gap-1">

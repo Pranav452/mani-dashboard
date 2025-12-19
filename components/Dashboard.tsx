@@ -1088,17 +1088,17 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 <div className="flex items-center gap-6 mt-4 pt-4 border-t border-slate-100">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                    <span className="text-sm text-slate-600 font-medium">Revenue</span>
+                    <span className="text-sm text-slate-600 font-medium">Pending Invoices</span>
                   </div>
                    <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-pink-500" />
-                    <span className="text-sm text-slate-600 font-medium">Costs</span>
+                    <span className="text-sm text-slate-600 font-medium">Expenses</span>
                   </div>
 
 
                    <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-slate-900" />
-                    <span className="text-sm text-slate-600 font-medium">Net Profit</span>
+                    <span className="text-sm text-slate-600 font-medium">Air Invoices Pending</span>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
                     <span className="text-xs text-slate-400">Vs previous period</span>
@@ -1233,7 +1233,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                   </div>
                 </div>
                 <div className="p-3 bg-white rounded-lg border border-slate-100">
-                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Utilization</div>
+                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Fleet Utilization</div>
                   <div className="flex items-end justify-between">
                     <span className="text-xl font-semibold text-slate-900">78%</span>
                     <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+2%</span>
@@ -1243,7 +1243,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                   </div>
                 </div>
                 <div className="p-3 bg-white rounded-lg border border-slate-100">
-                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Gross Margin</div>
+                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Sea Freight Yield</div>
                   <div className="flex items-end justify-between">
                     <span className="text-xl font-semibold text-slate-900">24%</span>
                     <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+1.4%</span>
@@ -1682,7 +1682,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                    {[
                      { label: "On-time", value: "92%", trend: "+4%", color: "bg-emerald-100 text-emerald-700" },
                      { label: "Exceptions", value: "18", trend: "-3", color: "bg-amber-100 text-amber-700" },
-                     { label: "Gross margin", value: "24%", trend: "+1.4%", color: "bg-blue-100 text-blue-700" },
+                     { label: "Sea Freight Yield", value: "24%", trend: "+1.4%", color: "bg-blue-100 text-blue-700" },
                    ].map(tile => (
                      <div key={tile.label} className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
                        <div>
