@@ -48,6 +48,19 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
     });
 
     // 2. KPIs
+    let pendingRevenue = 0;
+    let completedRevenue = 0;
+
+    enrichedData.forEach(r => {
+        const rev = r._financials?.revenue || 0;
+        // Logic: If DOCRECD is present, assume invoice is processed/completed. Otherwise pending.
+        if (r.DOCRECD) {
+            completedRevenue += rev;
+        } else {
+            pendingRevenue += rev;
+        }
+    });
+
     const revenue = enrichedData.reduce((sum, r) => sum + (r._financials?.revenue || 0), 0);
     const profit = enrichedData.reduce((sum, r) => sum + (r._financials?.profit || 0), 0);
     const cost = revenue - profit;
@@ -72,15 +85,15 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
     const clientMap: Record<string, number> = {};
     enrichedData.forEach(r => {
       const client = r.CONNAME || 'Unknown';
-      clientMap[client] = (clientMap[client] || 0) + r._financials.profit;
+      clientMap[client] = (clientMap[client] || 0) + r._financials.revenue; // Changed to Revenue based on user asking for "Volume" chart revamping
     });
     const clientProfitArr = Object.entries(clientMap)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+      .slice(0, 8); // Top 8
 
     return {
-      kpis: { revenue, profit, cost, margin },
+      kpis: { revenue, profit, cost, margin, pendingRevenue, completedRevenue },
       monthlyTrend: monthlyTrendArr,
       clientProfit: clientProfitArr
     };
@@ -144,8 +157,8 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
   )
 
   const hero = (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-zinc-900 dark:via-zinc-800 dark:to-zinc-700 text-white p-5 shadow-lg">
-      <div className="space-y-2">
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-zinc-900 dark:via-zinc-800 dark:to-zinc-700 text-white p-5 shadow-lg">
+      <div className="space-y-2 lg:col-span-2">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-200 dark:text-zinc-300">
           <Sparkles className="w-4 h-4" /> Executive overview
         </div>
@@ -156,134 +169,161 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
           <Button size="sm" variant="ghost" className="text-white hover:text-white border-white/30 hover:bg-white/10">Export</Button>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <HeroStat label="Pending Invoices" value={`$${(kpis.revenue / 1000000).toFixed(2)}M`} trend="+6.1%" positive />
-        <HeroStat label="Sea Freight Monthly" value={`${kpis.margin.toFixed(1)}%`} trend="+1.2%" positive />
-        <HeroStat label="Air Invoices Pending" value={`$${(kpis.profit / 1000).toFixed(0)}K`} trend="+4.0%" positive />
-        <HeroStat label="Sea Wise Monthly" value={`$${(kpis.cost / 1000000).toFixed(2)}M`} trend="-2.0%" />
-      </div>
-      <div className="rounded-xl bg-white/10 border border-white/10 p-4">
-        <div className="text-xs uppercase text-slate-200 dark:text-zinc-300 mb-2">Profit Target</div>
-        <div className="h-2 rounded-full bg-white/20 overflow-hidden mb-3">
-          <div className="h-full w-[68%] bg-emerald-300" />
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-200 dark:text-zinc-300">68% of plan</span>
-          <span className="font-semibold">$1.5M Goal</span>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 lg:col-span-2">
+        <HeroStat label="Total Revenue" value={`$${(kpis.revenue / 1000000).toFixed(2)}M`} trend={kpis.revenue > 0 ? `${((kpis.completedRevenue / kpis.revenue) * 100).toFixed(0)}% paid` : "0%"} positive />
+        <HeroStat label="Total Profit" value={`$${(kpis.profit / 1000000).toFixed(2)}M`} trend={`${kpis.margin.toFixed(1)}% margin`} positive />
+        <HeroStat label="Invoice Pending" value={`$${(kpis.pendingRevenue / 1000000).toFixed(2)}M`} trend={kpis.revenue > 0 ? `${((kpis.pendingRevenue / kpis.revenue) * 100).toFixed(0)}%` : "0%"} positive />
+        <HeroStat label="Invoice Completed" value={`$${(kpis.completedRevenue / 1000000).toFixed(2)}M`} trend={kpis.revenue > 0 ? `${((kpis.completedRevenue / kpis.revenue) * 100).toFixed(0)}%` : "0%"} positive />
       </div>
     </div>
   )
 
   const sections = [
     {
-      title: "Invoicing & Freight Analysis",
-      subtitle: "Monthly performance breakdown",
+      title: "Client Analysis",
+      subtitle: "Performance by volume",
       content: (
-        <div className="grid grid-cols-1 gap-6">
-            <div className="h-[450px] w-full bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm">
-                <h4 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-200">Invoicing vs Expense Trend</h4>
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
-                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} tickFormatter={(value) => `$${value/1000}k`} />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'var(--color-card)',
-                        borderRadius: '8px',
-                        border: '1px solid var(--color-border)',
-                        color: 'var(--color-card-foreground)'
-                      }} 
-                    />
-                    <Legend verticalAlign="top" height={36} wrapperStyle={{ color: 'var(--color-muted-foreground)' }} />
-                    <Area name="Invoiced" type="monotone" dataKey="revenue" stroke="#10b981" fillOpacity={1} fill="url(#colorRev)" strokeWidth={2} />
-                    <Area name="Expenses" type="monotone" dataKey="cost" stroke="#ef4444" fillOpacity={0} strokeDasharray="5 5" strokeWidth={2} />
-                  </AreaChart>
-                </ResponsiveContainer>
-            </div>
-            <div className="h-[450px] w-full bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm">
+        <div className="w-full">
+            <div className="w-full bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm">
                 <h4 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-200">Top Clients by Volume</h4>
-                <div className="h-[380px] w-full">
+                <div className="h-[400px] w-full">
                     <ChartContainer config={{
                         label: { color: "var(--background)" },
                     }}>
-                        <BarChart
-                            accessibilityLayer
-                            data={clientProfit}
-                            layout="vertical"
-                            margin={{ right: 50, left: 20 }}
-                        >
-                            <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-zinc-800" />
-                            <YAxis
-                                dataKey="name"
-                                type="category"
-                                tickLine={false}
-                                tickMargin={10}
-                                axisLine={false}
-                                width={120}
-                                tick={{fontSize: 12, fill: '#64748b', fontWeight: 500}}
-                            />
-                            <XAxis dataKey="value" type="number" hide />
-                            <ChartTooltip
-                                cursor={false}
-                                content={<ChartTooltipContent indicator="line" />}
-                            />
-                            <Bar
-                                dataKey="value"
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                                accessibilityLayer
+                                data={clientProfit}
                                 layout="vertical"
-                                fill="#3b82f6"
-                                radius={4}
-                                barSize={32}
+                                margin={{ right: 50, left: 20, top: 10, bottom: 10 }}
                             >
-                                <LabelList
-                                    dataKey="value"
-                                    position="right"
-                                    offset={8}
-                                    className="fill-foreground dark:fill-slate-200"
-                                    fontSize={12}
-                                    formatter={(value: any) => `$${(value / 1000).toFixed(1)}k`}
+                                <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                                <YAxis
+                                    dataKey="name"
+                                    type="category"
+                                    tickLine={false}
+                                    tickMargin={10}
+                                    axisLine={false}
+                                    width={150}
+                                    tick={{fontSize: 12, fill: '#64748b', fontWeight: 500}}
                                 />
-                            </Bar>
-                        </BarChart>
+                                <XAxis dataKey="value" type="number" hide />
+                                <ChartTooltip
+                                    cursor={false}
+                                    content={<ChartTooltipContent indicator="line" />}
+                                />
+                                <Bar
+                                    dataKey="value"
+                                    layout="vertical"
+                                    fill="#3b82f6"
+                                    radius={4}
+                                    barSize={40}
+                                >
+                                    <LabelList
+                                        dataKey="value"
+                                        position="right"
+                                        offset={8}
+                                        className="fill-foreground dark:fill-slate-200"
+                                        fontSize={12}
+                                        formatter={(value: any) => `$${(value / 1000).toFixed(1)}k`}
+                                    />
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
                     </ChartContainer>
                 </div>
                 <div className="flex items-center gap-2 mt-4 text-sm text-slate-500 dark:text-slate-400">
                     <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>Top contributors to freight this period</span>
+                    <span>Top contributors to revenue this period</span>
                 </div>
             </div>
         </div>
       )
     },
     {
-      title: "Cash & Payables",
-      subtitle: "Working capital view",
+      title: "Monthly Trends",
+      subtitle: "Revenue, profit, and cost over time",
       content: (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
-            <div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">Cash on hand</div>
-              <div className="text-lg font-semibold text-slate-900 dark:text-slate-50">$640K</div>
+        <div className="w-full">
+            <div className="w-full bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm">
+                <h4 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-200">Financial Performance Trends</h4>
+                <div className="h-[400px] w-full">
+                    <ChartContainer config={{
+                        revenue: { label: "Revenue", color: "hsl(var(--chart-1))" },
+                        profit: { label: "Profit", color: "hsl(var(--chart-2))" },
+                        cost: { label: "Cost", color: "hsl(var(--chart-3))" },
+                    }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart
+                                data={monthlyTrend}
+                                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                            >
+                                <defs>
+                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                    </linearGradient>
+                                    <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                    </linearGradient>
+                                    <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                                <XAxis 
+                                    dataKey="date" 
+                                    tick={{fontSize: 12, fill: '#64748b'}}
+                                    tickLine={false}
+                                    axisLine={false}
+                                />
+                                <YAxis 
+                                    tick={{fontSize: 12, fill: '#64748b'}}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                                />
+                                <ChartTooltip content={<ChartTooltipContent />} />
+                                <Legend />
+                                <Area 
+                                    type="monotone" 
+                                    dataKey="revenue" 
+                                    stroke="#3b82f6" 
+                                    fillOpacity={1} 
+                                    fill="url(#colorRevenue)" 
+                                    name="Revenue"
+                                />
+                                <Area 
+                                    type="monotone" 
+                                    dataKey="profit" 
+                                    stroke="#10b981" 
+                                    fillOpacity={1} 
+                                    fill="url(#colorProfit)" 
+                                    name="Profit"
+                                />
+                                <Area 
+                                    type="monotone" 
+                                    dataKey="cost" 
+                                    stroke="#f59e0b" 
+                                    fillOpacity={1} 
+                                    fill="url(#colorCost)" 
+                                    name="Cost"
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </ChartContainer>
+                </div>
+                <div className="flex items-center gap-2 mt-4 text-sm text-slate-500 dark:text-slate-400">
+                    <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Monthly financial performance breakdown</span>
+                </div>
             </div>
-            <Wallet className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <StatTile label="Payables" value="$190K" trend="+2.0%" />
-            <StatTile label="Receivables" value="$320K" trend="+4.4%" positive />
-          </div>
-          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">
-            <div className="h-full w-[62%] bg-emerald-500" />
-          </div>
         </div>
       )
-    }
+    },
+    
   ]
 
   return (

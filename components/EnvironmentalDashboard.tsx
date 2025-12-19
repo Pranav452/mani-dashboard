@@ -248,8 +248,6 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
             <ChartContainer
             config={{
                 sea: { label: "Sea (Low Carbon)", color: "#10b981" },
-                rail: { label: "Rail", color: "#3b82f6" },
-                road: { label: "Road", color: "#f59e0b" },
                 air: { label: "Air (High Carbon)", color: "#ef4444" },
             }}
             className="h-[280px]"
@@ -257,8 +255,6 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
             <RadialBarChart
                 data={[
                 { name: "Air (High)", value: modeStats.find(m => m.name === 'AIR')?.value || 0, fill: "#ef4444" },
-                { name: "Road", value: Math.round(kpis.shipments * 0.1), fill: "#f59e0b" },
-                { name: "Rail", value: Math.round(kpis.shipments * 0.05), fill: "#3b82f6" },
                 { name: "Sea (Low)", value: modeStats.find(m => m.name === 'SEA')?.value || 0, fill: "#10b981" },
                 ]}
                 innerRadius="20%"
@@ -288,14 +284,6 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
             <div className="flex items-center gap-2 text-xs">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <span className="text-slate-600 dark:text-slate-400">Sea (Low)</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-                <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                <span className="text-slate-600 dark:text-slate-400">Rail</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <span className="text-slate-600 dark:text-slate-400">Road</span>
             </div>
             <div className="flex items-center gap-2 text-xs">
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
