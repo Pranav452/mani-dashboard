@@ -257,71 +257,66 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
     },
     {
       title: "Monthly Trends",
-      subtitle: "Revenue and cost over time",
+      subtitle: "Revenue over time",
       content: (
         <div className="w-full">
-            <div className="w-full bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm">
-                <h4 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-200">Financial Performance Trends</h4>
-                <div className="h-[400px] w-full">
-                    <ChartContainer config={{
-                        revenue: { label: "Revenue", color: "hsl(var(--chart-1))" },
-                        cost: { label: "Cost", color: "hsl(var(--chart-3))" },
-                    }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart
-                                data={monthlyTrend}
-                                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                            >
-                                <defs>
-                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                                    </linearGradient>
-                                    <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-zinc-800" />
-                                <XAxis 
-                                    dataKey="date" 
-                                    tick={{fontSize: 12, fill: '#64748b'}}
-                                    tickLine={false}
-                                    axisLine={false}
-                                />
-                                <YAxis 
-                                    tick={{fontSize: 12, fill: '#64748b'}}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
-                                />
-                                <ChartTooltip content={<ChartTooltipContent />} />
-                                <Legend />
-                                <Area 
-                                    type="monotone" 
-                                    dataKey="revenue"
-                                    stroke="#3b82f6"
-                                    fillOpacity={1}
-                                    fill="url(#colorRevenue)"
-                                    name="Revenue"
-                                />
-                                <Area 
-                                    type="monotone" 
-                                    dataKey="cost" 
-                                    stroke="#f59e0b" 
-                                    fillOpacity={1} 
-                                    fill="url(#colorCost)" 
-                                    name="Cost"
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </ChartContainer>
-                </div>
-                <div className="flex items-center gap-2 mt-4 text-sm text-slate-500 dark:text-slate-400">
-                    <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>Monthly financial performance breakdown</span>
-                </div>
+          <div className="w-full bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm">
+            <h4 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-200">
+              Financial Performance Trends
+            </h4>
+            <div className="h-[400px] w-full">
+              <ChartContainer
+                config={{
+                  revenue: { label: "Revenue", color: "hsl(var(--chart-1))" },
+                }}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={monthlyTrend}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#f1f5f9"
+                      className="dark:stroke-zinc-800"
+                    />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 12, fill: "#64748b" }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 12, fill: "#64748b" }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Legend />
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#3b82f6"
+                      fillOpacity={1}
+                      fill="url(#colorRevenue)"
+                      name="Revenue"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             </div>
+            <div className="flex items-center gap-2 mt-4 text-sm text-slate-500 dark:text-slate-400">
+              <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Monthly billing volume trend</span>
+            </div>
+          </div>
         </div>
       )
     },
