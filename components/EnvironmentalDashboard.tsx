@@ -107,9 +107,9 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
 
   // --- FILTERS COMPONENT ---
   const filters = (
-    <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+    <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
       <Select value={filterMode} onValueChange={setFilterMode}>
-        <SelectTrigger className="h-9 text-sm w-[140px] border-slate-200 bg-white">
+        <SelectTrigger className="h-9 text-sm w-[140px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:bg-slate-50 dark:hover:bg-zinc-800">
           <SelectValue placeholder="Mode" />
         </SelectTrigger>
         <SelectContent>
@@ -122,7 +122,7 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
 
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" className={cn("h-9 text-sm px-3 border-slate-200 bg-white hover:bg-slate-50", !dateRange.from && "text-slate-500")}>
+          <Button variant="outline" className={cn("h-9 text-sm px-3 border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:bg-slate-50 dark:hover:bg-zinc-800", !dateRange.from && "text-slate-500 dark:text-slate-400")}>
             <CalendarIcon className="w-4 h-4 mr-2" />
             {dateRange.from ? (
                 dateRange.to ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}` : format(dateRange.from, "MMM dd")
@@ -142,7 +142,7 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
 
       <Input 
         placeholder="Filter..." 
-        className="h-9 text-sm w-[200px] bg-slate-50 border-slate-200" 
+        className="h-9 text-sm w-[200px] bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-900" 
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
       />
@@ -150,7 +150,7 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
       <Button 
         variant="outline" 
         size="sm" 
-        className="h-9 text-sm border-slate-200"
+        className="h-9 text-sm border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:bg-slate-50 dark:hover:bg-zinc-800"
         onClick={() => {
             setFilterMode("ALL");
             setDateRange({ from: undefined, to: undefined });
@@ -167,66 +167,66 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
   // 1. KPI Cards
   const kpiSection = (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <Card className="border border-slate-200 shadow-sm">
+      <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
-          <CardTitle className="text-xs font-medium text-slate-500 uppercase flex items-center gap-2">
-            <Leaf className="w-4 h-4 text-emerald-600" /> CO2 Emissions
+          <CardTitle className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
+            <Leaf className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> CO2 Emissions
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-slate-900">{(kpis.co2/1000).toFixed(1)}</div>
-          <div className="text-sm text-slate-500">Tonnes CO₂</div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">{(kpis.co2/1000).toFixed(1)}</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">Tonnes CO₂</div>
           <div className="flex items-center gap-1 mt-2 text-xs">
-            <TrendingDown className="w-3 h-3 text-emerald-600" />
-            <span className="text-emerald-600 font-medium">-12% vs last quarter</span>
+            <TrendingDown className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">-12% vs last quarter</span>
           </div>
         </CardContent>
       </Card>
       
-      <Card className="border border-slate-200 shadow-sm">
+      <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
-          <CardTitle className="text-xs font-medium text-slate-500 uppercase flex items-center gap-2">
-            <Activity className="w-4 h-4 text-blue-600" /> Carbon Intensity
+          <CardTitle className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
+            <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Carbon Intensity
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-slate-900">{(kpis.co2 / Math.max(kpis.weight, 1) * 100).toFixed(2)}</div>
-          <div className="text-sm text-slate-500">kg CO₂ / ton cargo</div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">{(kpis.co2 / Math.max(kpis.weight, 1) * 100).toFixed(2)}</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">kg CO₂ / ton cargo</div>
           <div className="flex items-center gap-1 mt-2 text-xs">
-            <TrendingDown className="w-3 h-3 text-blue-600" />
-            <span className="text-blue-600 font-medium">-8% improvement</span>
+            <TrendingDown className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+            <span className="text-blue-600 dark:text-blue-400 font-medium">-8% improvement</span>
           </div>
         </CardContent>
       </Card>
       
-      <Card className="border border-slate-200 shadow-sm">
+      <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
-          <CardTitle className="text-xs font-medium text-slate-500 uppercase flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-amber-600" /> Carbon Offset Cost
+          <CardTitle className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-amber-600 dark:text-amber-400" /> Carbon Offset Cost
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-slate-900">${((kpis.co2/1000) * 25).toFixed(0)}</div>
-          <div className="text-sm text-slate-500">Est. Credits Required</div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">${((kpis.co2/1000) * 25).toFixed(0)}</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">Est. Credits Required</div>
           <div className="flex items-center gap-1 mt-2 text-xs">
-            <TrendingUp className="w-3 h-3 text-amber-600" />
-            <span className="text-amber-600 font-medium">$25/tonne rate</span>
+            <TrendingUp className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+            <span className="text-amber-600 dark:text-amber-400 font-medium">$25/tonne rate</span>
           </div>
         </CardContent>
       </Card>
       
-      <Card className="border border-slate-200 shadow-sm">
+      <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
-          <CardTitle className="text-xs font-medium text-slate-500 uppercase flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-purple-600" /> Green Routes
+          <CardTitle className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-purple-600 dark:text-purple-400" /> Green Routes
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-slate-900">{Math.round((modeStats.find(m => m.name === 'SEA')?.value || 0) / Math.max(kpis.shipments, 1) * 100)}%</div>
-          <div className="text-sm text-slate-500">Low Carbon Shipments</div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">{Math.round((modeStats.find(m => m.name === 'SEA')?.value || 0) / Math.max(kpis.shipments, 1) * 100)}%</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">Low Carbon Shipments</div>
           <div className="flex items-center gap-1 mt-2 text-xs">
-            <TrendingUp className="w-3 h-3 text-purple-600" />
-            <span className="text-purple-600 font-medium">Sea freight preferred</span>
+            <TrendingUp className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+            <span className="text-purple-600 dark:text-purple-400 font-medium">Sea freight preferred</span>
           </div>
         </CardContent>
       </Card>
@@ -237,12 +237,12 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
   const chartsSection = (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Radial Bar Chart */}
-        <Card className="border border-slate-200 shadow-sm">
+        <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50 flex items-center gap-2">
             <Leaf className="w-4 h-4" /> Green Lane Efficiency
             </CardTitle>
-            <CardDescription className="text-xs">Carbon impact by transport mode</CardDescription>
+            <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Carbon impact by transport mode</CardDescription>
         </CardHeader>
         <CardContent>
             <ChartContainer
@@ -287,31 +287,31 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
             <div className="flex flex-wrap justify-center gap-4 mt-4">
             <div className="flex items-center gap-2 text-xs">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span className="text-slate-600">Sea (Low)</span>
+                <span className="text-slate-600 dark:text-slate-400">Sea (Low)</span>
             </div>
             <div className="flex items-center gap-2 text-xs">
                 <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                <span className="text-slate-600">Rail</span>
+                <span className="text-slate-600 dark:text-slate-400">Rail</span>
             </div>
             <div className="flex items-center gap-2 text-xs">
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <span className="text-slate-600">Road</span>
+                <span className="text-slate-600 dark:text-slate-400">Road</span>
             </div>
             <div className="flex items-center gap-2 text-xs">
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                <span className="text-slate-600">Air (High)</span>
+                <span className="text-slate-600 dark:text-slate-400">Air (High)</span>
             </div>
             </div>
         </CardContent>
         </Card>
 
         {/* Radar Chart (Reintroduced as it adds "wow" factor) */}
-        <Card className="border border-slate-200 shadow-sm">
+        <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50 flex items-center gap-2">
             <Activity className="w-4 h-4" /> Happy Chic Eco-Radar
             </CardTitle>
-            <CardDescription className="text-xs">Sustainability across dimensions</CardDescription>
+            <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Sustainability across dimensions</CardDescription>
         </CardHeader>
         <CardContent>
             <ChartContainer
@@ -331,7 +331,7 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
                 { metric: "Chic Score", current: Math.round((modeStats.find(m => m.name === 'SEA')?.value || 0) / Math.max(kpis.shipments, 1) * 100), target: 75 },
                 ]}
             >
-                <PolarGrid stroke="#e2e8f0" />
+                <PolarGrid stroke="#e2e8f0" className="dark:stroke-zinc-800" />
                 <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11, fill: '#64748b' }} />
                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} />
                 <Radar
@@ -351,7 +351,7 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
                 strokeWidth={2}
                 strokeDasharray="5 5"
                 />
-                <ChartLegend content={<ChartLegendContent />} />
+                <ChartLegend content={<ChartLegendContent />} wrapperStyle={{ color: 'var(--color-muted-foreground)' }} />
             </RadarChart>
             </ChartContainer>
         </CardContent>
@@ -361,10 +361,10 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
 
   // 3. New Gradient Area Chart Section
   const detailedBreakdownSection = (
-    <Card className="border border-slate-200 shadow-sm">
+    <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader>
-            <CardTitle>Emissions by Transport Mode</CardTitle>
-            <CardDescription>Monthly CO₂ emissions (tonnes) breakdown by Sea, Air, and Road</CardDescription>
+            <CardTitle className="text-slate-900 dark:text-slate-50">Emissions by Transport Mode</CardTitle>
+            <CardDescription className="text-slate-500 dark:text-slate-400">Monthly CO₂ emissions (tonnes) breakdown by Sea, Air, and Road</CardDescription>
         </CardHeader>
         <CardContent>
             <ChartContainer 
@@ -380,19 +380,21 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
                     data={monthlyEmissions}
                     margin={{ left: 12, right: 12 }}
                 >
-                    <CartesianGrid vertical={false} />
+                    <CartesianGrid vertical={false} className="stroke-slate-200 dark:stroke-zinc-800" />
                     <XAxis
                         dataKey="month"
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
                         tickFormatter={(value) => value.slice(0, 3)}
+                        stroke="var(--color-muted-foreground)"
                     />
                     <YAxis 
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
                         tickFormatter={(val) => `${val}t`}
+                        stroke="var(--color-muted-foreground)"
                     />
                     <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
                     <defs>
@@ -439,10 +441,10 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
         <CardFooter>
             <div className="flex w-full items-start gap-2 text-sm">
             <div className="grid gap-2">
-                <div className="flex items-center gap-2 leading-none font-medium">
+                <div className="flex items-center gap-2 leading-none font-medium text-slate-900 dark:text-slate-50">
                 Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
                 </div>
-                <div className="text-muted-foreground flex items-center gap-2 leading-none">
+                <div className="text-muted-foreground flex items-center gap-2 leading-none text-slate-500 dark:text-slate-400">
                 January - June 2024
                 </div>
             </div>
@@ -454,48 +456,48 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
   // 4. Sustainability Initiatives Section (New)
   const initiativesSection = (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-        <Card className="border border-emerald-100 bg-emerald-50/50 shadow-sm">
+        <Card className="border border-emerald-100 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm">
             <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-emerald-800 flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
                     <Leaf className="w-4 h-4" /> Happy Chic Forest Initiative
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-emerald-900">1,240</div>
-                <div className="text-xs text-emerald-700">Trees planted YTD</div>
-                <div className="mt-2 h-1.5 bg-emerald-200 rounded-full overflow-hidden">
-                    <div className="h-full w-[65%] bg-emerald-600" />
+                <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-300">1,240</div>
+                <div className="text-xs text-emerald-700 dark:text-emerald-500">Trees planted YTD</div>
+                <div className="mt-2 h-1.5 bg-emerald-200 dark:bg-emerald-900 rounded-full overflow-hidden">
+                    <div className="h-full w-[65%] bg-emerald-600 dark:bg-emerald-500" />
                 </div>
-                <div className="text-[10px] text-emerald-600 mt-1 text-right">65% of goal</div>
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 text-right">65% of goal</div>
             </CardContent>
         </Card>
 
-        <Card className="border border-blue-100 bg-blue-50/50 shadow-sm">
+        <Card className="border border-blue-100 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20 shadow-sm">
             <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-400 flex items-center gap-2">
                     <Ship className="w-4 h-4" /> Clean Fuel Usage
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-blue-900">28%</div>
-                <div className="text-xs text-blue-700">Of total miles</div>
-                <div className="mt-2 h-1.5 bg-blue-200 rounded-full overflow-hidden">
-                    <div className="h-full w-[28%] bg-blue-600" />
+                <div className="text-2xl font-bold text-blue-900 dark:text-blue-300">28%</div>
+                <div className="text-xs text-blue-700 dark:text-blue-500">Of total miles</div>
+                <div className="mt-2 h-1.5 bg-blue-200 dark:bg-blue-900 rounded-full overflow-hidden">
+                    <div className="h-full w-[28%] bg-blue-600 dark:bg-blue-500" />
                 </div>
-                <div className="text-[10px] text-blue-600 mt-1 text-right">Target: 40%</div>
+                <div className="text-[10px] text-blue-600 dark:text-blue-400 mt-1 text-right">Target: 40%</div>
             </CardContent>
         </Card>
 
-        <Card className="border border-purple-100 bg-purple-50/50 shadow-sm">
+        <Card className="border border-purple-100 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/20 shadow-sm">
             <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-purple-800 flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-purple-800 dark:text-purple-400 flex items-center gap-2">
                     <DollarSign className="w-4 h-4" /> Carbon Credit Spend
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-purple-900">$12,500</div>
-                <div className="text-xs text-purple-700">Invested this quarter</div>
-                <div className="flex items-center gap-1 mt-2 text-xs text-purple-600">
+                <div className="text-2xl font-bold text-purple-900 dark:text-purple-300">$12,500</div>
+                <div className="text-xs text-purple-700 dark:text-purple-500">Invested this quarter</div>
+                <div className="flex items-center gap-1 mt-2 text-xs text-purple-600 dark:text-purple-400">
                     <TrendingUp className="w-3 h-3" /> +15% vs last Q
                 </div>
             </CardContent>

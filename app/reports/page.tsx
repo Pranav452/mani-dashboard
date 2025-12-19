@@ -34,14 +34,14 @@ const reportSections = [
 
 function ReportsPageContent() {
   const hero = (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl bg-gradient-to-r from-slate-800 via-slate-700 to-indigo-700 text-white p-5 shadow-lg">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl bg-gradient-to-r from-slate-800 via-slate-700 to-indigo-700 dark:from-slate-950 dark:via-slate-800 dark:to-indigo-900 text-white p-5 shadow-lg">
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-indigo-100">
           <CalendarClock className="w-4 h-4" /> Reporting workspace
         </div>
         <div className="text-2xl font-semibold">Stories & exports</div>
         <p className="text-sm text-indigo-100 max-w-sm">Curate weekly briefs and schedule recurring exports.</p>
-        <Button size="sm" variant="secondary" className="text-slate-900">Create report</Button>
+        <Button size="sm" variant="secondary" className="text-slate-900 dark:text-zinc-900">Create report</Button>
       </div>
       <div className="rounded-xl bg-white/10 border border-white/10 p-4 space-y-3">
         <HeroTile label="Scheduled" value="12" trend="+2" positive />
@@ -55,32 +55,57 @@ function ReportsPageContent() {
   )
 
   const filters = (
-    <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+    <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
       {["All", "Scheduled", "Library"].map(tag => (
-        <Button key={tag} variant={tag === "Scheduled" ? "default" : "ghost"} size="sm" className="h-8 text-sm">
+        <Button key={tag} variant={tag === "Scheduled" ? "default" : "ghost"} size="sm" className="h-8 text-sm hover:text-slate-900 dark:hover:text-slate-200">
           {tag}
         </Button>
       ))}
       <div className="flex items-center gap-2 ml-auto">
-        <Button variant="outline" size="sm" className="h-8 text-xs">History</Button>
-        <Button variant="ghost" size="sm" className="h-8 text-xs">Export CSV</Button>
+        <Button variant="outline" size="sm" className="h-8 text-xs border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-900 dark:text-slate-200">History</Button>
+        <Button variant="ghost" size="sm" className="h-8 text-xs text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200">Export CSV</Button>
       </div>
     </div>
   )
 
   const extendedSections = [
-    ...reportSections,
+    {
+        title: "Report Library",
+        subtitle: "Placeholder tiles to illustrate layout",
+        content: (
+          <div className="grid grid-cols-2 gap-3">
+            <ReportTile title="Monthly P&L" badge="Updated" trend="+1.2%" positive />
+            <ReportTile title="Lane Profitability" badge="Draft" trend="-0.6%" />
+            <ReportTile title="Customer Scorecards" badge="Updated" trend="+2.0%" positive />
+            <ReportTile title="Carrier Performance" badge="Planned" trend="-" />
+          </div>
+        )
+    },
+    {
+        title: "Scheduled Exports",
+        subtitle: "Sample schedule list",
+        content: (
+          <div className="space-y-2">
+            {["Daily ops pack", "Weekly exec brief", "Customer CSAT", "Exception log"].map((item, idx) => (
+              <div key={item} className="p-3 rounded-lg bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{item}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">{idx % 2 === 0 ? "6am UTC" : "Fridays"}</div>
+              </div>
+            ))}
+          </div>
+        )
+    },
     {
       title: "Recent runs",
       subtitle: "Archive of generated reports",
       content: (
-        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-             <div className="grid grid-cols-4 gap-4 p-3 bg-slate-50 text-xs font-semibold text-slate-500 border-b border-slate-200">
+        <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
+             <div className="grid grid-cols-4 gap-4 p-3 bg-slate-50 dark:bg-zinc-950 text-xs font-semibold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-zinc-800">
                 <div className="col-span-2">Report Name</div>
                 <div>Generated</div>
                 <div className="text-right">Action</div>
              </div>
-             <div className="divide-y divide-slate-100">
+             <div className="divide-y divide-slate-100 dark:divide-zinc-800">
                 {[
                   { name: "Global Logistics Summary Q3", date: "Today, 10:00 AM", type: "PDF" },
                   { name: "Carrier Performance Scorecard", date: "Yesterday", type: "XLSX" },
@@ -88,16 +113,16 @@ function ReportsPageContent() {
                   { name: "Carbon Footprint Disclosure", date: "Oct 22, 2024", type: "PDF" },
                   { name: "Weekly Operations Brief", date: "Oct 20, 2024", type: "PPTX" }
                 ].map((report, idx) => (
-                  <div key={idx} className="grid grid-cols-4 gap-4 p-3 text-sm items-center hover:bg-slate-50 transition-colors">
+                  <div key={idx} className="grid grid-cols-4 gap-4 p-3 text-sm items-center hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
                     <div className="col-span-2 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                        <div className="w-8 h-8 rounded bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-400">
                             {report.type}
                         </div>
-                        <span className="font-medium text-slate-900">{report.name}</span>
+                        <span className="font-medium text-slate-900 dark:text-slate-100">{report.name}</span>
                     </div>
-                    <div className="text-slate-500">{report.date}</div>
+                    <div className="text-slate-500 dark:text-slate-400">{report.date}</div>
                     <div className="text-right">
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50">Download</Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20">Download</Button>
                     </div>
                   </div>
                 ))}
@@ -122,18 +147,18 @@ function ReportsPageContent() {
 
 function ReportTile({ title, badge, trend, positive }: { title: string; badge: string; trend: string; positive?: boolean }) {
   const TrendIcon = positive ? ArrowUpRight : ArrowDownRight
-  const trendColor = trend === "-" ? "text-slate-400" : positive ? "text-emerald-600" : "text-amber-600"
+  const trendColor = trend === "-" ? "text-slate-400 dark:text-slate-500" : positive ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
 
   return (
-    <Card className="border border-slate-200 shadow-none">
+    <Card className="border border-slate-200 dark:border-zinc-800 shadow-none bg-white dark:bg-zinc-900">
       <CardHeader className="pb-2">
-        <CardTitle className="text-xs text-slate-500 font-medium flex items-center gap-2">
-          <FileText className="w-4 h-4 text-slate-500" />
+        <CardTitle className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2">
+          <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
           {title}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex items-center justify-between">
-        <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">{badge}</span>
+        <span className="text-xs px-2 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300">{badge}</span>
         <span className={`text-xs flex items-center gap-1 ${trendColor}`}>
           {trend === "-" ? "Pending" : <><TrendIcon className="w-3 h-3" /> {trend}</>}
         </span>
@@ -144,11 +169,11 @@ function ReportTile({ title, badge, trend, positive }: { title: string; badge: s
 
 function HeroTile({ label, value, trend, positive }: { label: string; value: string; trend: string; positive?: boolean }) {
   const TrendIcon = positive ? ArrowUpRight : ArrowDownRight
-  const trendColor = trend === "-" ? "text-slate-200" : positive ? "text-emerald-200" : "text-amber-200"
+  const trendColor = trend === "-" ? "text-slate-200 dark:text-zinc-300" : positive ? "text-emerald-200 dark:text-emerald-300" : "text-amber-200 dark:text-amber-300"
 
   return (
     <div className="rounded-lg bg-white/10 border border-white/10 p-3">
-      <div className="text-xs uppercase text-indigo-100">{label}</div>
+      <div className="text-xs uppercase text-indigo-100 dark:text-indigo-200">{label}</div>
       <div className="text-lg font-semibold">{value}</div>
       <div className={`text-xs flex items-center gap-1 ${trendColor}`}>
         {trend === "-" ? "Pending" : <><TrendIcon className="w-3 h-3" /> {trend}</>}

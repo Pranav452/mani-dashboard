@@ -51,17 +51,17 @@ export function ShipmentDrawer({ open, onOpenChange, record }: ShipmentDrawerPro
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-      <DrawerContent className="h-full w-full sm:w-[600px]">
-        <DrawerHeader className="border-b sticky top-0 bg-white z-10">
+      <DrawerContent className="h-full w-full sm:w-[600px] bg-white dark:bg-zinc-950 border-l border-slate-200 dark:border-zinc-800">
+        <DrawerHeader className="border-b border-slate-200 dark:border-zinc-800 sticky top-0 bg-white dark:bg-zinc-950 z-10">
           <div className="flex justify-between items-start">
             <div className="flex-1">
-              <DrawerTitle className="text-xl font-bold text-slate-900">Shipment Details</DrawerTitle>
-              <DrawerDescription className="mt-1">
-                <span className="font-mono text-sm text-slate-600">Job No: {record.JOBNO}</span>
+              <DrawerTitle className="text-xl font-bold text-slate-900 dark:text-slate-50">Shipment Details</DrawerTitle>
+              <DrawerDescription className="mt-1 text-slate-500 dark:text-slate-400">
+                <span className="font-mono text-sm">Job No: {record.JOBNO}</span>
               </DrawerDescription>
             </div>
             <DrawerClose asChild>
-              <Button variant="ghost" size="icon" className="rounded-full"><X className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className="rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"><X className="h-4 w-4" /></Button>
             </DrawerClose>
           </div>
         </DrawerHeader>
@@ -72,16 +72,16 @@ export function ShipmentDrawer({ open, onOpenChange, record }: ShipmentDrawerPro
             {metricsData.map((metric, idx) => {
               const Icon = metric.icon
               return (
-                <Card key={metric.name} className="border border-slate-200 hover:shadow-md transition-shadow">
+                <Card key={metric.name} className="border border-slate-200 dark:border-zinc-800 hover:shadow-md transition-shadow bg-white dark:bg-zinc-900">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${metric.color}15` }}>
                         <Icon className="w-5 h-5" style={{ color: metric.color }} />
                       </div>
                     </div>
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{metric.name}</div>
-                    <div className="text-2xl font-bold text-slate-900">
-                      {metric.value} <span className="text-sm font-normal text-slate-500">{metric.unit}</span>
+                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">{metric.name}</div>
+                    <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+                      {metric.value} <span className="text-sm font-normal text-slate-500 dark:text-slate-400">{metric.unit}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -90,23 +90,23 @@ export function ShipmentDrawer({ open, onOpenChange, record }: ShipmentDrawerPro
           </div>
 
           {/* Visual Metrics Chart */}
-          <Card className="border border-slate-200">
+          <Card className="border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold text-slate-900">Volume Breakdown</CardTitle>
+              <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Volume Breakdown</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
                     <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
                     <Tooltip 
                       contentStyle={{
-                        backgroundColor: '#fff',
+                        backgroundColor: 'var(--color-card)',
                         borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-card-foreground)'
                       }}
                     />
                     <Bar dataKey="value" radius={[4, 4, 0, 0]}>
@@ -121,62 +121,62 @@ export function ShipmentDrawer({ open, onOpenChange, record }: ShipmentDrawerPro
           </Card>
 
           {/* Basic Information */}
-          <Card className="border border-slate-200">
+          <Card className="border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
                 <FileText className="w-4 h-4" /> Basic Information
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium">Provider</label>
-                  <div className="font-semibold text-sm text-slate-900">{record.CONNAME || "Unknown"}</div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Provider</label>
+                  <div className="font-semibold text-sm text-slate-900 dark:text-slate-50">{record.CONNAME || "Unknown"}</div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium">Mode</label>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Mode</label>
                   <div className="mt-1">
                     <span className={cn(
                       "px-2 py-1 rounded text-xs font-medium inline-block",
-                      record._mode === "SEA" ? "bg-blue-100 text-blue-700" :
-                      record._mode === "AIR" ? "bg-purple-100 text-purple-700" :
-                      record._mode === "SEA-AIR" ? "bg-orange-100 text-orange-700" :
-                      "bg-slate-100 text-slate-700"
+                      record._mode === "SEA" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" :
+                      record._mode === "AIR" ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400" :
+                      record._mode === "SEA-AIR" ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400" :
+                      "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300"
                     )}>
                       {record._mode || record.MODE || "Unknown"}
                     </span>
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
                     <MapPin className="w-3 h-3" /> Origin (POL)
                   </label>
-                  <div className="font-semibold text-sm text-slate-900">{record.POL || "-"}</div>
+                  <div className="font-semibold text-sm text-slate-900 dark:text-slate-50">{record.POL || "-"}</div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
                     <MapPin className="w-3 h-3" /> Destination (POD)
                   </label>
-                  <div className="font-semibold text-sm text-slate-900">{record.POD || "-"}</div>
+                  <div className="font-semibold text-sm text-slate-900 dark:text-slate-50">{record.POD || "-"}</div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
                     <Ship className="w-3 h-3" /> Carrier
                   </label>
-                  <div className="font-semibold text-sm text-slate-900">{record.LINER_NAME || record._carrier || "-"}</div>
+                  <div className="font-semibold text-sm text-slate-900 dark:text-slate-50">{record.LINER_NAME || record._carrier || "-"}</div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium">Office</label>
-                  <div className="font-semibold text-sm text-slate-900">{record._office || "Unknown"}</div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Office</label>
+                  <div className="font-semibold text-sm text-slate-900 dark:text-slate-50">{record._office || "Unknown"}</div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Dates & Timeline */}
-          <Card className="border border-slate-200">
+          <Card className="border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
                 <Calendar className="w-4 h-4" /> Dates & Timeline
               </CardTitle>
             </CardHeader>
@@ -184,31 +184,31 @@ export function ShipmentDrawer({ open, onOpenChange, record }: ShipmentDrawerPro
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 font-medium">Estimated Departure (ETD)</label>
-                    <div className="text-sm font-semibold text-slate-900">{record.ETD || "-"}</div>
+                    <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Estimated Departure (ETD)</label>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{record.ETD || "-"}</div>
                     {getValidDate(record.ETD) && (
-                      <div className="text-xs text-slate-400">{format(getValidDate(record.ETD)!, 'EEEE, MMMM dd, yyyy')}</div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500">{format(getValidDate(record.ETD)!, 'EEEE, MMMM dd, yyyy')}</div>
                     )}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 font-medium">Actual Departure (ATD)</label>
-                    <div className="text-sm font-semibold text-slate-900">{record.ATD || "-"}</div>
+                    <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Actual Departure (ATD)</label>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{record.ATD || "-"}</div>
                     {getValidDate(record.ATD) && (
-                      <div className="text-xs text-slate-400">{format(getValidDate(record.ATD)!, 'EEEE, MMMM dd, yyyy')}</div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500">{format(getValidDate(record.ATD)!, 'EEEE, MMMM dd, yyyy')}</div>
                     )}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 font-medium">Estimated Arrival (ETA)</label>
-                    <div className="text-sm font-semibold text-slate-900">{record.ETA || "-"}</div>
+                    <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Estimated Arrival (ETA)</label>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{record.ETA || "-"}</div>
                     {getValidDate(record.ETA) && (
-                      <div className="text-xs text-slate-400">{format(getValidDate(record.ETA)!, 'EEEE, MMMM dd, yyyy')}</div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500">{format(getValidDate(record.ETA)!, 'EEEE, MMMM dd, yyyy')}</div>
                     )}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-slate-500 font-medium">Actual Arrival (ATA)</label>
-                    <div className="text-sm font-semibold text-slate-900">{record.ATA || "-"}</div>
+                    <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Actual Arrival (ATA)</label>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{record.ATA || "-"}</div>
                     {getValidDate(record.ATA) && (
-                      <div className="text-xs text-slate-400">{format(getValidDate(record.ATA)!, 'EEEE, MMMM dd, yyyy')}</div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500">{format(getValidDate(record.ATA)!, 'EEEE, MMMM dd, yyyy')}</div>
                     )}
                   </div>
                 </div>
@@ -217,45 +217,45 @@ export function ShipmentDrawer({ open, onOpenChange, record }: ShipmentDrawerPro
           </Card>
 
           {/* References & Documents */}
-          <Card className="border border-slate-200">
+          <Card className="border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
                 <FileText className="w-4 h-4" /> References & Documents
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium">Container Number</label>
-                  <div className="text-sm font-mono text-slate-900">{record.CONNO || "-"}</div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Container Number</label>
+                  <div className="text-sm font-mono text-slate-900 dark:text-slate-50">{record.CONNO || "-"}</div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium">Booking Number</label>
-                  <div className="text-sm font-mono text-slate-900">{record.BOOKNO || "-"}</div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Booking Number</label>
+                  <div className="text-sm font-mono text-slate-900 dark:text-slate-50">{record.BOOKNO || "-"}</div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium">Bill of Lading (BL No)</label>
-                  <div className="text-sm font-mono text-slate-900">{record.BLNO || "-"}</div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Bill of Lading (BL No)</label>
+                  <div className="text-sm font-mono text-slate-900 dark:text-slate-50">{record.BLNO || "-"}</div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium">Master Airway Bill</label>
-                  <div className="text-sm font-mono text-slate-900">{record.CONTMAWB || "-"}</div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Master Airway Bill</label>
+                  <div className="text-sm font-mono text-slate-900 dark:text-slate-50">{record.CONTMAWB || "-"}</div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium">Order Number</label>
-                  <div className="text-sm font-mono text-slate-900">{record.ORDERNO || "-"}</div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Order Number</label>
+                  <div className="text-sm font-mono text-slate-900 dark:text-slate-50">{record.ORDERNO || "-"}</div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium">Document Received Date</label>
-                  <div className="text-sm text-slate-900">{record.DOCRECD || "-"}</div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Document Received Date</label>
+                  <div className="text-sm text-slate-900 dark:text-slate-50">{record.DOCRECD || "-"}</div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium">Document Date</label>
-                  <div className="text-sm text-slate-900">{record.DOCDT || "-"}</div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Document Date</label>
+                  <div className="text-sm text-slate-900 dark:text-slate-50">{record.DOCDT || "-"}</div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-slate-500 font-medium">Status</label>
-                  <div className="text-sm font-semibold text-slate-900">{record.SHPTSTATUS || "-"}</div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Status</label>
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{record.SHPTSTATUS || "-"}</div>
                 </div>
               </div>
             </CardContent>
@@ -263,22 +263,22 @@ export function ShipmentDrawer({ open, onOpenChange, record }: ShipmentDrawerPro
 
           {/* Additional Details */}
           {(record.ISDIFFAIR || record.REMARKS) && (
-            <Card className="border border-slate-200">
+            <Card className="border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold text-slate-900">Additional Details</CardTitle>
+                <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Additional Details</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {record.ISDIFFAIR && (
                     <div>
-                      <label className="text-xs text-slate-500 font-medium">Sea-Air Indicator</label>
-                      <div className="text-sm text-slate-900">{record.ISDIFFAIR}</div>
+                      <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Sea-Air Indicator</label>
+                      <div className="text-sm text-slate-900 dark:text-slate-50">{record.ISDIFFAIR}</div>
                     </div>
                   )}
                   {record.REMARKS && (
                     <div>
-                      <label className="text-xs text-slate-500 font-medium">Remarks</label>
-                      <div className="text-sm text-slate-900 bg-slate-50 p-3 rounded-lg">{record.REMARKS}</div>
+                      <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Remarks</label>
+                      <div className="text-sm text-slate-900 dark:text-slate-50 bg-slate-50 dark:bg-zinc-800 p-3 rounded-lg">{record.REMARKS}</div>
                     </div>
                   )}
                 </div>
@@ -287,12 +287,12 @@ export function ShipmentDrawer({ open, onOpenChange, record }: ShipmentDrawerPro
           )}
         </div>
 
-        <DrawerFooter className="border-t sticky bottom-0 bg-white">
+        <DrawerFooter className="border-t border-slate-200 dark:border-zinc-800 sticky bottom-0 bg-white dark:bg-zinc-950">
           <div className="flex gap-2 w-full">
             <DrawerClose asChild className="flex-1">
-              <Button variant="outline" className="w-full">Close</Button>
+              <Button variant="outline" className="w-full border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800 dark:text-slate-100">Close</Button>
             </DrawerClose>
-            <Button className="flex-1">Export Details</Button>
+            <Button className="flex-1 bg-slate-900 dark:bg-slate-50 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-200">Export Details</Button>
           </div>
         </DrawerFooter>
       </DrawerContent>

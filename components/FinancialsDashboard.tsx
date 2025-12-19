@@ -88,9 +88,9 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
 
   // --- FILTERS COMPONENT ---
   const filters = (
-    <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+    <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
       <Select value={filterMode} onValueChange={setFilterMode}>
-        <SelectTrigger className="h-9 text-sm w-[140px] border-slate-200 bg-white">
+        <SelectTrigger className="h-9 text-sm w-[140px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:bg-slate-50 dark:hover:bg-zinc-800">
           <SelectValue placeholder="Mode" />
         </SelectTrigger>
         <SelectContent>
@@ -103,7 +103,7 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
 
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" className={cn("h-9 text-sm px-3 border-slate-200 bg-white hover:bg-slate-50", !dateRange.from && "text-slate-500")}>
+          <Button variant="outline" className={cn("h-9 text-sm px-3 border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:bg-slate-50 dark:hover:bg-zinc-800", !dateRange.from && "text-slate-500 dark:text-slate-400")}>
             <CalendarIcon className="w-4 h-4 mr-2" />
             {dateRange.from ? (
                 dateRange.to ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}` : format(dateRange.from, "MMM dd")
@@ -123,7 +123,7 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
 
       <Input 
         placeholder="Filter..." 
-        className="h-9 text-sm w-[200px] bg-slate-50 border-slate-200" 
+        className="h-9 text-sm w-[200px] bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-900" 
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
       />
@@ -131,7 +131,7 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
       <Button 
         variant="outline" 
         size="sm" 
-        className="h-9 text-sm border-slate-200"
+        className="h-9 text-sm border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:bg-slate-50 dark:hover:bg-zinc-800"
         onClick={() => {
             setFilterMode("ALL");
             setDateRange({ from: undefined, to: undefined });
@@ -144,16 +144,16 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
   )
 
   const hero = (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white p-5 shadow-lg">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-zinc-900 dark:via-zinc-800 dark:to-zinc-700 text-white p-5 shadow-lg">
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-200">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-200 dark:text-zinc-300">
           <Sparkles className="w-4 h-4" /> Executive overview
         </div>
         <div className="text-2xl font-semibold">Financial posture</div>
-        <p className="text-sm text-slate-200 max-w-sm">Invoicing, freight, and liquidity pulse for the current period.</p>
+        <p className="text-sm text-slate-200 dark:text-zinc-300 max-w-sm">Invoicing, freight, and liquidity pulse for the current period.</p>
         <div className="flex gap-3">
-          <Button size="sm" variant="secondary" className="text-slate-900">View P&L</Button>
-          <Button size="sm" variant="ghost" className="text-white hover:text-white border-white/30">Export</Button>
+          <Button size="sm" variant="secondary" className="text-slate-900 dark:text-zinc-900">View P&L</Button>
+          <Button size="sm" variant="ghost" className="text-white hover:text-white border-white/30 hover:bg-white/10">Export</Button>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -163,12 +163,12 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
         <HeroStat label="Sea Wise Monthly" value={`$${(kpis.cost / 1000000).toFixed(2)}M`} trend="-2.0%" />
       </div>
       <div className="rounded-xl bg-white/10 border border-white/10 p-4">
-        <div className="text-xs uppercase text-slate-200 mb-2">Profit Target</div>
+        <div className="text-xs uppercase text-slate-200 dark:text-zinc-300 mb-2">Profit Target</div>
         <div className="h-2 rounded-full bg-white/20 overflow-hidden mb-3">
           <div className="h-full w-[68%] bg-emerald-300" />
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-200">68% of plan</span>
+          <span className="text-slate-200 dark:text-zinc-300">68% of plan</span>
           <span className="font-semibold">$1.5M Goal</span>
         </div>
       </div>
@@ -181,8 +181,8 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
       subtitle: "Monthly performance breakdown",
       content: (
         <div className="grid grid-cols-1 gap-6">
-            <div className="h-[450px] w-full bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                <h4 className="text-sm font-semibold mb-4 text-slate-700">Invoicing vs Expense Trend</h4>
+            <div className="h-[450px] w-full bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm">
+                <h4 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-200">Invoicing vs Expense Trend</h4>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={monthlyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <defs>
@@ -191,18 +191,25 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                         <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
                     <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
                     <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} tickFormatter={(value) => `$${value/1000}k`} />
-                    <Tooltip contentStyle={{backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0'}} />
-                    <Legend verticalAlign="top" height={36}/>
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'var(--color-card)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-card-foreground)'
+                      }} 
+                    />
+                    <Legend verticalAlign="top" height={36} wrapperStyle={{ color: 'var(--color-muted-foreground)' }} />
                     <Area name="Invoiced" type="monotone" dataKey="revenue" stroke="#10b981" fillOpacity={1} fill="url(#colorRev)" strokeWidth={2} />
                     <Area name="Expenses" type="monotone" dataKey="cost" stroke="#ef4444" fillOpacity={0} strokeDasharray="5 5" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
             </div>
-            <div className="h-[450px] w-full bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                <h4 className="text-sm font-semibold mb-4 text-slate-700">Top Clients by Volume</h4>
+            <div className="h-[450px] w-full bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm">
+                <h4 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-200">Top Clients by Volume</h4>
                 <div className="h-[380px] w-full">
                     <ChartContainer config={{
                         label: { color: "var(--background)" },
@@ -213,7 +220,7 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                             layout="vertical"
                             margin={{ right: 50, left: 20 }}
                         >
-                            <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#f1f5f9" />
+                            <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-zinc-800" />
                             <YAxis
                                 dataKey="name"
                                 type="category"
@@ -239,7 +246,7 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                                     dataKey="value"
                                     position="right"
                                     offset={8}
-                                    className="fill-foreground"
+                                    className="fill-foreground dark:fill-slate-200"
                                     fontSize={12}
                                     formatter={(value: any) => `$${(value / 1000).toFixed(1)}k`}
                                 />
@@ -247,8 +254,8 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                         </BarChart>
                     </ChartContainer>
                 </div>
-                <div className="flex items-center gap-2 mt-4 text-sm text-slate-500">
-                    <TrendingUp className="h-4 w-4 text-emerald-600" />
+                <div className="flex items-center gap-2 mt-4 text-sm text-slate-500 dark:text-slate-400">
+                    <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     <span>Top contributors to freight this period</span>
                 </div>
             </div>
@@ -260,18 +267,18 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
       subtitle: "Working capital view",
       content: (
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
             <div>
-              <div className="text-xs text-slate-500">Cash on hand</div>
-              <div className="text-lg font-semibold text-slate-900">$640K</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Cash on hand</div>
+              <div className="text-lg font-semibold text-slate-900 dark:text-slate-50">$640K</div>
             </div>
-            <Wallet className="w-5 h-5 text-slate-500" />
+            <Wallet className="w-5 h-5 text-slate-500 dark:text-slate-400" />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <StatTile label="Payables" value="$190K" trend="+2.0%" />
             <StatTile label="Receivables" value="$320K" trend="+4.4%" positive />
           </div>
-          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+          <div className="h-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">
             <div className="h-full w-[62%] bg-emerald-500" />
           </div>
         </div>
@@ -294,15 +301,15 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
 
 function StatTile({ label, value, trend, positive }: { label: string; value: string; trend: string; positive?: boolean }) {
   const TrendIcon = positive ? ArrowUpRight : ArrowDownRight
-  const trendColor = positive ? "text-emerald-600" : "text-amber-600"
+  const trendColor = positive ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
 
   return (
-    <Card className="border border-slate-200 shadow-none">
+    <Card className="border border-slate-200 dark:border-zinc-800 shadow-none bg-white dark:bg-zinc-900">
       <CardHeader className="pb-2">
-        <CardTitle className="text-xs text-slate-500 font-medium">{label}</CardTitle>
+        <CardTitle className="text-xs text-slate-500 dark:text-slate-400 font-medium">{label}</CardTitle>
       </CardHeader>
       <CardContent className="flex items-center justify-between">
-        <span className="text-lg font-semibold text-slate-900">{value}</span>
+        <span className="text-lg font-semibold text-slate-900 dark:text-slate-50">{value}</span>
         <span className={`text-xs flex items-center gap-1 ${trendColor}`}>
           <TrendIcon className="w-3 h-3" /> {trend}
         </span>
@@ -313,11 +320,11 @@ function StatTile({ label, value, trend, positive }: { label: string; value: str
 
 function HeroStat({ label, value, trend, positive }: { label: string; value: string; trend: string; positive?: boolean }) {
   const TrendIcon = positive ? ArrowUpRight : ArrowDownRight
-  const trendColor = positive ? "text-emerald-200" : "text-amber-200"
+  const trendColor = positive ? "text-emerald-200 dark:text-emerald-300" : "text-amber-200 dark:text-amber-300"
 
   return (
     <div className="rounded-xl bg-white/10 border border-white/10 p-3">
-      <div className="text-xs uppercase text-slate-200">{label}</div>
+      <div className="text-xs uppercase text-slate-200 dark:text-zinc-300">{label}</div>
       <div className="text-xl font-semibold">{value}</div>
       <div className={`text-xs flex items-center gap-1 ${trendColor}`}>
         <TrendIcon className="w-3 h-3" /> {trend}

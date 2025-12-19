@@ -63,7 +63,7 @@ export default function FleetPage() {
   const currentData = fleetData[activeMode]
 
   const hero = (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 rounded-2xl bg-gradient-to-r from-emerald-900 via-cyan-800 to-sky-700 text-white p-5 shadow-lg">
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 rounded-2xl bg-gradient-to-r from-emerald-900 via-cyan-800 to-sky-700 dark:from-emerald-950 dark:via-cyan-900 dark:to-sky-900 text-white p-5 shadow-lg">
       <div className="space-y-2 lg:col-span-2">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-cyan-100">
           <Navigation className="w-4 h-4" /> Fleet readiness
@@ -72,7 +72,7 @@ export default function FleetPage() {
         <p className="text-sm text-cyan-100 max-w-lg">
           Real-time availability, route health, and maintenance status for {activeMode === 'ALL' ? 'global fleet' : activeMode.toLowerCase() + ' operations'}.
         </p>
-        <Button size="sm" variant="secondary" className="text-slate-900">Dispatch board</Button>
+        <Button size="sm" variant="secondary" className="text-slate-900 dark:text-zinc-900">Dispatch board</Button>
       </div>
       <div className="rounded-xl bg-white/10 border border-white/10 p-4 space-y-3">
         <HeroTile label={currentData.active.label} value={currentData.active.value} trend={currentData.active.trend} positive={currentData.active.positive} />
@@ -86,21 +86,21 @@ export default function FleetPage() {
   )
 
   const filters = (
-    <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+    <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
       {(["ALL", "ROAD", "SEA", "AIR"] as const).map(mode => (
         <Button 
           key={mode} 
           variant={activeMode === mode ? "default" : "ghost"} 
           size="sm" 
-          className="h-8 text-sm"
+          className="h-8 text-sm hover:text-slate-900 dark:hover:text-slate-200"
           onClick={() => setActiveMode(mode)}
         >
           {mode === "ALL" ? "All Fleets" : mode}
         </Button>
       ))}
       <div className="flex items-center gap-2 ml-auto">
-        <Button variant="outline" size="sm" className="h-8 text-xs">Routes</Button>
-        <Button variant="ghost" size="sm" className="h-8 text-xs">Export</Button>
+        <Button variant="outline" size="sm" className="h-8 text-xs border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-900 dark:text-slate-200">Routes</Button>
+        <Button variant="ghost" size="sm" className="h-8 text-xs text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200">Export</Button>
       </div>
     </div>
   )
@@ -116,14 +116,14 @@ export default function FleetPage() {
             value={currentData.capacity.value} 
             trend={currentData.capacity.trend} 
             positive={currentData.capacity.positive} 
-            icon={<Activity className="w-4 h-4 text-slate-500" />} 
+            icon={<Activity className="w-4 h-4 text-slate-500 dark:text-slate-400" />} 
           />
           <FleetTile 
             label="Maintenance" 
             value={currentData.maintenance.value} 
             trend={currentData.maintenance.trend} 
             positive={currentData.maintenance.positive}
-            icon={<AlertTriangle className="w-4 h-4 text-slate-500" />}
+            icon={<AlertTriangle className="w-4 h-4 text-slate-500 dark:text-slate-400" />}
           />
           <FleetTile label="Total Assets" value={currentData.active.value} trend={currentData.active.trend} />
           <FleetTile label="Idle / Parked" value={currentData.idle.value} trend={currentData.idle.trend} />
@@ -135,12 +135,12 @@ export default function FleetPage() {
       subtitle: "Efficiency and reliability metrics",
       content: (
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
             <div>
-              <div className="text-xs text-slate-500">On-time arrivals</div>
-              <div className="text-lg font-semibold text-slate-900">{currentData.ontime}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">On-time arrivals</div>
+              <div className="text-lg font-semibold text-slate-900 dark:text-slate-50">{currentData.ontime}</div>
             </div>
-            <Truck className="w-5 h-5 text-slate-500" />
+            <Truck className="w-5 h-5 text-slate-500 dark:text-slate-400" />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <FleetTile label="Avg dwell" value={currentData.dwell} trend="-0.6" positive />
@@ -159,11 +159,11 @@ export default function FleetPage() {
             { name: "Incidents", value: currentData.incidents, trend: "-1" },
             { name: "Certifications", value: currentData.certifications, trend: "0%" },
           ].map(item => (
-            <div key={item.name} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
-              <div className="font-semibold text-slate-900">{item.name}</div>
+            <div key={item.name} className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-zinc-800 px-3 py-2">
+              <div className="font-semibold text-slate-900 dark:text-slate-100">{item.name}</div>
               <div className="flex items-center gap-3">
-                <span className="text-slate-500">{item.value}</span>
-                <span className={item.trend.startsWith("-") ? "text-amber-600 text-xs" : "text-emerald-600 text-xs"}>{item.trend}</span>
+                <span className="text-slate-500 dark:text-slate-400">{item.value}</span>
+                <span className={item.trend.startsWith("-") ? "text-amber-600 dark:text-amber-400 text-xs" : "text-emerald-600 dark:text-emerald-400 text-xs"}>{item.trend}</span>
               </div>
             </div>
           ))}
@@ -175,28 +175,28 @@ export default function FleetPage() {
       subtitle: "Live tracking of key resources",
       className: "lg:col-span-3",
       content: (
-        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden col-span-6">
-          <div className="grid grid-cols-4 gap-4 p-3 bg-slate-50 text-xs font-semibold text-slate-500 border-b border-slate-200">
+        <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden col-span-6">
+          <div className="grid grid-cols-4 gap-4 p-3 bg-slate-50 dark:bg-zinc-950 text-xs font-semibold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-zinc-800">
             <div>Asset ID</div>
             <div>Status</div>
             <div>Location</div>
             <div className="text-right">Est. Arrival</div>
           </div>
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-zinc-800">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <div key={i} className="grid grid-cols-4 gap-4 p-3 text-sm items-center hover:bg-slate-50 transition-colors">
-                <div className="font-medium text-slate-900">
+              <div key={i} className="grid grid-cols-4 gap-4 p-3 text-sm items-center hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                <div className="font-medium text-slate-900 dark:text-slate-100">
                   {activeMode === 'AIR' ? `AC-${900+i}` : activeMode === 'SEA' ? `VS-${400+i}` : `TR-${200+i}`}
                 </div>
                 <div>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${i % 3 === 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${i % 3 === 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300'}`}>
                     {i % 3 === 0 ? 'Delayed' : 'In Transit'}
                   </span>
                 </div>
-                <div className="text-slate-500 truncate">
+                <div className="text-slate-500 dark:text-slate-400 truncate">
                   {activeMode === 'AIR' ? 'Enroute to DXB' : activeMode === 'SEA' ? 'Pacific Ocean' : 'I-95 Northbound'}
                 </div>
-                <div className="text-right text-slate-900">
+                <div className="text-right text-slate-900 dark:text-slate-100">
                   {i * 2 + 4}h remaining
                 </div>
               </div>
@@ -222,18 +222,18 @@ export default function FleetPage() {
 
 function FleetTile({ label, value, trend, positive, icon }: { label: string; value: string; trend: string; positive?: boolean; icon?: ReactNode }) {
   const TrendIcon = positive ? ArrowUpRight : ArrowDownRight
-  const trendColor = positive ? "text-emerald-600" : "text-amber-600"
+  const trendColor = positive ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
 
   return (
-    <Card className="border border-slate-200 shadow-none">
+    <Card className="border border-slate-200 dark:border-zinc-800 shadow-none bg-white dark:bg-zinc-900">
       <CardHeader className="pb-2">
-        <CardTitle className="text-xs text-slate-500 font-medium flex items-center gap-2">
+        <CardTitle className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2">
           {icon}
           {label}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-slate-900">{value}</span>
+        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</span>
         <span className={`text-xs flex items-center gap-1 ${trendColor}`}>
           <TrendIcon className="w-3 h-3" /> {trend}
         </span>
@@ -244,11 +244,11 @@ function FleetTile({ label, value, trend, positive, icon }: { label: string; val
 
 function HeroTile({ label, value, trend, positive }: { label: string; value: string; trend: string; positive?: boolean }) {
   const TrendIcon = positive ? ArrowUpRight : ArrowDownRight
-  const trendColor = positive ? "text-emerald-200" : "text-amber-200"
+  const trendColor = positive ? "text-emerald-200 dark:text-emerald-300" : "text-amber-200 dark:text-amber-300"
 
   return (
     <div className="rounded-lg bg-white/10 border border-white/10 p-3">
-      <div className="text-xs uppercase text-cyan-100">{label}</div>
+      <div className="text-xs uppercase text-cyan-100 dark:text-cyan-200">{label}</div>
       <div className="text-lg font-semibold">{value}</div>
       <div className={`text-xs flex items-center gap-1 ${trendColor}`}>
         <TrendIcon className="w-3 h-3" /> {trend}

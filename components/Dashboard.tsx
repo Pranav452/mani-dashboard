@@ -27,6 +27,7 @@ import { cleanNum, getValidDate, getComputedMode, calculateTEU, calculateUniqueT
 
 // Import Shadcn Chart Components
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
+import { ModeToggle } from "@/components/mode-toggle"
 
 
 // --- HELPER: Smart Carrier Logic (The Fix) ---
@@ -738,52 +739,55 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 font-sans text-slate-900 dark:text-slate-50">
       
       {/* 1. TOP NAVBAR */}
-      <header className="bg-white/90 backdrop-blur border-b border-slate-200 sticky top-0 z-40">
+      <header className="bg-white/90 dark:bg-zinc-950/90 backdrop-blur border-b border-slate-200 dark:border-zinc-800 sticky top-0 z-40">
         <div className="max-w-[1400px] mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 relative">
               <Image src="/logo.png" alt="Logo" fill className="object-contain" />
             </div>
             <div className="flex flex-col">
-              <h1 className="text-lg md:text-xl font-semibold text-slate-900 leading-tight">
-                Management Dashboard <span className="text-[15px] font-bold text-red-700 ml-1">For HAPPYCHIC</span>
+              <h1 className="text-lg md:text-xl font-semibold text-slate-900 dark:text-slate-50 leading-tight">
+                Management Dashboard <span className="text-[15px] font-bold text-red-700 dark:text-red-500 ml-1">For HAPPYCHIC</span>
               </h1>
-              <span className="text-[13px] text-dark-blue-500 font-normal">by Manilal Patel</span>
+              <span className="text-[13px] text-dark-blue-500 dark:text-blue-400 font-normal">by Manilal Patel</span>
             </div>
           </div>
           
           <nav className="hidden md:flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="font-medium text-slate-900 bg-slate-100" asChild>
+            <Button variant="ghost" size="sm" className="font-medium text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-slate-100" asChild>
               <Link href="/">Dashboard</Link>
             </Button>
-            <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900" asChild>
+            <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
               <Link href="/financials">Financials</Link>
             </Button>
-            <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900" asChild>
+            <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
               <Link href="/environmental">Environmental Impact</Link>
             </Button>
-            <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900" asChild>
+            <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
               <Link href="/fleet">Fleet</Link>
             </Button>
-            <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900" asChild>
+            <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
               <Link href="/reports">Reports</Link>
             </Button>
+            <div className="ml-2">
+              <ModeToggle />
+            </div>
           </nav>
         </div>
       </header>
 
       {/* 2. FILTERS BAR */}
-      <div className="bg-white/95 backdrop-blur border-b border-slate-200 sticky top-16 z-30">
+      <div className="bg-white/95 dark:bg-zinc-950/95 backdrop-blur border-b border-slate-200 dark:border-zinc-800 sticky top-16 z-30">
         <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-3">
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Mode Filter */}
             <Select value={selectedMode} onValueChange={(val) => {
               setSelectedMode(val); setDateRange({ from: undefined, to: undefined }); setSelectedClient("ALL");
             }}>
-              <SelectTrigger className="h-9 text-sm w-[130px] border-slate-200 bg-white hover:bg-slate-50">
+              <SelectTrigger className="h-9 text-sm w-[130px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800">
                 <SelectValue placeholder="Mode" />
               </SelectTrigger>
               <SelectContent>
@@ -796,7 +800,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
 
             {/* Office Filter */}
             <Select value={selectedOffice} onValueChange={setSelectedOffice}>
-              <SelectTrigger className="h-9 text-sm w-[130px] border-slate-200 bg-white hover:bg-slate-50">
+              <SelectTrigger className="h-9 text-sm w-[130px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800">
                 <SelectValue placeholder="Office" />
               </SelectTrigger>
               <SelectContent>
@@ -813,8 +817,8 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 <Button
                   variant="outline"
                   className={cn(
-                    "h-9 text-sm w-[240px] justify-start text-left font-normal border-slate-200 bg-white hover:bg-slate-50",
-                    !dateRange.from && "text-slate-500"
+                    "h-9 text-sm w-[240px] justify-start text-left font-normal border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800",
+                    !dateRange.from && "text-slate-500 dark:text-slate-400"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
@@ -845,7 +849,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
 
             {/* Provider Filter */}
             <Select value={selectedClient} onValueChange={setSelectedClient}>
-              <SelectTrigger className="h-9 text-sm w-[180px] border-slate-200 bg-white hover:bg-slate-50">
+              <SelectTrigger className="h-9 text-sm w-[180px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800">
                 <SelectValue placeholder="Provider" />
               </SelectTrigger>
               <SelectContent>
@@ -861,7 +865,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input 
                 placeholder="Search shipments..." 
-                className="pl-9 h-9 border-slate-200 bg-white hover:bg-slate-50 focus:bg-white"
+                className="pl-9 h-9 border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-950"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -872,7 +876,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="h-9 text-sm border-red-200 bg-white hover:bg-red-50 text-red-600 hover:text-red-700" 
+                className="h-9 text-sm border-red-200 bg-white dark:bg-zinc-900 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 hover:text-red-700 dark:text-red-400" 
                 onClick={() => {
                   setSelectedMode("ALL")
                   setSelectedOffice("ALL")
@@ -881,14 +885,14 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                   setDateRange({ from: undefined, to: undefined })
                 }}
               >
-                <FilterX className="w-4 h-4 mr-2 text-red-600" /> Reset
+                <FilterX className="w-4 h-4 mr-2 text-red-600 dark:text-red-400" /> Reset
               </Button>
 
               {/* Export Button */}
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="h-9 text-sm border-slate-200 bg-white hover:bg-slate-50" 
+                className="h-9 text-sm border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800" 
                 onClick={handleExport}
               >
                 <Download className="w-4 h-4 mr-2" /> Export
@@ -897,10 +901,10 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               <Button
                 variant="outline"
                 size="icon"
-                className="h-9 w-9 rounded-full border-slate-200 bg-white hover:bg-slate-50 p-0"
+                className="h-9 w-9 rounded-full border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 p-0"
                 onClick={() => setShowSnow(!showSnow)}
               >
-                <Snowflake className="w-4 h-4 text-slate-500" />
+                <Snowflake className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               </Button>
             </div>
           </div>
@@ -929,24 +933,24 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
           <div className="flex flex-col space-y-6 min-h-0">
             
             {/* SECTION 1: DELIVERIES (METRICS) */}
-            <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-bold text-slate-900">Deliveries</CardTitle>
+                <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Deliveries</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                  {/* METRIC 1: TOTAL WEIGHT */}
-                 <Card className="shadow-sm border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                 <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-950">
                    <CardContent className="p-6">
                      <div className="flex items-center justify-between mb-3">
-                       <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Weight</div>
-                       <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                         <Box className="w-5 h-5 text-emerald-600" />
+                       <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Weight</div>
+                       <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                         <Box className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                        </div>
                      </div>
                      <div className="flex items-end justify-between mb-4">
-                       <div className="text-3xl font-bold text-slate-900">{(kpis.weight / 1000).toFixed(1)}</div>
-                       <div className="text-sm font-normal text-slate-500 mb-1">tons</div>
+                       <div className="text-3xl font-bold text-slate-900 dark:text-slate-50">{(kpis.weight / 1000).toFixed(1)}</div>
+                       <div className="text-sm font-normal text-slate-500 dark:text-slate-400 mb-1">tons</div>
                      </div>
                      <div className="h-[50px]">
                         <ResponsiveContainer width="100%" height="100%">
@@ -959,43 +963,43 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                  </Card>
 
                  {/* METRIC 2: AVG TRANSIT TIME */}
-                 <Card className="shadow-sm border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                 <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-950">
                    <CardContent className="p-6">
                      <div className="flex items-center justify-between mb-3">
-                       <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Avg Transit Time</div>
-                       <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                         <Clock className="w-5 h-5 text-blue-600" />
+                       <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Avg Transit Time</div>
+                       <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                         <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                        </div>
                      </div>
                      <div className="flex items-end justify-between mb-4">
-                       <div className="text-3xl font-bold text-slate-900">{kpis.avgTransit.toFixed(1)}</div>
-                       <div className="text-sm font-normal text-slate-500 mb-1">days</div>
+                       <div className="text-3xl font-bold text-slate-900 dark:text-slate-50">{kpis.avgTransit.toFixed(1)}</div>
+                       <div className="text-sm font-normal text-slate-500 dark:text-slate-400 mb-1">days</div>
                      </div>
-                     <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
+                     <div className="space-y-2 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-500">Fastest</span>
-                          <span className="font-medium text-slate-900">12 days</span>
+                          <span className="text-slate-500 dark:text-slate-400">Fastest</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-50">12 days</span>
                        </div>
                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-500">Slowest</span>
-                          <span className="font-medium text-slate-900">45 days</span>
+                          <span className="text-slate-500 dark:text-slate-400">Slowest</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-50">45 days</span>
                        </div>
                      </div>
                    </CardContent>
                  </Card>
 
                  {/* METRIC 3: TOTAL SHIPMENTS */}
-                 <Card className="shadow-sm border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                 <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-950">
                    <CardContent className="p-6">
                      <div className="flex items-center justify-between mb-3">
-                       <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Shipments</div>
-                       <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                         <Ship className="w-5 h-5 text-purple-600" />
+                       <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Shipments</div>
+                       <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                         <Ship className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                        </div>
                      </div>
                      <div className="flex items-end justify-between mb-4">
-                       <div className="text-3xl font-bold text-slate-900">{kpis.shipments.toLocaleString()}</div>
-                       <div className="text-sm font-normal text-slate-500 mb-1">files</div>
+                       <div className="text-3xl font-bold text-slate-900 dark:text-slate-50">{kpis.shipments.toLocaleString()}</div>
+                       <div className="text-sm font-normal text-slate-500 dark:text-slate-400 mb-1">files</div>
                      </div>
                      <div className="h-[50px]">
                         <ResponsiveContainer width="100%" height="100%">
@@ -1017,24 +1021,24 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
             </Card>
             
             {/* SECTION 2: REVENUE AND COSTS (VOLUME TRENDS) */}
-            <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden flex-1 min-h-0">
-              <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-100">
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden flex-1 min-h-0 bg-white dark:bg-zinc-900">
+              <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
                 <div>
-                  <CardTitle className="text-lg font-bold text-slate-900">Shipment Volume Analysis</CardTitle>
+                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Shipment Volume Analysis</CardTitle>
                 </div>
                 <div className="flex items-center gap-2">
-                   <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                   <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg">
                       {(["weight", "teu", "cbm"] as const).map(key => (
                         <button 
                           key={key} 
-                          className={cn("text-xs font-medium px-3 py-1.5 rounded-md transition-all", trendMetric === key ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700")}
+                          className={cn("text-xs font-medium px-3 py-1.5 rounded-md transition-all", trendMetric === key ? "bg-white dark:bg-zinc-950 text-slate-900 dark:text-slate-50 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200")}
                           onClick={() => setTrendMetric(key)}
                         >
                           {metricConfig[key].label}
                         </button>
                       ))}
                    </div>
-                   <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => toggleDrilldown('shipment-volume')}>
+                   <Button variant="ghost" size="sm" className="h-8 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200" onClick={() => toggleDrilldown('shipment-volume')}>
                      {drilldowns['shipment-volume'] ? 'Hide details' : 'View details'}
                    </Button>
                 </div>
@@ -1053,7 +1057,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                           <stop offset="95%" stopColor="#94a3b8" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
                       <XAxis 
                         dataKey="date" 
                         axisLine={false} 
@@ -1072,15 +1076,16 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                       />
                       <Tooltip 
                         contentStyle={{
-                          backgroundColor: '#fff', 
+                          backgroundColor: 'var(--color-card)', 
                           borderRadius: '12px', 
-                          border: '1px solid #e2e8f0',
-                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                          border: '1px solid var(--color-border)',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          color: 'var(--color-card-foreground)'
                         }} 
-                        itemStyle={{color: '#0f172a', fontWeight: 600}}
+                        itemStyle={{color: 'var(--color-foreground)', fontWeight: 600}}
                         cursor={{stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4'}}
                       />
-                      <Legend verticalAlign="top" height={36} iconType="circle" />
+                      <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ color: 'var(--color-muted-foreground)' }} />
                       <Area 
                         name={metricConfig[trendMetric].label}
                         type="monotone" 
@@ -1108,29 +1113,29 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                   </ResponsiveContainer>
                 </div>
                 
-                <div className="flex items-center gap-6 mt-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-6 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                    <span className="text-sm text-slate-600 font-medium">Pending Invoices</span>
+                    <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Pending Invoices</span>
                   </div>
                    <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-pink-500" />
-                    <span className="text-sm text-slate-600 font-medium">Expenses</span>
+                    <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Expenses</span>
                   </div>
 
 
                    <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-slate-900" />
-                    <span className="text-sm text-slate-600 font-medium">Air Invoices Pending</span>
+                    <div className="w-3 h-3 rounded-full bg-slate-900 dark:bg-slate-100" />
+                    <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Air Invoices Pending</span>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
-                    <span className="text-xs text-slate-400">Vs previous period</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">Vs previous period</span>
                     <button
                       aria-label="Toggle compare previous period"
                       onClick={() => setCompareEnabled(v => !v)}
                       className={cn(
                         "w-9 h-5 rounded-full relative transition-colors",
-                        compareEnabled ? "bg-emerald-500" : "bg-slate-200"
+                        compareEnabled ? "bg-emerald-500" : "bg-slate-200 dark:bg-zinc-700"
                       )}
                     >
                       <span
@@ -1143,17 +1148,17 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                   </div>
                 </div>
                 {drilldowns['shipment-volume'] && (
-                  <div className="mt-4 border border-slate-100 rounded-lg p-4 bg-slate-50">
+                  <div className="mt-4 border border-slate-100 dark:border-zinc-800 rounded-lg p-4 bg-slate-50 dark:bg-zinc-950">
                     <div className="flex items-center justify-between mb-3">
-                      <div className="text-sm font-semibold text-slate-900">Monthly detail</div>
-                      <span className="text-xs text-slate-500">Last 6 months</span>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">Monthly detail</div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Last 6 months</span>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {monthlyTrend.slice(-6).map(entry => (
-                        <div key={entry.date} className="p-3 rounded-lg bg-white border border-slate-200">
-                          <div className="text-xs text-slate-500">{format(new Date(entry.date + '-01'), 'MMM yyyy')}</div>
-                          <div className="text-lg font-semibold text-slate-900">{formatNumber(entry.val)}</div>
-                          <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div key={entry.date} className="p-3 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+                          <div className="text-xs text-slate-500 dark:text-slate-400">{format(new Date(entry.date + '-01'), 'MMM yyyy')}</div>
+                          <div className="text-lg font-semibold text-slate-900 dark:text-slate-50">{formatNumber(entry.val)}</div>
+                          <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                             <div className="h-full bg-emerald-500" style={{ width: `${Math.min(entry.val / (monthlyTrend[monthlyTrend.length -1]?.val || 1) * 100, 100)}%` }} />
                           </div>
                         </div>
@@ -1166,22 +1171,22 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
 
             {/* MODE & COSTS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
+              <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base font-bold text-slate-900">Balance and costs</CardTitle>
+                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Balance and costs</CardTitle>
                   <MoreVertical className="w-4 h-4 text-slate-400" />
                 </CardHeader>
                 <CardContent className="h-[250px] relative">
                   <div className="absolute top-4 left-6">
-                    <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">Cash Balance</div>
-                    <div className="text-2xl font-bold text-slate-900">$126K</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Cash Balance</div>
+                    <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">$126K</div>
                   </div>
                   <div className="mt-12 h-[180px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={modeStats}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10}} />
-                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}} />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#64748b'}} />
+                        <Tooltip cursor={{fill: 'var(--color-muted)'}} contentStyle={{backgroundColor: 'var(--color-card)', borderRadius: '8px', border: '1px solid var(--color-border)', color: 'var(--color-card-foreground)'}} />
                         <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                           {modeStats.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                         </Bar>
@@ -1191,28 +1196,28 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 </CardContent>
               </Card>
 
-              <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
+              <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base font-bold text-slate-900">Costs by category</CardTitle>
+                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Costs by category</CardTitle>
                   <MoreVertical className="w-4 h-4 text-slate-400" />
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex h-2 rounded-full overflow-hidden bg-slate-100 mb-6">
+                  <div className="flex h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-800 mb-6">
                     <div className="bg-emerald-500 w-[35%]" />
-                    <div className="bg-slate-800 w-[25%]" />
+                    <div className="bg-slate-800 dark:bg-slate-600 w-[25%]" />
                     <div className="bg-yellow-400 w-[15%]" />
-                    <div className="bg-slate-300 w-[25%]" />
+                    <div className="bg-slate-300 dark:bg-zinc-700 w-[25%]" />
                   </div>
                   
                   <div className="space-y-3">
                     {laneStats.slice(0, 5).map((lane, idx) => (
                       <div key={idx} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
-                          <div className={cn("w-2 h-2 rounded-full", idx === 0 ? "bg-emerald-500" : idx === 1 ? "bg-slate-800" : idx === 2 ? "bg-yellow-400" : "bg-slate-300")} />
-                          <span className="text-slate-600 truncate max-w-[150px]">{lane.name}</span>
+                          <div className={cn("w-2 h-2 rounded-full", idx === 0 ? "bg-emerald-500" : idx === 1 ? "bg-slate-800 dark:bg-slate-600" : idx === 2 ? "bg-yellow-400" : "bg-slate-300 dark:bg-zinc-700")} />
+                          <span className="text-slate-600 dark:text-slate-400 truncate max-w-[150px]">{lane.name}</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-semibold text-slate-900">${(lane.weight * 120).toLocaleString()}</span>
+                          <span className="font-semibold text-slate-900 dark:text-slate-50">${(lane.weight * 120).toLocaleString()}</span>
                           <span className="text-slate-400 text-xs w-8 text-right">{Math.round((lane.weight / (kpis.weight/1000)) * 100)}%</span>
                         </div>
                       </div>
@@ -1229,49 +1234,49 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
           <div className="flex flex-col space-y-4 lg:space-y-1.5  min-h-0 lg:w-[340px]">
             
             {/* QUICK SNAPSHOT */}
-            <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden flex-shrink-0 lg:h-[380px] mb-6">
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden flex-shrink-0 lg:h-[380px] mb-6 bg-white dark:bg-zinc-900">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold text-slate-900"> Quick Snapshot</CardTitle>
-                <CardDescription className="text-xs text-slate-500">Compact overview for the right column</CardDescription>
+                <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50"> Quick Snapshot</CardTitle>
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Compact overview for the right column</CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-white rounded-lg border border-slate-100">
-                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">On-Time</div>
+                <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
+                  <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">On-Time</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900">92%</span>
-                    <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+4%</span>
+                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">92%</span>
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+4%</span>
                   </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div className="h-full w-[92%] bg-emerald-500" />
                   </div>
                 </div>
-                <div className="p-3 bg-white rounded-lg border border-slate-100">
-                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Exceptions</div>
+                <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
+                  <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">Exceptions</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900">18</span>
-                    <span className="text-xs text-amber-600 flex items-center gap-1"><ArrowDownRight className="w-3 h-3" />-3</span>
+                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">18</span>
+                    <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1"><ArrowDownRight className="w-3 h-3" />-3</span>
                   </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div className="h-full w-[35%] bg-amber-500" />
                   </div>
                 </div>
-                <div className="p-3 bg-white rounded-lg border border-slate-100">
-                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Fleet Utilization</div>
+                <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
+                  <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">Fleet Utilization</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900">78%</span>
-                    <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+2%</span>
+                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">78%</span>
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+2%</span>
                   </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full w-[78%] bg-slate-900" />
+                  <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full w-[78%] bg-slate-900 dark:bg-slate-100" />
                   </div>
                 </div>
-                <div className="p-3 bg-white rounded-lg border border-slate-100">
-                  <div className="text-[11px] uppercase text-slate-400 font-semibold mb-1">Sea Freight Yield</div>
+                <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
+                  <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">Sea Freight Yield</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900">24%</span>
-                    <span className="text-xs text-emerald-600 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+1.4%</span>
+                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">24%</span>
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+1.4%</span>
                   </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div className="h-full w-[24%] bg-emerald-500" />
                   </div>
                 </div>
@@ -1279,12 +1284,12 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
             </Card>
             
             {/* INVOICES / SHIPMENTS LIST */}
-            <Card className="shadow-none border border-slate-200 rounded-xl ">
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900">
               <CardHeader className="pb-0  px-6">
                 <div className="flex items-center justify-between mb-6">
-                   <h2 className="text-lg font-bold text-slate-900">Invoices</h2>
+                   <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">Invoices</h2>
                    <div className="flex items-center gap-2">
-                     <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => toggleDrilldown('invoices')}>
+                     <Button variant="ghost" size="sm" className="h-8 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200" onClick={() => toggleDrilldown('invoices')}>
                        {drilldowns['invoices'] ? 'Hide drilldown' : 'Show drilldown'}
                      </Button>
                      <MoreVertical className="w-4 h-3.5  text-slate-400" />
@@ -1294,25 +1299,25 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 {/* STATUS CARDS */}
                 <div className="grid grid-cols-3 gap-2 mb-2.5 ">
                    <div className="space-y-0.5">
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase">Paid</div>
-                      <div className="text-base font-bold text-slate-900">$169K</div>
+                      <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Paid</div>
+                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">$169K</div>
                    </div>
-                   <div className="space-y-1 border-l border-slate-100 pl-3">
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase">Pending</div>
-                      <div className="text-base font-bold text-slate-900">$95K</div>
+                   <div className="space-y-1 border-l border-slate-100 dark:border-zinc-800 pl-3">
+                      <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Pending</div>
+                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">$95K</div>
                    </div>
-                   <div className="space-y-1 border-l border-slate-100 pl-3">
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase">Unpaid</div>
-                      <div className="text-base font-bold text-slate-900">$64K</div>
+                   <div className="space-y-1 border-l border-slate-100 dark:border-zinc-800 pl-3">
+                      <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Unpaid</div>
+                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">$64K</div>
                    </div>
                 </div>
 
-                <div className="h-1.5 w-full bg-slate-100 rounded-full mb-6 overflow-hidden">
+                <div className="h-1.5 w-full bg-slate-100 dark:bg-zinc-800 rounded-full mb-6 overflow-hidden">
                    <div className="h-full w-[65%] bg-emerald-500 rounded-full" />
                 </div>
 
                 {/* TABS */}
-                <div className="flex items-center gap-1 border-b border-slate-100 mb-4 overflow-x-auto">
+                <div className="flex items-center gap-1 border-b border-slate-100 dark:border-zinc-800 mb-4 overflow-x-auto">
                    {(["ALL", "SEA", "AIR", "SEA-AIR"] as const).map(tab => (
                      <button
                        key={tab}
@@ -1320,8 +1325,8 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                        className={cn(
                          "px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
                          selectedTab === tab 
-                           ? "border-slate-900 text-slate-900" 
-                           : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                           ? "border-slate-900 dark:border-slate-100 text-slate-900 dark:text-slate-100" 
+                           : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-zinc-700"
                        )}
                      >
                        {tab === "ALL" ? "All" : tab}
@@ -1334,7 +1339,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                    <Input 
                       placeholder="Search invoice..." 
-                      className="pl-8 h-8 text-xs bg-slate-50 border-slate-200"
+                      className="pl-8 h-8 text-xs bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-900"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                    />
@@ -1342,13 +1347,13 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               </CardHeader>
               
               <CardContent className="p-0 flex-1 overflow-auto min-h-0 max-h-[600px]">
-                <div className="divide-y divide-slate-50">
+                <div className="divide-y divide-slate-50 dark:divide-zinc-800">
                    {recentShipments
                      .filter(s => selectedTab === "ALL" || s._mode === selectedTab)
                      .map((row, idx) => (
                      <div 
                        key={idx} 
-                       className="px-6 py-4 hover:bg-slate-50 cursor-pointer transition-colors flex items-center justify-between group"
+                       className="px-6 py-4 hover:bg-slate-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors flex items-center justify-between group"
                       onClick={() => {
                         toggleDrilldown('invoices')
                         handleRowClick(row)
@@ -1356,28 +1361,28 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                      >
                         <div className="flex items-center gap-3">
                            {/* Checkbox placeholder */}
-                           <div className="w-4 h-4 rounded border border-slate-300 flex items-center justify-center text-white group-hover:border-slate-400">
-                              <Check className="w-3 h-3 opacity-0 group-hover:opacity-100 text-slate-400" />
+                           <div className="w-4 h-4 rounded border border-slate-300 dark:border-zinc-700 flex items-center justify-center text-white group-hover:border-slate-400 dark:group-hover:border-zinc-600">
+                              <Check className="w-3 h-3 opacity-0 group-hover:opacity-100 text-slate-400 dark:text-slate-500" />
                            </div>
                            
                            {/* Icon based on Mode */}
                            <div className={cn(
                              "w-8 h-8 rounded-full flex items-center justify-center",
-                             row._mode === "SEA" ? "bg-blue-100 text-blue-600" :
-                             row._mode === "AIR" ? "bg-purple-100 text-purple-600" :
-                             "bg-orange-100 text-orange-600"
+                             row._mode === "SEA" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" :
+                             row._mode === "AIR" ? "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400" :
+                             "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
                            )}>
                              {row._mode === "SEA" ? <Ship className="w-4 h-4" /> : row._mode === "AIR" ? <PlaneIcon /> : <Layers className="w-4 h-4" />}
                            </div>
                            
                            <div>
-                              <div className="text-sm font-semibold text-slate-900">{row.CONNAME || "Unknown Client"}</div>
-                              <div className="text-xs text-slate-500">{row.JOBNO} • {row._date ? format(row._date, "MM/dd/yy") : "N/A"}</div>
+                              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{row.CONNAME || "Unknown Client"}</div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">{row.JOBNO} • {row._date ? format(row._date, "MM/dd/yy") : "N/A"}</div>
                            </div>
                         </div>
                         
                         <div className="text-right">
-                           <div className="text-sm font-bold text-slate-900">${(cleanNum(row.CONT_GRWT) * 0.5).toLocaleString()}</div>
+                           <div className="text-sm font-bold text-slate-900 dark:text-slate-100">${(cleanNum(row.CONT_GRWT) * 0.5).toLocaleString()}</div>
                            <MoreVertical className="w-4 h-4 text-slate-300 ml-auto mt-1 opacity-0 group-hover:opacity-100" />
                         </div>
                      </div>
@@ -1389,24 +1394,24 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 </div>
               </CardContent>
               {drilldowns['invoices'] && (
-                <div className="px-6 pb-4 border-t border-slate-100 bg-slate-50">
+                <div className="px-6 pb-4 border-t border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950">
                   <div className="flex items-center justify-between py-3">
                     <div>
-                      <div className="text-sm font-semibold text-slate-900">Inline drilldown</div>
-                      <div className="text-xs text-slate-500">Recent selections mirrored below</div>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">Inline drilldown</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Recent selections mirrored below</div>
                     </div>
-                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setDrawerOpen(true)}>
+                    <Button variant="outline" size="sm" className="h-8 text-xs text-slate-600 dark:text-slate-400 dark:border-zinc-800 dark:hover:bg-zinc-800" onClick={() => setDrawerOpen(true)}>
                       Open drawer
                     </Button>
                   </div>
                   <div className="space-y-2">
                     {recentShipments.slice(0, 4).map((row, idx) => (
-                      <div key={`drill-${idx}`} className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
+                      <div key={`drill-${idx}`} className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                          <div className="text-sm font-semibold text-slate-900 truncate max-w-[180px]">{row.CONNAME || 'Unknown Client'}</div>
+                          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[180px]">{row.CONNAME || 'Unknown Client'}</div>
                         </div>
-                        <div className="text-xs text-slate-500">{row._date ? format(row._date, "dd MMM") : 'N/A'}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{row._date ? format(row._date, "dd MMM") : 'N/A'}</div>
                       </div>
                     ))}
                   </div>
@@ -1418,12 +1423,12 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
 
         </div>
                 {/* MODE INSIGHTS WIDE CARD */}
-                <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
                   <PieChartIcon className="w-4 h-4" /> Mode insights
                 </CardTitle>
-                <CardDescription className="text-xs text-slate-500">Distribution, trends, and top lanes</CardDescription>
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Distribution, trends, and top lanes</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -1447,10 +1452,11 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                         </Pie>
                         <Tooltip 
                           contentStyle={{
-                            backgroundColor: '#fff',
+                            backgroundColor: 'var(--color-card)',
                             borderRadius: '8px',
-                            border: '1px solid #e2e8f0',
-                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                            border: '1px solid var(--color-border)',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                            color: 'var(--color-card-foreground)'
                           }}
                         />
                       </PieChart>
@@ -1459,7 +1465,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                   <div className="h-[320px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={modeMonthly}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
                         <XAxis 
                           dataKey="month" 
                           axisLine={false} 
@@ -1472,14 +1478,15 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                         <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#64748b'}} />
                         <Tooltip 
                           contentStyle={{
-                            backgroundColor: '#fff',
+                            backgroundColor: 'var(--color-card)',
                             borderRadius: '8px',
-                            border: '1px solid #e2e8f0',
-                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                            border: '1px solid var(--color-border)',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                            color: 'var(--color-card-foreground)'
                           }}
                           cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }}
                         />
-                        <Legend />
+                        <Legend wrapperStyle={{ color: 'var(--color-muted-foreground)' }} />
                         {modeStats.map((mode, idx) => (
                           <Line 
                             key={mode.name}
@@ -1499,12 +1506,12 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {modeStats.map((stat, idx) => (
-                    <div key={`mode-summary-${stat.name}`} className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
+                    <div key={`mode-summary-${stat.name}`} className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                        <span className="text-sm text-slate-700">{stat.name}</span>
+                        <span className="text-sm text-slate-700 dark:text-slate-300">{stat.name}</span>
                       </div>
-                      <div className="text-sm font-semibold text-slate-900">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                         {stat.value} ({Math.round((stat.value / Math.max(totalModes, 1)) * 100)}%)
                       </div>
                     </div>
@@ -1512,19 +1519,19 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                    <div className="text-xs text-slate-500 mb-2">Top lanes by weight</div>
+                  <div className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">Top lanes by weight</div>
                     <div className="space-y-2 text-sm">
                       {laneStats.slice(0, 5).map((lane, idx) => (
                         <div key={`lane-wide-${idx}`} className="flex items-center justify-between">
-                          <span className="text-slate-700 truncate pr-2">{lane.name}</span>
-                          <span className="text-slate-900 font-semibold">{lane.weight}t</span>
+                          <span className="text-slate-700 dark:text-slate-300 truncate pr-2">{lane.name}</span>
+                          <span className="text-slate-900 dark:text-slate-100 font-semibold">{lane.weight}t</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                    <div className="text-xs text-slate-500 mb-2">Container Status</div>
+                  <div className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">Container Status</div>
                     <div className="h-[140px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
@@ -1545,7 +1552,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
-                    <div className="flex justify-center gap-4 text-[10px] text-slate-500">
+                    <div className="flex justify-center gap-4 text-[10px] text-slate-500 dark:text-slate-400">
                         {statusStats.slice(0, 3).map((s, i) => (
                             <div key={s.name} className="flex items-center gap-1">
                                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
@@ -1561,18 +1568,18 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
             {/* CARRIER DISTRIBUTION */}
             <Card 
               className={cn(
-                "shadow-none border border-slate-200 rounded-xl overflow-hidden transition-all",
-                hoveredChart === 'carriers' && "shadow-lg border-slate-300"
+                "shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden transition-all bg-white dark:bg-zinc-900",
+                hoveredChart === 'carriers' && "shadow-lg border-slate-300 dark:border-zinc-700"
               )}
               onMouseEnter={() => setHoveredChart('carriers')}
               onMouseLeave={() => setHoveredChart(null)}
             >
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
                   <Ship className="w-4 h-4" /> Top Carriers
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => toggleDrilldown('carriers')}>
+                  <Button variant="ghost" size="sm" className="h-8 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200" onClick={() => toggleDrilldown('carriers')}>
                     {drilldowns['carriers'] ? 'Hide drilldown' : 'Show drilldown'}
                   </Button>
                   <MoreVertical className="w-4 h-4 text-slate-400" />
@@ -1582,7 +1589,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 <div className="h-[280px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={carrierStats} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
                       <XAxis type="number" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#64748b'}} />
                       <YAxis 
                         dataKey="name" 
@@ -1594,10 +1601,11 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                       />
                       <Tooltip 
                         contentStyle={{
-                          backgroundColor: '#fff',
+                          backgroundColor: 'var(--color-card)',
                           borderRadius: '8px',
-                          border: '1px solid #e2e8f0',
-                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                          border: '1px solid var(--color-border)',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          color: 'var(--color-card-foreground)'
                         }}
                         cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
                       />
@@ -1617,16 +1625,16 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                   </ResponsiveContainer>
                 </div>
                 {drilldowns['carriers'] && (
-                  <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 p-4">
-                    <div className="text-sm font-semibold text-slate-900 mb-2">Carrier detail</div>
+                  <div className="mt-4 rounded-lg border border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 p-4">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50 mb-2">Carrier detail</div>
                     <div className="grid grid-cols-2 gap-3">
                       {carrierStats.slice(0, 6).map((carrier, idx) => (
-                        <div key={carrier.name} className="p-3 bg-white border border-slate-200 rounded-lg">
+                        <div key={carrier.name} className="p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-slate-900 truncate">{carrier.name}</span>
-                            <span className="text-xs text-slate-500">{carrier.value} loads</span>
+                            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{carrier.name}</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">{carrier.value} loads</span>
                           </div>
-                          <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                             <div className="h-full" style={{ width: `${(carrier.value / (carrierStats[0]?.value || 1)) * 100}%`, backgroundColor: COLORS[idx % COLORS.length] }} />
                           </div>
                         </div>
@@ -1638,9 +1646,9 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
             </Card>
 
             {/* CLIENT PERFORMANCE */}
-            <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-900">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
                   <Users className="w-4 h-4" /> Top Clients by Volume
                 </CardTitle>
                 <MoreVertical className="w-4 h-4 text-slate-400" />
@@ -1648,22 +1656,22 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               <CardContent>
                 <div className="space-y-4">
                   {clientStats.map((client, idx) => (
-                    <div key={client.name} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
+                    <div key={client.name} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
                       <div className="flex items-center gap-3 flex-1">
-                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-semibold text-slate-600">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-semibold text-slate-600 dark:text-slate-300">
                           {idx + 1}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-sm text-slate-900 truncate">{client.name}</div>
-                          <div className="text-xs text-slate-500">{client.shipments} shipments</div>
+                          <div className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">{client.name}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">{client.shipments} shipments</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <div className="text-sm font-bold text-slate-900">{client.tons.toFixed(1)} tons</div>
-                          <div className="text-xs text-slate-500">Total weight</div>
+                          <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{client.tons.toFixed(1)} tons</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">Total weight</div>
                         </div>
-                        <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="w-24 h-2 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                           <div 
                             className="h-full rounded-full transition-all"
                             style={{ 
@@ -1680,61 +1688,61 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
             </Card>
 
             {/* MAP SECTION */}
-             <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-900">
                 <CardHeader className="pb-0 pt-4 px-4 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2"><MapPin className="w-4 h-4" /> Live Tracking</CardTitle>
-                  <Button variant="ghost" size="sm" className="h-6 text-xs">Full Screen</Button>
+                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2"><MapPin className="w-4 h-4" /> Live Tracking</CardTitle>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">Full Screen</Button>
                 </CardHeader>
                 <CardContent className="p-0 h-[300px]">
                    {mapMarkers.length > 0 ? (
                       <Map markers={mapMarkers} height="300px" />
                     ) : (
-                      <div className="h-full flex items-center justify-center bg-slate-50 text-slate-400">No map data</div>
+                      <div className="h-full flex items-center justify-center bg-slate-50 dark:bg-zinc-950 text-slate-400">No map data</div>
                     )}
                 </CardContent>
              </Card>
 
              {/* FILLER TO REDUCE BLANK SPACE */}
-             <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
+             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
                <CardHeader className="pb-3">
-                 <CardTitle className="text-base font-bold text-slate-900">Operational insights</CardTitle>
-                 <CardDescription className="text-xs text-slate-500">Quick highlights to balance layout</CardDescription>
+                 <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Operational insights</CardTitle>
+                 <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Quick highlights to balance layout</CardDescription>
                </CardHeader>
                <CardContent className="space-y-4">
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                    {[
-                     { label: "On-time", value: "92%", trend: "+4%", color: "bg-emerald-100 text-emerald-700" },
-                     { label: "Exceptions", value: "18", trend: "-3", color: "bg-amber-100 text-amber-700" },
-                     { label: "Sea Freight Yield", value: "24%", trend: "+1.4%", color: "bg-blue-100 text-blue-700" },
+                     { label: "On-time", value: "92%", trend: "+4%", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" },
+                     { label: "Exceptions", value: "18", trend: "-3", color: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" },
+                     { label: "Sea Freight Yield", value: "24%", trend: "+1.4%", color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" },
                    ].map(tile => (
-                     <div key={tile.label} className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between">
+                     <div key={tile.label} className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between">
                        <div>
-                         <div className="text-[11px] uppercase text-slate-500 font-semibold">{tile.label}</div>
-                         <div className="text-lg font-semibold text-slate-900">{tile.value}</div>
+                         <div className="text-[11px] uppercase text-slate-500 dark:text-slate-400 font-semibold">{tile.label}</div>
+                         <div className="text-lg font-semibold text-slate-900 dark:text-slate-50">{tile.value}</div>
                        </div>
                        <span className={`text-xs px-2 py-1 rounded-full ${tile.color}`}>{tile.trend}</span>
                      </div>
                    ))}
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                   <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                     <div className="text-xs text-slate-500 mb-2">Lane watch</div>
+                   <div className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                     <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">Lane watch</div>
                      <div className="space-y-2 text-sm">
                        {laneStats.slice(0, 3).map((lane, idx) => (
                          <div key={`lane-${idx}`} className="flex items-center justify-between">
-                           <span className="text-slate-700 truncate pr-2">{lane.name}</span>
-                           <span className="text-slate-900 font-semibold">{lane.weight}t</span>
+                           <span className="text-slate-700 dark:text-slate-300 truncate pr-2">{lane.name}</span>
+                           <span className="text-slate-900 dark:text-slate-100 font-semibold">{lane.weight}t</span>
                          </div>
                        ))}
                      </div>
                    </div>
-                   <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                     <div className="text-xs text-slate-500 mb-2">Upcoming docs</div>
+                   <div className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                     <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">Upcoming docs</div>
                      <div className="space-y-2 text-sm">
                        {recentShipments.slice(0, 3).map((row, idx) => (
                          <div key={`doc-${idx}`} className="flex items-center justify-between">
-                           <span className="text-slate-700 truncate pr-2">{row.CONNAME || "Unknown"}</span>
-                           <span className="text-slate-500">{row.DOCRECD || "Pending"}</span>
+                           <span className="text-slate-700 dark:text-slate-300 truncate pr-2">{row.CONNAME || "Unknown"}</span>
+                           <span className="text-slate-500 dark:text-slate-400">{row.DOCRECD || "Pending"}</span>
                          </div>
                        ))}
                      </div>
@@ -1744,56 +1752,56 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
              </Card>
 
              {/* ACTIVITY FEED TO FILL SPACE */}
-             <Card className="shadow-none border border-slate-200 rounded-xl overflow-hidden">
+             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
                <CardHeader className="pb-3 flex flex-row items-center justify-between">
                  <div>
-                   <CardTitle className="text-base font-bold text-slate-900">Activity feed</CardTitle>
-                   <CardDescription className="text-xs text-slate-500">Latest shipment and finance signals</CardDescription>
+                   <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Activity feed</CardTitle>
+                   <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Latest shipment and finance signals</CardDescription>
                  </div>
-                 <Button variant="ghost" size="sm" className="h-8 text-xs">View all</Button>
+                 <Button variant="ghost" size="sm" className="h-8 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">View all</Button>
                </CardHeader>
                <CardContent className="space-y-3">
                  <div className="space-y-2">
                    {recentShipments.slice(0, 6).map((row, idx) => (
-                     <div key={`feed-${idx}`} className="flex items-start justify-between rounded-lg border border-slate-200 bg-white px-3 py-2">
+                     <div key={`feed-${idx}`} className="flex items-start justify-between rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-3 py-2">
                        <div className="flex items-center gap-3">
                          <div className={cn(
                            "w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold",
-                           row._mode === "SEA" ? "bg-blue-100 text-blue-700" :
-                           row._mode === "AIR" ? "bg-purple-100 text-purple-700" :
-                           "bg-orange-100 text-orange-700"
+                           row._mode === "SEA" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" :
+                           row._mode === "AIR" ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400" :
+                           "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
                          )}>
                            {row._mode || "N/A"}
                          </div>
                          <div className="text-sm">
-                           <div className="font-semibold text-slate-900 truncate max-w-[220px]">{row.CONNAME || "Unknown Client"}</div>
-                           <div className="text-xs text-slate-500">
+                           <div className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[220px]">{row.CONNAME || "Unknown Client"}</div>
+                           <div className="text-xs text-slate-500 dark:text-slate-400">
                              {row.POL || "Origin"} → {row.POD || "Dest"} · {row._date ? format(row._date, "dd MMM yyyy") : "N/A"}
                            </div>
                          </div>
                        </div>
                        <div className="text-right">
-                         <div className="text-xs text-slate-500">Weight</div>
-                         <div className="text-sm font-semibold text-slate-900">{(cleanNum(row.CONT_GRWT) / 1000).toFixed(1)}t</div>
+                         <div className="text-xs text-slate-500 dark:text-slate-400">Weight</div>
+                         <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{(cleanNum(row.CONT_GRWT) / 1000).toFixed(1)}t</div>
                        </div>
                      </div>
                    ))}
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                   <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                     <div className="text-[11px] uppercase text-slate-500 font-semibold">Upcoming departures</div>
-                     <div className="text-lg font-semibold text-slate-900 mt-1">{recentShipments.slice(0, 10).filter(r => r.ETD).length}</div>
-                     <div className="text-xs text-slate-500">With ETD dates</div>
+                   <div className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                     <div className="text-[11px] uppercase text-slate-500 dark:text-slate-400 font-semibold">Upcoming departures</div>
+                     <div className="text-lg font-semibold text-slate-900 dark:text-slate-50 mt-1">{recentShipments.slice(0, 10).filter(r => r.ETD).length}</div>
+                     <div className="text-xs text-slate-500 dark:text-slate-400">With ETD dates</div>
                    </div>
-                   <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                     <div className="text-[11px] uppercase text-slate-500 font-semibold">Docs pending</div>
-                     <div className="text-lg font-semibold text-slate-900 mt-1">{recentShipments.slice(0, 10).filter(r => !r.DOCRECD).length}</div>
-                     <div className="text-xs text-slate-500">Missing DOCRECD</div>
+                   <div className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                     <div className="text-[11px] uppercase text-slate-500 dark:text-slate-400 font-semibold">Docs pending</div>
+                     <div className="text-lg font-semibold text-slate-900 dark:text-slate-50 mt-1">{recentShipments.slice(0, 10).filter(r => !r.DOCRECD).length}</div>
+                     <div className="text-xs text-slate-500 dark:text-slate-400">Missing DOCRECD</div>
                    </div>
-                   <div className="p-3 rounded-lg border border-slate-200 bg-white">
-                     <div className="text-[11px] uppercase text-slate-500 font-semibold">Top provider</div>
-                     <div className="text-sm font-semibold text-slate-900 mt-1">{recentShipments[0]?.CONNAME || "N/A"}</div>
-                     <div className="text-xs text-slate-500">By latest arrivals</div>
+                   <div className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                     <div className="text-[11px] uppercase text-slate-500 dark:text-slate-400 font-semibold">Top provider</div>
+                     <div className="text-sm font-semibold text-slate-900 dark:text-slate-50 mt-1">{recentShipments[0]?.CONNAME || "N/A"}</div>
+                     <div className="text-xs text-slate-500 dark:text-slate-400">By latest arrivals</div>
                    </div>
                  </div>
                </CardContent>
