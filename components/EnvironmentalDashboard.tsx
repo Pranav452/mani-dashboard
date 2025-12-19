@@ -284,14 +284,22 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
                 />
             </RadialBarChart>
             </ChartContainer>
-            <div className="flex justify-center gap-6 mt-4">
+            <div className="flex flex-wrap justify-center gap-4 mt-4">
             <div className="flex items-center gap-2 text-xs">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span className="text-slate-600">Sea: Low Impact</span>
+                <span className="text-slate-600">Sea (Low)</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+                <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                <span className="text-slate-600">Rail</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <span className="text-slate-600">Road</span>
             </div>
             <div className="flex items-center gap-2 text-xs">
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                <span className="text-slate-600">Air: High Impact</span>
+                <span className="text-slate-600">Air (High)</span>
             </div>
             </div>
         </CardContent>
@@ -301,7 +309,7 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
         <Card className="border border-slate-200 shadow-sm">
         <CardHeader className="pb-2">
             <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-            <Activity className="w-4 h-4" /> Carbon Footprint Radar
+            <Activity className="w-4 h-4" /> Happy Chic Eco-Radar
             </CardTitle>
             <CardDescription className="text-xs">Sustainability across dimensions</CardDescription>
         </CardHeader>
@@ -320,7 +328,7 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
                 { metric: "Fuel", current: 65, target: 50 },
                 { metric: "Efficiency", current: 82, target: 90 },
                 { metric: "Offset", current: 45, target: 80 },
-                { metric: "Green Score", current: Math.round((modeStats.find(m => m.name === 'SEA')?.value || 0) / Math.max(kpis.shipments, 1) * 100), target: 75 },
+                { metric: "Chic Score", current: Math.round((modeStats.find(m => m.name === 'SEA')?.value || 0) / Math.max(kpis.shipments, 1) * 100), target: 75 },
                 ]}
             >
                 <PolarGrid stroke="#e2e8f0" />
@@ -449,7 +457,7 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
         <Card className="border border-emerald-100 bg-emerald-50/50 shadow-sm">
             <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-emerald-800 flex items-center gap-2">
-                    <Leaf className="w-4 h-4" /> Reforestation Project
+                    <Leaf className="w-4 h-4" /> Happy Chic Forest Initiative
                 </CardTitle>
             </CardHeader>
             <CardContent>

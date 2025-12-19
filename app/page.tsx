@@ -1,10 +1,15 @@
+'use client'
+
 import { Suspense } from 'react'
-import { getShipments } from './actions'
 import Dashboard from '@/components/Dashboard'
 import { DashboardSkeleton } from '@/components/DashboardSkeleton'
+import { useShipments } from '@/components/ShipmentContext'
 
-async function DashboardWrapper() {
-  const data = await getShipments()
+function DashboardWrapper() {
+  const { data, loading } = useShipments()
+  
+  if (loading) return <DashboardSkeleton />
+  
   return <Dashboard data={data} />
 }
 
