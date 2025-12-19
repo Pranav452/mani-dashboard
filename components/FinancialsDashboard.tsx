@@ -162,18 +162,33 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-200 dark:text-zinc-300">
           <Sparkles className="w-4 h-4" /> Executive overview
         </div>
-        <div className="text-2xl font-semibold">Financial posture</div>
-        <p className="text-sm text-slate-200 dark:text-zinc-300 max-w-sm">Invoicing, freight, and liquidity pulse for the current period.</p>
+        <div className="text-2xl font-semibold">Financial activity overview</div>
+        <p className="text-sm text-slate-200 dark:text-zinc-300 max-w-sm">Billing, freight, and payment status snapshot for the current period.</p>
         <div className="flex gap-3">
-          <Button size="sm" variant="secondary" className="text-slate-900 dark:text-zinc-900">View P&L</Button>
+          <Button size="sm" variant="secondary" className="text-slate-900 dark:text-zinc-900">View statement</Button>
           <Button size="sm" variant="ghost" className="text-white hover:text-white border-white/30 hover:bg-white/10">Export</Button>
         </div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 lg:col-span-2">
-        <HeroStat label="Total Revenue" value={`$${(kpis.revenue / 1000000).toFixed(2)}M`} trend={kpis.revenue > 0 ? `${((kpis.completedRevenue / kpis.revenue) * 100).toFixed(0)}% paid` : "0%"} positive />
-        <HeroStat label="Total Profit" value={`$${(kpis.profit / 1000000).toFixed(2)}M`} trend={`${kpis.margin.toFixed(1)}% margin`} positive />
-        <HeroStat label="Invoice Pending" value={`$${(kpis.pendingRevenue / 1000000).toFixed(2)}M`} trend={kpis.revenue > 0 ? `${((kpis.pendingRevenue / kpis.revenue) * 100).toFixed(0)}%` : "0%"} positive />
-        <HeroStat label="Invoice Completed" value={`$${(kpis.completedRevenue / 1000000).toFixed(2)}M`} trend={kpis.revenue > 0 ? `${((kpis.completedRevenue / kpis.revenue) * 100).toFixed(0)}%` : "0%"} positive />
+        <HeroStat
+          label="Total Billing Volume"
+          value={`$${(kpis.revenue / 1000000).toFixed(2)}M`}
+          trend={kpis.revenue > 0 ? `${((kpis.completedRevenue / kpis.revenue) * 100).toFixed(0)}% settled` : "0%"}
+          positive
+        />
+        {/* <HeroStat label="Total Profit" value={`$${(kpis.profit / 1000000).toFixed(2)}M`} trend={`${kpis.margin.toFixed(1)}% margin`} positive /> */}
+        <HeroStat
+          label="Unsettled Billing"
+          value={`$${(kpis.pendingRevenue / 1000000).toFixed(2)}M`}
+          trend={kpis.revenue > 0 ? `${((kpis.pendingRevenue / kpis.revenue) * 100).toFixed(0)}%` : "0%"}
+          positive
+        />
+        <HeroStat
+          label="Settled Billing"
+          value={`$${(kpis.completedRevenue / 1000000).toFixed(2)}M`}
+          trend={kpis.revenue > 0 ? `${((kpis.completedRevenue / kpis.revenue) * 100).toFixed(0)}%` : "0%"}
+          positive
+        />
       </div>
     </div>
   )
@@ -181,11 +196,11 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
   const sections = [
     {
       title: "Client Analysis",
-      subtitle: "Performance by volume",
+      subtitle: "Overview by billing volume",
       content: (
         <div className="w-full">
             <div className="w-full bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm">
-                <h4 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-200">Top Clients by Volume</h4>
+                <h4 className="text-sm font-semibold mb-4 text-slate-700 dark:text-slate-200">Top Client Accounts by Billing Volume</h4>
                 <div className="h-[400px] w-full">
                     <ChartContainer config={{
                         label: { color: "var(--background)" },
@@ -234,7 +249,7 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                 </div>
                 <div className="flex items-center gap-2 mt-4 text-sm text-slate-500 dark:text-slate-400">
                     <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>Top contributors to revenue this period</span>
+                    <span>Key account billing distribution for this period</span>
                 </div>
             </div>
         </div>
@@ -242,7 +257,7 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
     },
     {
       title: "Monthly Trends",
-      subtitle: "Revenue, profit, and cost over time",
+      subtitle: "Revenue and cost over time",
       content: (
         <div className="w-full">
             <div className="w-full bg-white dark:bg-zinc-900 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 shadow-sm">
@@ -250,7 +265,6 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                 <div className="h-[400px] w-full">
                     <ChartContainer config={{
                         revenue: { label: "Revenue", color: "hsl(var(--chart-1))" },
-                        profit: { label: "Profit", color: "hsl(var(--chart-2))" },
                         cost: { label: "Cost", color: "hsl(var(--chart-3))" },
                     }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -262,10 +276,6 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
                                         <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                                    </linearGradient>
-                                    <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                                     </linearGradient>
                                     <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
@@ -289,19 +299,11 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                                 <Legend />
                                 <Area 
                                     type="monotone" 
-                                    dataKey="revenue" 
-                                    stroke="#3b82f6" 
-                                    fillOpacity={1} 
-                                    fill="url(#colorRevenue)" 
+                                    dataKey="revenue"
+                                    stroke="#3b82f6"
+                                    fillOpacity={1}
+                                    fill="url(#colorRevenue)"
                                     name="Revenue"
-                                />
-                                <Area 
-                                    type="monotone" 
-                                    dataKey="profit" 
-                                    stroke="#10b981" 
-                                    fillOpacity={1} 
-                                    fill="url(#colorProfit)" 
-                                    name="Profit"
                                 />
                                 <Area 
                                     type="monotone" 
