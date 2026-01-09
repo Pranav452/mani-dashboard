@@ -54,7 +54,7 @@ export default function FeaturesSection() {
                                 </span>
                                 <span className="text-muted-foreground text-xs">Sat 22 Feb</span>
                             </div>
-                            <div className="rounded-(--radius) bg-background mt-1.5 w-3/5 border border-border p-3 text-xs text-foreground">Viewing shipment data for client: HAPPYCHIC</div>
+                            <div className="rounded-(--radius) bg-background mt-1.5 w-3/5 border border-border p-3 text-xs text-foreground">Viewing shipment data for client: Manilal Patel</div>
                         </div>
 
                         <div>

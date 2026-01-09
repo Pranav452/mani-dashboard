@@ -119,28 +119,10 @@ export default function ChatPage() {
         updated_at: new Date().toISOString()
       }
 
-      if (!useLocalStorage) {
-        try {
-          const { data, error } = await supabase
-            .from('chats')
-            .insert({ title: trimmedInput.slice(0, 50), user_id: null })
-            .select()
-            .single()
-          
-          if (data && !error) {
-            newChat.id = data.id
-          } else {
-            setUseLocalStorage(true)
-          }
-        } catch (e) {
-          setUseLocalStorage(true)
-        }
-      }
-
+      // Chat is currently using local state only (stubbed for Phase 1)
       chatId = newChat.id
       setChats(prev => {
         const updated = [newChat, ...prev]
-        if (useLocalStorage) saveToLocalStorage(updated)
         return updated
       })
       setCurrentChatId(chatId)

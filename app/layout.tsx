@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ShipmentProvider } from "@/components/ShipmentContext";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
   title: "Mani Dashboard",
@@ -22,9 +23,11 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-          <ShipmentProvider>
-            {children}
-          </ShipmentProvider>
+          <Providers>
+            <ShipmentProvider>
+              {children}
+            </ShipmentProvider>
+          </Providers>
         </ThemeProvider>
       </body>
     </html>

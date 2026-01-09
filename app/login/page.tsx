@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
@@ -10,19 +11,35 @@ import Link from 'next/link'
 
 export default function LoginPage() {
     const router = useRouter()
-    const [email, setEmail] = useState('')
+    const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
     const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState('')
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
+        setError('')
         
-        // TODO: Implement authentication with Supabase
-        // For now, redirect to dashboard (will be protected later)
-        setTimeout(() => {
-            router.push('/dashboard')
-        }, 500)
+        try {
+            const result = await signIn('credentials', {
+                username,
+                password,
+                redirect: false,
+            })
+
+            if (result?.error) {
+                setError(result.error === 'CredentialsSignin' 
+                    ? 'Invalid username or password' 
+                    : result.error)
+                setIsLoading(false)
+            } else if (result?.ok) {
+                router.push('/dashboard')
+            }
+        } catch (err) {
+            setError('An error occurred. Please try again.')
+            setIsLoading(false)
+        }
     }
 
     return (
@@ -47,18 +64,18 @@ export default function LoginPage() {
                     <div className="mt-6 space-y-6">
                         <div className="space-y-2">
                             <Label
-                                htmlFor="email"
+                                htmlFor="username"
                                 className="block text-sm">
-                                Email Address
+                                Username
                             </Label>
                             <Input
-                                type="email"
+                                type="text"
                                 required
-                                name="email"
-                                id="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="client@company.com"
+                                name="username"
+                                id="username"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                placeholder="Enter your username"
                             />
                         </div>
 
@@ -92,6 +109,11 @@ export default function LoginPage() {
                             />
                         </div>
 
+                        {error && (
+                            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md p-3">
+                                {error}
+                            </div>
+                        )}
                         <Button 
                             type="submit"
                             className="w-full"
