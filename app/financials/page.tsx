@@ -1,24 +1,18 @@
 'use client'
 
 import { Suspense } from 'react'
-import Dashboard from '@/components/Dashboard'
+import FinancialsDashboard from '@/components/FinancialsDashboard'
 import { DashboardSkeleton } from '@/components/DashboardSkeleton'
 import { useShipments } from '@/components/ShipmentContext'
 
-function DashboardWrapper() {
+export default function FinancialsPage() {
   const { data, loading } = useShipments()
-  
-  if (loading) return <DashboardSkeleton />
-  
-  return <Dashboard data={data} />
-}
 
-export default function Home() {
+  if (loading) return <DashboardSkeleton />
+
   return (
-    <main>
-      <Suspense fallback={<DashboardSkeleton />}>
-        <DashboardWrapper />
-      </Suspense>
-    </main>
+    <Suspense fallback={<DashboardSkeleton />}>
+      <FinancialsDashboard data={data} />
+    </Suspense>
   )
 }
