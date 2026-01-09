@@ -738,6 +738,8 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(val)
   }
 
+  const hasData = chartData.length > 0
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 font-sans text-slate-900 dark:text-slate-50">
       
@@ -978,11 +980,11 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                      <div className="space-y-2 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
                        <div className="flex justify-between text-xs">
                           <span className="text-slate-500 dark:text-slate-400">Fastest</span>
-                          <span className="font-medium text-slate-900 dark:text-slate-50">12 days</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-50">N/A</span>
                        </div>
                        <div className="flex justify-between text-xs">
                           <span className="text-slate-500 dark:text-slate-400">Slowest</span>
-                          <span className="font-medium text-slate-900 dark:text-slate-50">45 days</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-50">N/A</span>
                        </div>
                      </div>
                    </CardContent>
@@ -1179,7 +1181,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 <CardContent className="h-[250px] relative">
                   <div className="absolute top-4 left-6">
                     <div className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Cash Balance</div>
-                    <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">$126K</div>
+                    <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">N/A</div>
                   </div>
                   <div className="mt-12 h-[180px]">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1202,12 +1204,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                   <MoreVertical className="w-4 h-4 text-slate-400" />
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-800 mb-6">
-                    <div className="bg-emerald-500 w-[35%]" />
-                    <div className="bg-slate-800 dark:bg-slate-600 w-[25%]" />
-                    <div className="bg-yellow-400 w-[15%]" />
-                    <div className="bg-slate-300 dark:bg-zinc-700 w-[25%]" />
-                  </div>
+                  <div className="flex h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-800 mb-6" />
                   
                   <div className="space-y-3">
                     {laneStats.slice(0, 5).map((lane, idx) => (
@@ -1217,8 +1214,10 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                           <span className="text-slate-600 dark:text-slate-400 truncate max-w-[150px]">{lane.name}</span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-semibold text-slate-900 dark:text-slate-50">${(lane.weight * 120).toLocaleString()}</span>
-                          <span className="text-slate-400 text-xs w-8 text-right">{Math.round((lane.weight / (kpis.weight/1000)) * 100)}%</span>
+                          <span className="font-semibold text-slate-900 dark:text-slate-50">{lane.weight.toFixed(1)}t</span>
+                          <span className="text-slate-400 text-xs w-8 text-right">
+                            {kpis.weight > 0 ? Math.round((lane.weight / (kpis.weight / 1000)) * 100) : 0}%
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -1243,41 +1242,53 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
                   <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">On-Time</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">92%</span>
-                    <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+4%</span>
+                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? "N/A" : "N/A"}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                      <ArrowUpRight className="w-3 h-3" />
+                      N/A
+                    </span>
                   </div>
                   <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full w-[92%] bg-emerald-500" />
+                    <div className="h-full w-[0%] bg-emerald-500" />
                   </div>
                 </div>
                 <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
                   <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">Exceptions</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">18</span>
-                    <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1"><ArrowDownRight className="w-3 h-3" />-3</span>
+                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? "N/A" : "N/A"}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                      <ArrowDownRight className="w-3 h-3" />
+                      N/A
+                    </span>
                   </div>
                   <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full w-[35%] bg-amber-500" />
+                    <div className="h-full w-[0%] bg-amber-500" />
                   </div>
                 </div>
                 <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
                   <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">Fleet Utilization</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">78%</span>
-                    <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+2%</span>
+                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? "N/A" : "N/A"}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                      <ArrowUpRight className="w-3 h-3" />
+                      N/A
+                    </span>
                   </div>
                   <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full w-[78%] bg-slate-900 dark:bg-slate-100" />
+                    <div className="h-full w-[0%] bg-slate-900 dark:bg-slate-100" />
                   </div>
                 </div>
                 <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
                   <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">Sea Freight Yield</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">24%</span>
-                    <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><ArrowUpRight className="w-3 h-3" />+1.4%</span>
+                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? "N/A" : "N/A"}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                      <ArrowUpRight className="w-3 h-3" />
+                      N/A
+                    </span>
                   </div>
                   <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full w-[24%] bg-emerald-500" />
+                    <div className="h-full w-[0%] bg-emerald-500" />
                   </div>
                 </div>
               </CardContent>
@@ -1300,21 +1311,19 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 <div className="grid grid-cols-3 gap-2 mb-2.5 ">
                    <div className="space-y-0.5">
                       <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Paid</div>
-                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">$169K</div>
+                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">$0</div>
                    </div>
                    <div className="space-y-1 border-l border-slate-100 dark:border-zinc-800 pl-3">
                       <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Pending</div>
-                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">$95K</div>
+                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">$0</div>
                    </div>
                    <div className="space-y-1 border-l border-slate-100 dark:border-zinc-800 pl-3">
                       <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Unpaid</div>
-                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">$64K</div>
+                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">$0</div>
                    </div>
                 </div>
 
-                <div className="h-1.5 w-full bg-slate-100 dark:bg-zinc-800 rounded-full mb-6 overflow-hidden">
-                   <div className="h-full w-[65%] bg-emerald-500 rounded-full" />
-                </div>
+                <div className="h-1.5 w-full bg-slate-100 dark:bg-zinc-800 rounded-full mb-6 overflow-hidden" />
 
                 {/* TABS */}
                 <div className="flex items-center gap-1 border-b border-slate-100 dark:border-zinc-800 mb-4 overflow-x-auto">
@@ -1382,7 +1391,9 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                         </div>
                         
                         <div className="text-right">
-                           <div className="text-sm font-bold text-slate-900 dark:text-slate-100">${(cleanNum(row.CONT_GRWT) * 0.5).toLocaleString()}</div>
+                           <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                             {(cleanNum(row.CONT_GRWT) / 1000).toFixed(1)}t
+                           </div>
                            <MoreVertical className="w-4 h-4 text-slate-300 ml-auto mt-1 opacity-0 group-hover:opacity-100" />
                         </div>
                      </div>
@@ -1711,9 +1722,9 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                <CardContent className="space-y-4">
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                    {[
-                     { label: "On-time", value: "92%", trend: "+4%", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" },
-                     { label: "Exceptions", value: "18", trend: "-3", color: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" },
-                     { label: "Sea Freight Yield", value: "24%", trend: "+1.4%", color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" },
+                     { label: "On-time", value: "N/A", trend: "N/A", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" },
+                     { label: "Exceptions", value: "N/A", trend: "N/A", color: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" },
+                     { label: "Sea Freight Yield", value: "N/A", trend: "N/A", color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" },
                    ].map(tile => (
                      <div key={tile.label} className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between">
                        <div>

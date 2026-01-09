@@ -176,10 +176,6 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
         <CardContent>
           <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">{(kpis.co2/1000).toFixed(1)}</div>
           <div className="text-sm text-slate-500 dark:text-slate-400">Tonnes CO₂</div>
-          <div className="flex items-center gap-1 mt-2 text-xs">
-            <TrendingDown className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-emerald-600 dark:text-emerald-400 font-medium">-12% vs last quarter</span>
-          </div>
         </CardContent>
       </Card>
       
@@ -192,10 +188,6 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
         <CardContent>
           <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">{(kpis.co2 / Math.max(kpis.weight, 1) * 100).toFixed(2)}</div>
           <div className="text-sm text-slate-500 dark:text-slate-400">kg CO₂ / ton cargo</div>
-          <div className="flex items-center gap-1 mt-2 text-xs">
-            <TrendingDown className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-            <span className="text-blue-600 dark:text-blue-400 font-medium">-8% improvement</span>
-          </div>
         </CardContent>
       </Card>
       
@@ -206,12 +198,10 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">${((kpis.co2/1000) * 25).toFixed(0)}</div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Est. Credits Required</div>
-          <div className="flex items-center gap-1 mt-2 text-xs">
-            <TrendingUp className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-            <span className="text-amber-600 dark:text-amber-400 font-medium">$25/tonne rate</span>
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+            {kpis.co2 > 0 ? `$${((kpis.co2/1000) * 25).toFixed(0)}` : "N/A"}
           </div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">Estimated offset cost (using $25/tonne)</div>
         </CardContent>
       </Card>
       
@@ -222,12 +212,12 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">{Math.round((modeStats.find(m => m.name === 'SEA')?.value || 0) / Math.max(kpis.shipments, 1) * 100)}%</div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Low Carbon Shipments</div>
-          <div className="flex items-center gap-1 mt-2 text-xs">
-            <TrendingUp className="w-3 h-3 text-purple-600 dark:text-purple-400" />
-            <span className="text-purple-600 dark:text-purple-400 font-medium">Sea freight preferred</span>
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+            {kpis.shipments > 0
+              ? `${Math.round((modeStats.find(m => m.name === 'SEA')?.value || 0) / Math.max(kpis.shipments, 1) * 100)}%`
+              : "N/A"}
           </div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">Low Carbon Shipments</div>
         </CardContent>
       </Card>
     </div>
@@ -428,14 +418,14 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
         </CardContent>
         <CardFooter>
             <div className="flex w-full items-start gap-2 text-sm">
-            <div className="grid gap-2">
+              <div className="grid gap-2">
                 <div className="flex items-center gap-2 leading-none font-medium text-slate-900 dark:text-slate-50">
-                Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
+                  Emissions trend will be available once historical data is connected
                 </div>
-                <div className="text-muted-foreground flex items-center gap-2 leading-none text-slate-500 dark:text-slate-400">
-                January - June 2024
+                <div className="text-slate-500 dark:text-slate-400 leading-none">
+                  Time range will match the selected date filters
                 </div>
-            </div>
+              </div>
             </div>
         </CardFooter>
     </Card>
@@ -451,12 +441,10 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-300">1,240</div>
-                <div className="text-xs text-emerald-700 dark:text-emerald-500">Trees planted YTD</div>
-                <div className="mt-2 h-1.5 bg-emerald-200 dark:bg-emerald-900 rounded-full overflow-hidden">
-                    <div className="h-full w-[65%] bg-emerald-600 dark:bg-emerald-500" />
+                <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-300">N/A</div>
+                <div className="text-xs text-emerald-700 dark:text-emerald-500">
+                  Trees planted data will appear here once sustainability metrics are connected.
                 </div>
-                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 text-right">65% of goal</div>
             </CardContent>
         </Card>
 
@@ -467,12 +455,10 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-blue-900 dark:text-blue-300">28%</div>
-                <div className="text-xs text-blue-700 dark:text-blue-500">Of total miles</div>
-                <div className="mt-2 h-1.5 bg-blue-200 dark:bg-blue-900 rounded-full overflow-hidden">
-                    <div className="h-full w-[28%] bg-blue-600 dark:bg-blue-500" />
+                <div className="text-2xl font-bold text-blue-900 dark:text-blue-300">N/A</div>
+                <div className="text-xs text-blue-700 dark:text-blue-500">
+                  Clean fuel share will be calculated once route-level fuel data is available.
                 </div>
-                <div className="text-[10px] text-blue-600 dark:text-blue-400 mt-1 text-right">Target: 40%</div>
             </CardContent>
         </Card>
 
@@ -483,10 +469,9 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold text-purple-900 dark:text-purple-300">$12,500</div>
-                <div className="text-xs text-purple-700 dark:text-purple-500">Invested this quarter</div>
-                <div className="flex items-center gap-1 mt-2 text-xs text-purple-600 dark:text-purple-400">
-                    <TrendingUp className="w-3 h-3" /> +15% vs last Q
+                <div className="text-2xl font-bold text-purple-900 dark:text-purple-300">N/A</div>
+                <div className="text-xs text-purple-700 dark:text-purple-500">
+                  Carbon credit spend will be shown here once finance data is connected.
                 </div>
             </CardContent>
         </Card>
