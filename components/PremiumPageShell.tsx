@@ -1,10 +1,13 @@
+'use client'
+
 import Link from "next/link"
 import { ReactNode } from "react"
+import { useSession, signOut } from 'next-auth/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { Calendar as CalendarIcon, FilterX } from "lucide-react"
+import { Calendar as CalendarIcon, FilterX, LogOut } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { ModeToggle } from "@/components/mode-toggle"
@@ -27,6 +30,8 @@ type PremiumPageShellProps = {
 }
 
 export function PremiumPageShell({ title, description, sections, active = "financials", hero, filters, columns = 2 }: PremiumPageShellProps) {
+  const { data: session } = useSession()
+  const username = session?.user?.email || session?.user?.name || 'User'
   const gridCols = columns === 3 ? "lg:grid-cols-3" : columns === 1 ? "lg:grid-cols-1" : "lg:grid-cols-2"
 
   return (
@@ -36,14 +41,14 @@ export function PremiumPageShell({ title, description, sections, active = "finan
           <div>
             <h1 className="text-lg md:text-xl font-semibold flex items-center gap-2 text-slate-900 dark:text-slate-50">
               {title}
-              <span className="text-[13px] font-bold text-red-700 bg-red-50 dark:bg-red-950/30 px-2 py-0.5 rounded-full border border-red-100 dark:border-red-900/50 dark:text-red-400">For HAPPYCHIC</span>
+              <span className="text-[13px] font-bold text-red-700 bg-red-50 dark:bg-red-950/30 px-2 py-0.5 rounded-full border border-red-100 dark:border-red-900/50 dark:text-red-400">For {username.toUpperCase()}</span>
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">{description}</p>
           </div>
 
           <nav className="hidden md:flex items-center gap-1">
             <Button variant="ghost" size="sm" asChild className={`font-medium ${active === "dashboard" ? "text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-slate-100" : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"}`}>
-              <Link href="/">Dashboard</Link>
+              <Link href="/dashboard">Dashboard</Link>
             </Button>
             <Button variant="ghost" size="sm" asChild className={`font-medium ${active === "financials" ? "text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-slate-100" : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"}`}>
               <Link href="/financials">Financials</Link>
@@ -57,8 +62,17 @@ export function PremiumPageShell({ title, description, sections, active = "finan
             <Button variant="ghost" size="sm" asChild className={`font-medium ${active === "reports" ? "text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-slate-100" : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"}`}>
               <Link href="/reports">Reports</Link>
             </Button>
-            <div className="ml-2">
+            <div className="ml-2 flex items-center gap-2">
               <ModeToggle />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
             </div>
           </nav>
         </div>

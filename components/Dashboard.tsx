@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useEffect } from 'react'
+import { useSession, signOut } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -17,7 +18,7 @@ const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: 
   loading: () => <div className="h-[400px] flex items-center justify-center bg-slate-50 rounded-lg"><span className="text-slate-400 text-sm">Loading map...</span></div>
 })
 import { format, isWithinInterval, parse, isValid, startOfDay, endOfDay, subDays, startOfYear, differenceInDays } from "date-fns"
-import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare, Briefcase, LayoutDashboard, FileText, Users, BarChart3, PieChart as PieChartIcon, Settings, MoreVertical, Check, ArrowUpRight, ArrowDownRight, Printer, DollarSign, Leaf, TrendingUp, TrendingDown, Activity, Snowflake } from "lucide-react"
+import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare, Briefcase, LayoutDashboard, FileText, Users, BarChart3, PieChart as PieChartIcon, Settings, MoreVertical, Check, ArrowUpRight, ArrowDownRight, Printer, DollarSign, Leaf, TrendingUp, TrendingDown, Activity, Snowflake, LogOut } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend, LineChart, Line } from "recharts"
 import { cn } from "@/lib/utils"
 import Snowfall from 'react-snowfall'
@@ -222,6 +223,8 @@ type ShipmentRecord = {
 }
 
 export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
+  const { data: session } = useSession()
+  const username = session?.user?.email || session?.user?.name || 'User'
   const [selectedMode, setSelectedMode] = useState<string>("ALL")
   const [selectedClient, setSelectedClient] = useState<string>("ALL")
   const [selectedOffice, setSelectedOffice] = useState<string>("ALL")
@@ -752,7 +755,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
             </div>
             <div className="flex flex-col">
               <h1 className="text-lg md:text-xl font-semibold text-slate-900 dark:text-slate-50 leading-tight">
-                Management Dashboard <span className="text-[15px] font-bold text-red-700 dark:text-red-500 ml-1">For HAPPYCHIC</span>
+                Management Dashboard <span className="text-[15px] font-bold text-red-700 dark:text-red-500 ml-1">For {username.toUpperCase()}</span>
               </h1>
               <span className="text-[13px] text-dark-blue-500 dark:text-blue-400 font-normal">by Manilal Patel</span>
             </div>
@@ -760,7 +763,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
           
           <nav className="hidden md:flex items-center gap-1">
             <Button variant="ghost" size="sm" className="font-medium text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-slate-100" asChild>
-              <Link href="/">Dashboard</Link>
+              <Link href="/dashboard">Dashboard</Link>
             </Button>
             <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
               <Link href="/financials">Financials</Link>
@@ -774,8 +777,17 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
             <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
               <Link href="/reports">Reports</Link>
             </Button>
-            <div className="ml-2">
+            <div className="ml-2 flex items-center gap-2">
               <ModeToggle />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
             </div>
           </nav>
         </div>
