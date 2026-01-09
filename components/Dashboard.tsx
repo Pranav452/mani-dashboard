@@ -760,7 +760,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
           
           <nav className="hidden md:flex items-center gap-1">
             <Button variant="ghost" size="sm" className="font-medium text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-slate-100" asChild>
-              <Link href="/">Dashboard</Link>
+              <Link href="/dashboard">Dashboard</Link>
             </Button>
             <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
               <Link href="/financials">Financials</Link>

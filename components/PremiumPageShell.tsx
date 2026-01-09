@@ -43,7 +43,7 @@ export function PremiumPageShell({ title, description, sections, active = "finan
 
           <nav className="hidden md:flex items-center gap-1">
             <Button variant="ghost" size="sm" asChild className={`font-medium ${active === "dashboard" ? "text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-slate-100" : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"}`}>
-              <Link href="/">Dashboard</Link>
+              <Link href="/dashboard">Dashboard</Link>
             </Button>
             <Button variant="ghost" size="sm" asChild className={`font-medium ${active === "financials" ? "text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-slate-100" : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"}`}>
               <Link href="/financials">Financials</Link>

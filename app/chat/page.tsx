@@ -271,7 +271,7 @@ export default function ChatPage() {
 
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-slate-200">
-          <Link href="/">
+          <Link href="/dashboard">
             <Button variant="ghost" className="w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 gap-2 justify-start">
               <ArrowLeft className="w-4 h-4" />
               Back to Dashboard
