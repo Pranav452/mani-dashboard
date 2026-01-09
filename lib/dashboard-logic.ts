@@ -41,9 +41,11 @@ export const getComputedMode = (row: any) => {
   } catch (e) { return 'Unknown' }
 }
 
-// --- 2. TEU LOGIC (The Happychic Rule) ---
+// --- 2. SIMPLE TEU LOGIC (per-shipment, deterministic) ---
+// Used by the dashboard to derive a TEU value from a single row.
+// This is a pure helper: no randomness, no side effects.
 export const calculateTEU = (size: string, status: string, mode: string) => {
-  // If not SEA, usually 0 TEU (unless specific logic provided)
+  // Only SEA shipments count towards TEU here
   if (mode !== 'SEA') return 0;
 
   const s = (size || '').toUpperCase();
@@ -58,26 +60,21 @@ export const calculateTEU = (size: string, status: string, mode: string) => {
   // 40ft Logic
   if (s.includes('40')) return 2;
 
-  return 0; // Default
+  return 0;
 }
 
 // --- 2b. TEU LOGIC (Deduplicated - Fixes container duplication bug) ---
 // This function correctly counts TEUs by deduplicating containers first
-// Implements Happy Chic custom logic:
-// 20F/20H/40F/40H vary by status (LCL/LCL=0, LCL/FCL=1 or 2, FCL/FCL=1 or 2)
-// 20G/40G = 2
-// Only MODE='SEA'
+// Implements Happy Chic custom logic and is deterministic.
 export const calculateUniqueTEU = (data: any[]) => {
-  const uniqueContainers = new Map<string, number>(); // Key: CONNO, Value: TEU for that container
+  const uniqueContainers = new Map<string, number>();
 
   data.forEach(row => {
-    // Use CONNO as primary identifier, fallback to CONTMAWB, then generate unique key
     const containerNo = row.CONNO || row.CONTMAWB || `UNKNOWN-${row.JOBNO}`;
-    
-    // Only calculate if we haven't seen this container yet
+
     if (!uniqueContainers.has(containerNo)) {
       const mode = getComputedMode(row);
-      
+
       // Non-SEA shipments = 0 TEU
       if (mode !== 'SEA') {
         uniqueContainers.set(containerNo, 0);
@@ -86,12 +83,12 @@ export const calculateUniqueTEU = (data: any[]) => {
 
       const size = (row.CONT_CONTSIZE || '').toUpperCase().trim();
       const status = (row.CONT_CONTSTATUS || '').toUpperCase().trim();
-      
+
       let teu = 0;
 
       // Happy Chic Logic Implementation
       if (size === '20G' || size === '40G') {
-        teu = 2; // Explicitly requested 2 for 20G as well
+        teu = 2;
       } 
       else if (size === '20F') {
         if (status === 'LCL/LCL') teu = 0;
@@ -114,77 +111,44 @@ export const calculateUniqueTEU = (data: any[]) => {
          if (size.includes('20')) teu = 1;
          else if (size.includes('40')) teu = 2;
       }
-      
+
       uniqueContainers.set(containerNo, teu);
     }
   });
 
-  // Sum up the unique TEUs
   let totalTEU = 0;
   uniqueContainers.forEach((teu) => totalTEU += teu);
   return totalTEU;
 }
 
-// --- 3. MOCK FINANCIAL GENERATOR ---
-// Generates realistic numbers based on current market rates (2024/2025)
-// Values are designed to be "client-ready" - reasonable margins, standard rates
+// --- 3. PURE DB FINANCIALS (NO RANDOMIZATION) ---
 export const generateFinancials = (row: any) => {
-  const weight = cleanNum(row.CONT_GRWT);
-  const mode = getComputedMode(row);
-
-  // Market Rates (USD per kg)
-  // Air: $3.50 - $5.50
-  // Sea: $0.15 - $0.30 (approx $3000 for 20ft container / 15000kg)
-  // Road: $0.40 - $0.80
-  let rate = 0.20; // Default Sea
-  let marginPct = 0.12; // 12% standard margin
-
-  if (mode === 'AIR') {
-      rate = 4.20; 
-      marginPct = 0.18; // Air has higher margins
-  } else if (mode === 'SEA-AIR') {
-      rate = 2.80;
-      marginPct = 0.15;
-  } else if (mode === 'ROAD' || mode === 'TRUCK') {
-      rate = 0.65;
-      marginPct = 0.10;
-  }
-
-  // Add realistic variance (+/- 10%) so it doesn't look generated
-  const variance = 0.9 + Math.random() * 0.2; 
-  
-  const revenue = weight * rate * variance;
-  const profit = revenue * marginPct; 
-  const cost = revenue - profit;
-
+  // Try to read columns if they exist, otherwise 0.
+  // No mock or random variance – this is a pure read of DB state.
   return {
-    revenue: Math.round(revenue),
-    profit: Math.round(profit),
-    cost: Math.round(cost)
+    revenue: cleanNum(row.REVENUE || row.TOTAL_AMOUNT || 0),
+    profit: cleanNum(row.PROFIT || row.MARGIN || 0),
+    cost: cleanNum(row.COST || row.EXPENSE || 0)
   };
 }
 
-// --- 4. MOCK ENVIRONMENTAL GENERATOR ---
+// --- 4. PURE / DETERMINISTIC EMISSIONS ---
 export const generateEmissions = (row: any) => {
-  const weight = cleanNum(row.CONT_GRWT) / 1000; // Tons
-  const mode = getComputedMode(row);
+  // If DB has CO2, use it directly.
+  if (row.CO2_EMISSIONS) {
+      return { co2: cleanNum(row.CO2_EMISSIONS), distance: 0 }
+  }
 
-  // CO2 factors (kg CO2 per ton-km)
-  // Air: ~500g (0.5kg), Sea: ~15g (0.015kg), Road: ~100g (0.1kg)
+  // Fallback: deterministic calculation based only on weight + mode.
+  const weight = cleanNum(row.CONT_GRWT) / 1000;
+  const mode = getComputedMode(row);
+  
   let distance = 0;
   let factor = 0;
 
-  if (mode === 'AIR') {
-    distance = 6000; // Avg Air distance
-    factor = 0.5;
-  } else if (mode === 'ROAD' || mode === 'TRUCK') {
-    distance = 1500; // Avg Road distance
-    factor = 0.1;
-  } else {
-    // Sea default
-    distance = 12000; // Avg Sea distance
-    factor = 0.015;
-  }
+  if (mode === 'AIR') { distance = 6000; factor = 0.5; } 
+  else if (mode === 'ROAD' || mode === 'TRUCK') { distance = 1500; factor = 0.1; } 
+  else { distance = 12000; factor = 0.015; }
 
   return {
     co2: Math.round(weight * distance * factor),

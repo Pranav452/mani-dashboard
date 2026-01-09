@@ -13,7 +13,7 @@ export function ChatAgent() {
   const [messages, setMessages] = useState<{role: 'user' | 'bot', text: string}[]>([
     { 
       role: 'bot', 
-      text: 'Hello! I\'m your Logistics AI Analyst. I can help you analyze shipments, carriers, routes, volumes, and more.\n\nTry asking:\n• "How many Sea shipments do we have?"\n• "What are the top 3 carriers by weight?"\n• "Show me shipments from Mumbai to Antwerp"\n• "What\'s the average transit time?"\n\nWhat would you like to know?' 
+      text: 'Hello! I\'m your Logistics AI Analyst.\n\nRight now the chat assistant is in visual preview mode only – no backend or database is connected yet. Once the new API is ready, this window will answer questions about shipments, carriers, routes, volumes, and more.' 
     }
   ])
   const [input, setInput] = useState("")
@@ -28,24 +28,15 @@ export function ChatAgent() {
     setIsLoading(true)
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: userMsg })
-      })
-      
-      const data = await res.json()
-      
-      if (data.error) {
-        throw new Error(data.error)
-      }
-      
-      setMessages(prev => [...prev, { role: 'bot', text: data.answer || "I couldn't generate an answer. Please try rephrasing your question." }])
-    } catch (e: any) {
-      setMessages(prev => [...prev, { 
-        role: 'bot', 
-        text: `Sorry, I couldn't analyze that right now. ${e.message ? `Error: ${e.message}` : 'Please try again.'}` 
-      }])
+      // Phase 1: do not call any backend; just explain that chat is disabled.
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'bot',
+          text:
+            "The embedded assistant is currently disabled while the backend is rebuilt. The UI is ready, but no database or AI is connected yet.",
+        },
+      ])
     } finally {
       setIsLoading(false)
     }

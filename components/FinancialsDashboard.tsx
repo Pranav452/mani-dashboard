@@ -172,21 +172,21 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
       <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 lg:col-span-2">
         <HeroStat
           label="Total Billing Volume"
-          value={`$${(kpis.revenue / 1000000).toFixed(2)}M`}
-          trend={kpis.revenue > 0 ? `${((kpis.completedRevenue / kpis.revenue) * 100).toFixed(0)}% settled` : "0%"}
+          value={kpis.revenue > 0 ? `$${(kpis.revenue / 1000000).toFixed(2)}M` : "$0.00M"}
+          trend={kpis.revenue > 0 ? `${((kpis.completedRevenue / kpis.revenue) * 100).toFixed(0)}% settled` : "N/A"}
           positive
         />
         {/* <HeroStat label="Total Profit" value={`$${(kpis.profit / 1000000).toFixed(2)}M`} trend={`${kpis.margin.toFixed(1)}% margin`} positive /> */}
         <HeroStat
           label="Unsettled Billing"
-          value={`$${(kpis.pendingRevenue / 1000000).toFixed(2)}M`}
-          trend={kpis.revenue > 0 ? `${((kpis.pendingRevenue / kpis.revenue) * 100).toFixed(0)}%` : "0%"}
+          value={kpis.pendingRevenue > 0 ? `$${(kpis.pendingRevenue / 1000000).toFixed(2)}M` : "$0.00M"}
+          trend={kpis.revenue > 0 ? `${((kpis.pendingRevenue / kpis.revenue) * 100).toFixed(0)}%` : "N/A"}
           positive
         />
         <HeroStat
           label="Settled Billing"
-          value={`$${(kpis.completedRevenue / 1000000).toFixed(2)}M`}
-          trend={kpis.revenue > 0 ? `${((kpis.completedRevenue / kpis.revenue) * 100).toFixed(0)}%` : "0%"}
+          value={kpis.completedRevenue > 0 ? `$${(kpis.completedRevenue / 1000000).toFixed(2)}M` : "$0.00M"}
+          trend={kpis.revenue > 0 ? `${((kpis.completedRevenue / kpis.revenue) * 100).toFixed(0)}%` : "N/A"}
           positive
         />
       </div>
