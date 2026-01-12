@@ -13,8 +13,9 @@ import FeaturesSection12 from './features-12'
 import CallToAction from './call-to-action'
 import FAQs from './faqs'
 import FooterSection from './footer'
+import type { Variants } from 'motion/react'
 
-const transitionVariants = {
+const transitionVariants: { item: Variants } = {
     item: {
         hidden: {
             opacity: 0,
