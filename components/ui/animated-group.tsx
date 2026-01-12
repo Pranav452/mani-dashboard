@@ -115,17 +115,17 @@ function AnimatedGroup({
   const containerVariants = variants?.container || selectedVariants.container;
   const itemVariants = variants?.item || selectedVariants.item;
 
-  // Use motion() directly with element name
+  // Use motion component with type assertion (same pattern as text-effect.tsx)
   const MotionComponent = React.useMemo(() => {
     if (typeof as === 'string') {
-      return motion[as as keyof typeof motion] || motion.div;
+      return (motion[as as keyof typeof motion] || motion.div) as typeof motion.div;
     }
     return motion.div;
   }, [as]);
   
   const MotionChild = React.useMemo(() => {
     if (typeof asChild === 'string') {
-      return motion[asChild as keyof typeof motion] || motion.div;
+      return (motion[asChild as keyof typeof motion] || motion.div) as typeof motion.div;
     }
     return motion.div;
   }, [asChild]);
