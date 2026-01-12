@@ -1,6 +1,7 @@
 import sql from 'mssql'
 
-const sqlConfig: sql.config = {
+// Ensure all required config properties are strings (not undefined)
+const sqlConfig = {
   user: process.env.DB_USER || '',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || '',
@@ -14,7 +15,7 @@ const sqlConfig: sql.config = {
     encrypt: true, // for azure, set to false for local if needed
     trustServerCertificate: true // change to false for production
   }
-}
+} as sql.config
 
 export async function executeQuery(query: string, params: any[] = []) {
   try {
