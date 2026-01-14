@@ -13,20 +13,35 @@ export const cleanNum = (val: any) => {
 
 export const getValidDate = (row: any) => {
   if (!row) return null
-  const candidates = [row.ETD, row.ATD, row.DOCRECD, row.DOCDT]
+  
+  // Priority: Actual dates first, then Estimated, then Docs
+  // Added ETA/ATA to the candidate list as they are in your SQL now
+  const candidates = [row.ATD, row.ATA, row.ETD, row.ETA, row.DOCRECD, row.DOCDT]
+  
   for (const dateStr of candidates) {
     if (!dateStr) continue;
+    
     try {
+      // 1. Handle "dd/MM/yyyy" (Your SQL format: 17/01/2024)
+      if (typeof dateStr === 'string' && dateStr.includes('/')) {
+        const parsed = parse(dateStr, 'dd/MM/yyyy', new Date())
+        if (isValid(parsed)) return parsed
+      }
+
+      // 2. Handle "dd-MM-yyyy" (Legacy format support)
       if (typeof dateStr === 'string' && dateStr.includes('-')) {
         const parsed = parse(dateStr, 'dd-MM-yyyy', new Date())
         if (isValid(parsed)) return parsed
       }
-      if (typeof dateStr === 'number' || (typeof dateStr === 'string' && !dateStr.includes('-'))) {
-        const str = String(dateStr)
-        if (str.length === 8) {
-          const parsed = parse(str, 'yyyyMMdd', new Date())
-          if (isValid(parsed)) return parsed
-        }
+
+      // 3. Handle ISO string or JS Date object
+      if (dateStr instanceof Date) return dateStr
+      
+      // 4. Handle "yyyyMMdd" (e.g. 20240117)
+      const str = String(dateStr)
+      if (str.length === 8 && !isNaN(Number(str))) {
+        const parsed = parse(str, 'yyyyMMdd', new Date())
+        if (isValid(parsed)) return parsed
       }
     } catch (e) { continue }
   }
@@ -36,82 +51,73 @@ export const getValidDate = (row: any) => {
 export const getComputedMode = (row: any) => {
   try {
     const isDiffAir = String(row.ISDIFFAIR || '').toUpperCase();
-    if (isDiffAir === '2' || isDiffAir === 'YES' || isDiffAir === '1') return 'SEA-AIR';
+    if (isDiffAir === '2' || isDiffAir === 'YES') return 'SEA-AIR';
+    if (isDiffAir === '0') return 'SEA'; // Explicit 0 is Sea
+    
     return row.MODE || 'Unknown';
   } catch (e) { return 'Unknown' }
 }
 
-// --- 2. SIMPLE TEU LOGIC (per-shipment, deterministic) ---
-// Used by the dashboard to derive a TEU value from a single row.
-// This is a pure helper: no randomness, no side effects.
+// --- 2. TEU LOGIC (BOSS APPROVED) ---
+// Implements the exact CASE statement from your SQL snippet
 export const calculateTEU = (size: string, status: string, mode: string) => {
-  // Only SEA shipments count towards TEU here
-  if (mode !== 'SEA') return 0;
+  // Only SEA shipments count towards TEU
+  if (mode !== 'SEA' && mode !== 'SEA-AIR') return 0;
 
-  const s = (size || '').toUpperCase();
+  const s = (size || '').toUpperCase().trim();
   const st = (status || '').toUpperCase().trim();
 
-  // LCL/LCL = 0
-  if (st === 'LCL/LCL') return 0;
+  // BOSS LOGIC IMPLEMENTATION
+  if (s === '20F') {
+    if (st === 'LCL/LCL') return 0;
+    if (st === 'LCL/FCL') return 1;
+    if (st === 'FCL/FCL') return 1;
+  }
+  
+  if (s === '20H') {
+    if (st === 'LCL/LCL') return 0;
+    if (st === 'LCL/FCL') return 2;
+    if (st === 'FCL/FCL') return 2;
+  }
 
-  // 20ft Logic
+  if (s === '40F') {
+    if (st === 'LCL/LCL') return 0;
+    if (st === 'LCL/FCL') return 2;
+    if (st === 'FCL/FCL') return 2;
+  }
+
+  if (s === '40H') {
+    if (st === 'LCL/LCL') return 0;
+    if (st === 'LCL/FCL') return 2;
+    if (st === 'FCL/FCL') return 2;
+  }
+
+  // Explicit Special Cases
+  if (s === '20G') return 2;
+  if (s === '40G') return 2;
+
+  // Fallback for standard sizes if strict match fails but pattern exists
   if (s.includes('20')) return 1;
-
-  // 40ft Logic
   if (s.includes('40')) return 2;
 
   return 0;
 }
 
-// --- 2b. TEU LOGIC (Deduplicated - Fixes container duplication bug) ---
-// This function correctly counts TEUs by deduplicating containers first
-// Implements Happy Chic custom logic and is deterministic.
 export const calculateUniqueTEU = (data: any[]) => {
   const uniqueContainers = new Map<string, number>();
 
   data.forEach(row => {
+    // Use CONNO as primary key, fallback to CONTMAWB
     const containerNo = row.CONNO || row.CONTMAWB || `UNKNOWN-${row.JOBNO}`;
 
     if (!uniqueContainers.has(containerNo)) {
       const mode = getComputedMode(row);
+      const size = row.CONT_CONTSIZE;
+      const status = row.CONT_CONTSTATUS;
 
-      // Non-SEA shipments = 0 TEU
-      if (mode !== 'SEA') {
-        uniqueContainers.set(containerNo, 0);
-        return;
-      }
-
-      const size = (row.CONT_CONTSIZE || '').toUpperCase().trim();
-      const status = (row.CONT_CONTSTATUS || '').toUpperCase().trim();
-
-      let teu = 0;
-
-      // Happy Chic Logic Implementation
-      if (size === '20G' || size === '40G') {
-        teu = 2;
-      } 
-      else if (size === '20F') {
-        if (status === 'LCL/LCL') teu = 0;
-        else if (status === 'LCL/FCL' || status === 'FCL/FCL') teu = 1;
-      }
-      else if (size === '20H') {
-        if (status === 'LCL/LCL') teu = 0;
-        else if (status === 'LCL/FCL' || status === 'FCL/FCL') teu = 2;
-      }
-      else if (size === '40F') {
-        if (status === 'LCL/LCL') teu = 0;
-        else if (status === 'LCL/FCL' || status === 'FCL/FCL') teu = 2;
-      }
-      else if (size === '40H') {
-        if (status === 'LCL/LCL') teu = 0;
-        else if (status === 'LCL/FCL' || status === 'FCL/FCL') teu = 2;
-      }
-      // Fallback for standard sizes if not matched above but contains 20/40
-      else {
-         if (size.includes('20')) teu = 1;
-         else if (size.includes('40')) teu = 2;
-      }
-
+      // Use the helper above to ensure logic is identical
+      const teu = calculateTEU(size, status, mode);
+      
       uniqueContainers.set(containerNo, teu);
     }
   });
@@ -121,26 +127,24 @@ export const calculateUniqueTEU = (data: any[]) => {
   return totalTEU;
 }
 
-// --- 3. PURE DB FINANCIALS (NO RANDOMIZATION) ---
+// --- 3. FINANCIALS ---
 export const generateFinancials = (row: any) => {
-  // Try to read columns if they exist, otherwise 0.
-  // No mock or random variance – this is a pure read of DB state.
+  // Pure DB Read. 
   return {
-    revenue: cleanNum(row.REVENUE || row.TOTAL_AMOUNT || 0),
-    profit: cleanNum(row.PROFIT || row.MARGIN || 0),
-    cost: cleanNum(row.COST || row.EXPENSE || 0)
+    revenue: cleanNum(row.REVENUE || row.Revenue || 0),
+    profit: cleanNum(row.PROFIT || row.Profit || 0),
+    cost: cleanNum(row.COST || row.Cost || 0)
   };
 }
 
-// --- 4. PURE / DETERMINISTIC EMISSIONS ---
+// --- 4. EMISSIONS ---
 export const generateEmissions = (row: any) => {
-  // If DB has CO2, use it directly.
-  if (row.CO2_EMISSIONS) {
-      return { co2: cleanNum(row.CO2_EMISSIONS), distance: 0 }
+  if (row.CO2_EMISSIONS || row.Co2_Emissions) {
+      return { co2: cleanNum(row.CO2_EMISSIONS || row.Co2_Emissions), distance: 0 }
   }
 
-  // Fallback: deterministic calculation based only on weight + mode.
-  const weight = cleanNum(row.CONT_GRWT) / 1000;
+  // Fallback: Weight is in TONS now, so NO divide by 1000 needed
+  const weightTons = cleanNum(row.CONT_GRWT); 
   const mode = getComputedMode(row);
   
   let distance = 0;
@@ -151,7 +155,7 @@ export const generateEmissions = (row: any) => {
   else { distance = 12000; factor = 0.015; }
 
   return {
-    co2: Math.round(weight * distance * factor),
+    co2: Math.round(weightTons * distance * factor),
     distance: distance
   }
 }
