@@ -411,16 +411,6 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
 
   // --- 5. STATS ---
   const kpis = useMemo((): { shipments: number; weight: number; teu: number; cbm: number; avgTransit: number; revenue: number; profit: number; co2: number } => {
-    // Helper to parse DD-MM-YYYY dates specifically for Transit Calc
-    const parseTransitDate = (dateStr: any) => {
-      if (!dateStr || typeof dateStr !== 'string') return null
-      try {
-        // Handle DD-MM-YYYY
-        if (dateStr.includes('-')) return parse(dateStr, 'dd-MM-yyyy', new Date())
-        return null
-      } catch { return null }
-    }
-
     const uniqueJobs = new globalThis.Map<string, ShipmentRecord>()
     chartData.forEach((r, idx) => {
       const key = r.JOBNO ? String(r.JOBNO) : `__${idx}`
@@ -432,13 +422,11 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
     let transitCount = 0
 
     uniqueRows.forEach((r: ShipmentRecord) => {
-      // Logic: Prefer Actual (ATD/ATA), fallback to Estimated (ETD/ETA)
-      const start = parseTransitDate(r.ATD || r.ETD)
-      const end = parseTransitDate(r.ATA || r.ETA) // Ensure you have ETA/ATA in your DB/Select query!
+      const start = getValidDate({ ATD: r.ATD, ETD: r.ETD }) // Use helper properly
+      const end = getValidDate({ ATA: r.ATA, ETA: r.ETA })
 
       if (start && isValid(start) && end && isValid(end)) {
         const days = differenceInDays(end, start)
-        // Sanity Check: Ignore negative days or impossible values (> 120 days)
         if (days >= 0 && days < 150) {
           totalTransitDays += days
           transitCount++
@@ -459,7 +447,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
   }, [chartData])
 
   const metricConfig = {
-    weight: { label: "Weight (Tons)", accessor: (row: any) => cleanNum(row.CONT_GRWT) / 1000 },
+    weight: { label: "Weight (Tons)", accessor: (row: any) => cleanNum(row.CONT_GRWT) },
     teu: { label: "TEU", accessor: (row: any) => cleanNum(row.CONT_TEU) },
     cbm: { label: "CBM", accessor: (row: any) => cleanNum(row.CONT_CBM) },
     shipments: { label: "Shipments", accessor: () => 1 }
@@ -543,7 +531,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
       stats[origin] = (stats[origin] || 0) + cleanNum(row.CONT_GRWT)
     })
     return Object.entries(stats)
-      .map(([name, val]) => ({ name, val: Math.round(val / 1000) }))
+      .map(([name, val]) => ({ name, val: Math.round(val) }))
       .sort((a, b) => b.val - a.val)
       .slice(0, 8)
   }, [chartData])
@@ -566,7 +554,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
       const client = row.CONNAME || "Unknown"
       if (!stats[client]) stats[client] = { shipments: 0, tons: 0 }
       stats[client].shipments += 1
-      stats[client].tons += cleanNum(row.CONT_GRWT) / 1000
+      stats[client].tons += cleanNum(row.CONT_GRWT)
     })
     return Object.entries(stats)
       .map(([name, info]) => ({ name, shipments: info.shipments, tons: Math.round(info.tons * 10) / 10 }))
@@ -603,7 +591,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
       const dest = row.POD || "Unknown"
       const key = `${origin} → ${dest}`
       if (!stats[key]) stats[key] = { weight: 0, shipments: 0 }
-      stats[key].weight += cleanNum(row.CONT_GRWT) / 1000
+      stats[key].weight += cleanNum(row.CONT_GRWT)
       stats[key].shipments += 1
     })
     return Object.entries(stats)
@@ -742,6 +730,108 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
   }
 
   const hasData = chartData.length > 0
+
+  // --- QUICK SNAPSHOT CALCULATIONS ---
+  const quickSnapshot = useMemo(() => {
+    const uniqueJobs = new globalThis.Map<string, ShipmentRecord>()
+    chartData.forEach((r, idx) => {
+      const key = r.JOBNO ? String(r.JOBNO) : `__${idx}`
+      if (!uniqueJobs.has(key)) uniqueJobs.set(key, r)
+    })
+    const uniqueRows = Array.from(uniqueJobs.values())
+
+    // On-Time %: Shipments where ATD <= ETD (or ATA <= ETA)
+    let onTimeCount = 0
+    let totalWithDates = 0
+    uniqueRows.forEach((r: ShipmentRecord) => {
+      const etd = getValidDate({ ETD: r.ETD })
+      const atd = getValidDate({ ATD: r.ATD })
+      const eta = getValidDate({ ETA: r.ETA })
+      const ata = getValidDate({ ATA: r.ATA })
+      
+      if (atd && etd) {
+        totalWithDates++
+        if (atd <= etd) onTimeCount++
+      } else if (ata && eta) {
+        totalWithDates++
+        if (ata <= eta) onTimeCount++
+      }
+    })
+    const onTimePercent = totalWithDates > 0 ? Math.round((onTimeCount / totalWithDates) * 100) : 0
+
+    // Exceptions: Shipments with delays or status issues
+    const exceptions = uniqueRows.filter((r: ShipmentRecord) => {
+      const atd = getValidDate({ ATD: r.ATD })
+      const etd = getValidDate({ ETD: r.ETD })
+      if (atd && etd && atd > etd) return true
+      const status = (r.SHPTSTATUS || '').toUpperCase()
+      return status.includes('DELAY') || status.includes('EXCEPTION') || status.includes('ISSUE')
+    }).length
+
+    // Fleet Utilization: Based on container utilization percentage
+    let totalUtilization = 0
+    let utilizationCount = 0
+    uniqueRows.forEach((r: ShipmentRecord) => {
+      const util = cleanNum(r.CONT_UTILIZATION || r.CONT_UTILIZEDPER)
+      if (util > 0) {
+        totalUtilization += util
+        utilizationCount++
+      }
+    })
+    const avgUtilization = utilizationCount > 0 ? Math.round(totalUtilization / utilizationCount) : 0
+
+    // Sea Freight Yield: Revenue per TEU for SEA shipments
+    let seaRevenue = 0
+    let seaTEU = 0
+    uniqueRows.forEach((r: ShipmentRecord) => {
+      if (r._mode === 'SEA' || r._mode === 'SEA-AIR') {
+        seaRevenue += (r._financials?.revenue || 0)
+        seaTEU += r._teu || 0
+      }
+    })
+    const seaFreightYield = seaTEU > 0 ? Math.round(seaRevenue / seaTEU) : 0
+
+    return {
+      onTime: onTimePercent,
+      exceptions: exceptions,
+      utilization: avgUtilization,
+      yield: seaFreightYield
+    }
+  }, [chartData])
+
+  // --- INVOICE TOTALS ---
+  const invoiceTotals = useMemo(() => {
+    const uniqueJobs = new globalThis.Map<string, ShipmentRecord>()
+    chartData.forEach((r, idx) => {
+      const key = r.JOBNO ? String(r.JOBNO) : `__${idx}`
+      if (!uniqueJobs.has(key)) uniqueJobs.set(key, r)
+    })
+    const uniqueRows = Array.from(uniqueJobs.values())
+
+    let paid = 0
+    let pending = 0
+    let unpaid = 0
+
+    uniqueRows.forEach((r: ShipmentRecord) => {
+      const revenue = r._financials?.revenue || 0
+      const status = (r.SHPTSTATUS || '').toUpperCase()
+      const docRecd = getValidDate({ DOCRECD: r.DOCRECD })
+      const approval = getValidDate({ APPROVAL: r.APPROVAL })
+
+      // Simple logic: If approved and docs received, consider paid
+      // If docs received but not approved, pending
+      // Otherwise unpaid
+      if (approval && docRecd && revenue > 0) {
+        paid += revenue
+      } else if (docRecd && revenue > 0) {
+        pending += revenue
+      } else if (revenue > 0) {
+        unpaid += revenue
+      }
+    })
+
+    return { paid, pending, unpaid }
+  }, [chartData])
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 font-sans text-slate-900 dark:text-slate-50">
@@ -963,7 +1053,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                        </div>
                      </div>
                      <div className="flex items-end justify-between mb-4">
-                       <div className="text-3xl font-bold text-slate-900 dark:text-slate-50">{(kpis.weight / 1000).toFixed(1)}</div>
+                       <div className="text-3xl font-bold text-slate-900 dark:text-slate-50">{kpis.weight.toFixed(1)}</div>
                        <div className="text-sm font-normal text-slate-500 dark:text-slate-400 mb-1">tons</div>
                      </div>
                      <div className="h-[50px]">
@@ -1228,7 +1318,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                         <div className="flex items-center gap-3">
                           <span className="font-semibold text-slate-900 dark:text-slate-50">{lane.weight.toFixed(1)}t</span>
                           <span className="text-slate-400 text-xs w-8 text-right">
-                            {kpis.weight > 0 ? Math.round((lane.weight / (kpis.weight / 1000)) * 100) : 0}%
+                            {kpis.weight > 0 ? Math.round((lane.weight / kpis.weight) * 100) : 0}%
                           </span>
                         </div>
                       </div>
@@ -1254,53 +1344,53 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
                   <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">On-Time</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? "N/A" : "N/A"}</span>
+                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? `${quickSnapshot.onTime}%` : "N/A"}</span>
                     <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
                       <ArrowUpRight className="w-3 h-3" />
-                      N/A
+                      {hasData ? "On track" : "N/A"}
                     </span>
                   </div>
                   <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full w-[0%] bg-emerald-500" />
+                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${quickSnapshot.onTime}%` }} />
                   </div>
                 </div>
                 <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
                   <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">Exceptions</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? "N/A" : "N/A"}</span>
+                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? quickSnapshot.exceptions : "N/A"}</span>
                     <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
                       <ArrowDownRight className="w-3 h-3" />
-                      N/A
+                      {hasData ? "Issues" : "N/A"}
                     </span>
                   </div>
                   <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full w-[0%] bg-amber-500" />
+                    <div className="h-full bg-amber-500 transition-all" style={{ width: `${hasData && kpis.shipments > 0 ? Math.min((quickSnapshot.exceptions / kpis.shipments) * 100, 100) : 0}%` }} />
                   </div>
                 </div>
                 <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
                   <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">Fleet Utilization</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? "N/A" : "N/A"}</span>
+                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? `${quickSnapshot.utilization}%` : "N/A"}</span>
                     <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
                       <ArrowUpRight className="w-3 h-3" />
-                      N/A
+                      {hasData ? "Capacity" : "N/A"}
                     </span>
                   </div>
                   <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full w-[0%] bg-slate-900 dark:bg-slate-100" />
+                    <div className="h-full bg-slate-900 dark:bg-slate-100 transition-all" style={{ width: `${quickSnapshot.utilization}%` }} />
                   </div>
                 </div>
                 <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
                   <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">Sea Freight Yield</div>
                   <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? "N/A" : "N/A"}</span>
+                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? `$${quickSnapshot.yield.toLocaleString()}` : "N/A"}</span>
                     <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
                       <ArrowUpRight className="w-3 h-3" />
-                      N/A
+                      {hasData ? "Per TEU" : "N/A"}
                     </span>
                   </div>
                   <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full w-[0%] bg-emerald-500" />
+                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${hasData && quickSnapshot.yield > 0 ? Math.min((quickSnapshot.yield / 10000) * 100, 100) : 0}%` }} />
                   </div>
                 </div>
               </CardContent>
@@ -1323,15 +1413,15 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 <div className="grid grid-cols-3 gap-2 mb-2.5 ">
                    <div className="space-y-0.5">
                       <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Paid</div>
-                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">$0</div>
+                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">${invoiceTotals.paid.toLocaleString()}</div>
                    </div>
                    <div className="space-y-1 border-l border-slate-100 dark:border-zinc-800 pl-3">
                       <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Pending</div>
-                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">$0</div>
+                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">${invoiceTotals.pending.toLocaleString()}</div>
                    </div>
                    <div className="space-y-1 border-l border-slate-100 dark:border-zinc-800 pl-3">
                       <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Unpaid</div>
-                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">$0</div>
+                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">${invoiceTotals.unpaid.toLocaleString()}</div>
                    </div>
                 </div>
 
@@ -1404,7 +1494,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                         
                         <div className="text-right">
                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                             {(cleanNum(row.CONT_GRWT) / 1000).toFixed(1)}t
+                             {cleanNum(row.CONT_GRWT).toFixed(1)}t
                            </div>
                            <MoreVertical className="w-4 h-4 text-slate-300 ml-auto mt-1 opacity-0 group-hover:opacity-100" />
                         </div>

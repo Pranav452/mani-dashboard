@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { useSession } from 'next-auth/react'
 import { getShipments } from '@/app/actions'
 
 interface ShipmentContextType {
@@ -16,6 +17,7 @@ export function ShipmentProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<any>(null)
+  const { data: session, status } = useSession()
 
   const fetchData = async () => {
     try {
@@ -31,10 +33,18 @@ export function ShipmentProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Fetch only once on mount
+  // Wait for session to be ready before fetching data
   useEffect(() => {
-    fetchData()
-  }, [])
+    // Only fetch if session is authenticated, or if status is not loading
+    if (status === 'authenticated') {
+      fetchData()
+    } else if (status === 'unauthenticated') {
+      // If not authenticated, set loading to false and empty data
+      setLoading(false)
+      setData([])
+    }
+    // If status is 'loading', keep loading state as true
+  }, [status])
 
   return (
     <ShipmentContext.Provider value={{ data, loading, error, refresh: fetchData }}>

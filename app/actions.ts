@@ -45,6 +45,7 @@ export async function getShipments() {
       // @p1 = MODE (Default 'SEA')
       // @p2 = ISDIFFAIR (Default '0')
       
+      // Use grpcode exactly as stored (matching your SQL query)
       query = `
         ${selectColumns}
         WHERE 
@@ -58,12 +59,19 @@ export async function getShipments() {
       // We pass the session's grpcode into the split function
       // Hardcoded defaults for Phase 1: SEA and '0'
       params = [grpcode || '', 'SEA', '0']
+      
+      console.log(`--- QUERY PARAMS: GRPCODE="${grpcode}", MODE="SEA", ISDIFFAIR="0" ---`)
     }
 
     // 3. Execute
     const data = await executeQuery(query, params)
 
-    if (!data) return []
+    if (!data) {
+      console.log(`--- QUERY RETURNED NULL/UNDEFINED ---`)
+      return []
+    }
+
+    console.log(`--- RAW QUERY RESULT: ${data.length} ROWS ---`)
 
     // 4. Normalize Keys to Uppercase (Safe-guard for frontend)
     const normalizedData = data.map((row: any) => {
@@ -74,7 +82,7 @@ export async function getShipments() {
       return newRow
     })
 
-    console.log(`--- RETURNED ${normalizedData.length} ROWS ---`)
+    console.log(`--- RETURNED ${normalizedData.length} ROWS (after normalization) ---`)
     return normalizedData
 
   } catch (err) {
