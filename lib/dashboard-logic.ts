@@ -50,11 +50,24 @@ export const getValidDate = (row: any) => {
 
 export const getComputedMode = (row: any) => {
   try {
-    const isDiffAir = String(row.ISDIFFAIR || '').toUpperCase();
-    if (isDiffAir === '2' || isDiffAir === 'YES') return 'SEA-AIR';
-    if (isDiffAir === '0') return 'SEA'; // Explicit 0 is Sea
+    // Since MODE is already computed in SQL query (CASE WHEN MODE='SEA' AND ISDIFFAIR='2' THEN 'SEA-AIR' ELSE MODE END),
+    // we should trust the MODE value from the database
+    // Only handle edge cases where MODE might not be set correctly
     
-    return row.MODE || 'Unknown';
+    const mode = String(row.MODE || '').toUpperCase().trim();
+    const isDiffAir = String(row.ISDIFFAIR || '').toUpperCase();
+    
+    // If MODE is already SEA-AIR, keep it
+    if (mode === 'SEA-AIR') return 'SEA-AIR';
+    
+    // If MODE is SEA and ISDIFFAIR is '2' or 'YES', it should be SEA-AIR
+    // (This handles cases where SQL CASE might not have caught it)
+    if (mode === 'SEA' && (isDiffAir === '2' || isDiffAir === 'YES')) {
+      return 'SEA-AIR';
+    }
+    
+    // Otherwise, trust the MODE from database (AIR, SEA, etc.)
+    return mode || 'Unknown';
   } catch (e) { return 'Unknown' }
 }
 

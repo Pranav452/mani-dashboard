@@ -20,7 +20,14 @@ export async function getShipments() {
     // 1. Define the Columns (Matches your Boss's SQL exactly)
     const selectColumns = `
       SELECT 
-        JOBNO, MODE, ISDIFFAIR, MCONCODE, CONCODE, CONNAME, VSL_NAME, CONT_VESSEL, DIRECTVSL,
+        JOBNO, 
+        MODE=(CASE 
+          WHEN UPPER(MODE)='SEA' AND ISDIFFAIR='2' THEN 'SEA-AIR'
+          WHEN UPPER(MODE)='SEA' AND ISDIFFAIR='0' THEN 'SEA'
+          WHEN UPPER(MODE)='AIR' AND ISDIFFAIR='0' THEN 'AIR'
+          ELSE MODE
+        END), 
+        ISDIFFAIR, MCONCODE, CONCODE, CONNAME, VSL_NAME, CONT_VESSEL, DIRECTVSL,
         LINER_CODE, LINER_NAME, SHIPPER, POL, POD, CONTMAWB, CONT_CONTSIZE, CONT_CONTSTATUS,
         CONT_MOVETYPE, CONT_TEU, CONT_CBMCAP, CONT_UTILIZED,
         CONT_UTILIZEDPER, CONT_UTILIZATION, CONT_NOOFPKGS, CONT_NOOFPCS,
@@ -42,25 +49,23 @@ export async function getShipments() {
     } else {
       // KPI Client: Apply the "Boss Logic"
       // @p0 = grpcode (MAINCONCODE)
-      // @p1 = MODE (Default 'SEA')
-      // @p2 = ISDIFFAIR (Default '0')
+      // Removed MODE and ISDIFFAIR filters to get all modes (SEA, AIR, SEA-AIR)
+      // ISDIFFAIR logic is still used in getComputedMode() to determine mode type
       
       // Use grpcode exactly as stored (matching your SQL query)
       query = `
         ${selectColumns}
         WHERE 
           CONCODE IN (SELECT VALUE FROM DBO.FN_SPLIT(@p0, ',') WHERE VALUE <> '')
-          AND MODE = @p1
-          AND ISDIFFAIR = @p2
           AND DOCDT >= DBO.CONVERTDATE_YYYYMMDD(convert(varchar, dateadd(mm, -24, GETDATE()), 105))
         ORDER BY JOBNO DESC
       `
       
       // We pass the session's grpcode into the split function
-      // Hardcoded defaults for Phase 1: SEA and '0'
-      params = [grpcode || '', 'SEA', '0']
+      // No MODE or ISDIFFAIR filters - getting all modes
+      params = [grpcode || '']
       
-      console.log(`--- QUERY PARAMS: GRPCODE="${grpcode}", MODE="SEA", ISDIFFAIR="0" ---`)
+      console.log(`--- QUERY PARAMS: GRPCODE="${grpcode}" (All modes: SEA, AIR, SEA-AIR) ---`)
     }
 
     // 3. Execute
