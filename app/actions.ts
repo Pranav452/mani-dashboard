@@ -42,19 +42,19 @@ export async function getShipments() {
         ORDER BY JOBNO DESC
       `
     } else {
-      // KPI Client: Apply Filters
+      // KPI Client: Apply Filters (ALL MODES)
+      // Removed: AND MODE = @p1 AND ISDIFFAIR = @p2
       query = `
         SELECT ${fields} 
         FROM TBL_CLIENT_KPI_DASHBOARD_PBI
         WHERE 
           CONCODE IN (SELECT VALUE FROM DBO.FN_SPLIT(@p0, ',') WHERE VALUE <> '')
-          AND MODE = @p1
-          AND ISDIFFAIR = @p2
           AND DOCDT >= DBO.CONVERTDATE_YYYYMMDD(convert(varchar, dateadd(mm, -24, GETDATE()), 105))
         ORDER BY JOBNO DESC
       `
       
-      params = [grpcode || '', 'SEA', '0']
+      // Removed 'SEA', '0' from params
+      params = [grpcode || '']
     }
 
     // 3. Execute
