@@ -33,10 +33,10 @@ const sqlConfig: sql.config = {
     // 3. Helps with some IP-based connection issues
     enableArithAbort: true,
 
-    // 4. THE FIX FOR VERCEL: Allow legacy TLS versions (TLSv1.0 / TLSv1.1)
-    // This tells Node.js OpenSSL 3 to accept older protocols used by legacy SQL Servers
+    // FORCE LEGACY SUPPORT
     cryptoCredentialsDetails: {
-      minVersion: 'TLSv1'
+      minVersion: 'TLSv1',
+      ciphers: 'DEFAULT@SECLEVEL=0' // Allows older/weaker ciphers used by legacy SQL Servers
     }
   }
 }
