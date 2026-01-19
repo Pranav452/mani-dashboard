@@ -448,7 +448,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
 
   const metricConfig = {
     weight: { label: "Weight (Tons)", accessor: (row: any) => cleanNum(row.CONT_GRWT) },
-    teu: { label: "TEU", accessor: (row: any) => cleanNum(row.CONT_TEU) },
+    teu: { label: "TEU", accessor: (row: any) => row._teu || 0 },
     cbm: { label: "CBM", accessor: (row: any) => cleanNum(row.CONT_CBM) },
     shipments: { label: "Shipments", accessor: () => 1 }
   } as const
