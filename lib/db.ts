@@ -11,6 +11,7 @@ const getServerAndPort = (serverString: string | undefined) => {
 }
 
 const { server, port } = getServerAndPort(process.env.DB_SERVER)
+const isDev = process.env.NODE_ENV === 'development'
 
 const sqlConfig: sql.config = {
   user: process.env.DB_USER,
@@ -24,19 +25,20 @@ const sqlConfig: sql.config = {
     idleTimeoutMillis: 30000
   },
   options: {
-    // 1. Keep encryption on (matches your server settings)
-    encrypt: true, 
+    // 1. Encryption Strategy
+    // Dev: If using IP, sometimes 'encrypt: false' is needed to bypass "ServerName IP" error
+    // Prod: Always encrypt
+    encrypt: isDev ? false : true, 
     
-    // 2. Trust the self-signed certificate
+    // 2. Trust Server Certificate (Always true for self-signed/legacy certs)
     trustServerCertificate: true, 
     
     // 3. Helps with some IP-based connection issues
     enableArithAbort: true,
 
-    // FORCE LEGACY SUPPORT
+    // 4. Legacy TLS Support (Critical for Vercel + Old SQL Server)
     cryptoCredentialsDetails: {
-      minVersion: 'TLSv1',
-      ciphers: 'DEFAULT@SECLEVEL=0' // Allows older/weaker ciphers used by legacy SQL Servers
+      minVersion: 'TLSv1'
     }
   }
 }
