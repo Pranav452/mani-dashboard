@@ -24,18 +24,15 @@ const sqlConfig: sql.config = {
     idleTimeoutMillis: 30000
   },
   options: {
-    // 1. Keep encryption on
     encrypt: true, 
-    
-    // 2. Trust the self-signed certificate
     trustServerCertificate: true, 
-    
-    // 3. Helps with some IP-based connection issues
     enableArithAbort: true,
 
-    // 4. CRITICAL FIX FOR VERCEL: Allow legacy TLS versions
+    // --- CRITICAL FIX FOR VERCEL ---
+    // This forces Node.js to accept older TLS 1.0/1.1 protocols
     cryptoCredentialsDetails: {
-      minVersion: 'TLSv1'
+      minVersion: 'TLSv1',
+      ciphers: 'DEFAULT@SECLEVEL=0' 
     }
   }
 }
