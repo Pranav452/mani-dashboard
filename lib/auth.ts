@@ -13,6 +13,22 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) return null
 
+        // --- DEMO MODE: Special dummy credentials for presentations ---
+        if (credentials.username === "dummy" && credentials.password === "dummy") {
+          console.log("🎭 DEMO MODE ACTIVATED - Bypassing database authentication")
+          return {
+            id: "demo-user",
+            name: "Demo User",
+            email: "Demo Presentation Mode",
+            role: "DEMO",
+            authority: "FULL",
+            cmpid: "DEMO001",
+            pkid: null,
+            concode: "DEMO",
+            grpcode: "DEMO"
+          }
+        }
+
         // --- STEP 1: LOGIN (Get CMPID) ---
         // Matches: SELECT @CMPID=CMPID FROM CMP_DTLS WHERE ROLETYPE='KPI' ...
         const loginQuery = `
