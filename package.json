@@ -29,6 +29,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotted-map": "^2.2.3",
+    "file-saver": "^2.0.5",
     "langchain": "^1.1.5",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.556.0",
@@ -46,7 +47,8 @@
     "recharts": "^2.15.4",
     "tailwind-merge": "^3.4.0",
     "typeorm": "^0.3.28",
-    "vaul": "^1.1.2"
+    "vaul": "^1.1.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

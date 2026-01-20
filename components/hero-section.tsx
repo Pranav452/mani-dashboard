@@ -12,7 +12,7 @@ import FeaturesSection9 from './features-9'
 import FeaturesSection12 from './features-12'
 import CallToAction from './call-to-action'
 import FAQs from './faqs'
-import FooterSection from './footer'
+import { Footer } from './footer'
 import type { Variants } from 'motion/react'
 
 const transitionVariants: { item: Variants } = {
@@ -188,7 +188,7 @@ export default function HeroSection() {
             
             {/* Footer */}
             <div className="border-t border-slate-200 dark:border-zinc-800">
-                <FooterSection />
+                <Footer />
             </div>
         </>
     )

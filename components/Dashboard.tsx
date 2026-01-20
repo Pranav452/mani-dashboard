@@ -29,6 +29,8 @@ import { cleanNum, getValidDate, getComputedMode, calculateTEU, calculateUniqueT
 // Import Shadcn Chart Components
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import { ModeToggle } from "@/components/mode-toggle"
+import { Navbar } from "@/components/Navbar"
+import { Footer } from "@/components/footer"
 
 
 // --- HELPER: Smart Carrier Logic (The Fix) ---
@@ -859,48 +861,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 font-sans text-slate-900 dark:text-slate-50">
       
       {/* 1. TOP NAVBAR */}
-      <header className="bg-white/90 dark:bg-zinc-950/90 backdrop-blur border-b border-slate-200 dark:border-zinc-800 sticky top-0 z-40">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 relative">
-              <Image src="/logo.png" alt="Logo" fill className="object-contain" />
-            </div>
-            <div className="flex flex-col">
-              <h1 className="text-lg md:text-xl font-semibold text-slate-900 dark:text-slate-50 leading-tight">
-                Management Dashboard <span className="text-[15px] font-bold text-red-700 dark:text-red-500 ml-1">For {username.toUpperCase()}</span>
-              </h1>
-              <span className="text-[13px] text-dark-blue-500 dark:text-blue-400 font-normal">by Manilal Patel</span>
-            </div>
-          </div>
-          
-          <nav className="hidden md:flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="font-medium text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-slate-100" asChild>
-              <Link href="/dashboard">Dashboard</Link>
-            </Button>
-            <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
-              <Link href="/financials">Financials</Link>
-            </Button>
-            <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
-              <Link href="/environmental">Environmental Impact</Link>
-            </Button>
-            {/* 
-            <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
-              <Link href="/fleet">Fleet</Link>
-            </Button>
-            <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
-              <Link href="/reports">Reports</Link>
-            </Button> 
-            */}
-            <div className="ml-2 flex items-center gap-2">
-              <ModeToggle />
-              <Button variant="ghost" size="sm" onClick={() => signOut({ callbackUrl: '/login' })} className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          </nav>
-        </div>
-      </header>
+      <Navbar />
 
       {/* 2. FILTERS BAR */}
       <div className="bg-white/95 dark:bg-zinc-950/95 backdrop-blur border-b border-slate-200 dark:border-zinc-800 sticky top-16 z-30">
@@ -2154,6 +2115,9 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
         onOpenChange={setDrawerOpen}
         record={selectedRecord}
       />
+
+      {/* Footer */}
+      <Footer />
     </div>
     
   )
