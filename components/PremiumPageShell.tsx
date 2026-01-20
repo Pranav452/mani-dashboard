@@ -56,23 +56,16 @@ export function PremiumPageShell({ title, description, sections, active = "finan
             <Button variant="ghost" size="sm" asChild className={`font-medium ${active === "customers" ? "text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-slate-100" : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"}`}>
               <Link href="/environmental">Environmental Impact</Link>
             </Button>
+            {/* 
             <Button variant="ghost" size="sm" asChild className={`font-medium ${active === "fleet" ? "text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-slate-100" : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"}`}>
               <Link href="/fleet">Fleet</Link>
             </Button>
             <Button variant="ghost" size="sm" asChild className={`font-medium ${active === "reports" ? "text-slate-900 bg-slate-100 dark:bg-slate-800 dark:text-slate-100" : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"}`}>
               <Link href="/reports">Reports</Link>
-            </Button>
-            <div className="ml-2 flex items-center gap-2">
+            </Button> 
+            */}
+            <div className="ml-2">
               <ModeToggle />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => signOut({ callbackUrl: '/login' })}
-                className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
             </div>
           </nav>
         </div>

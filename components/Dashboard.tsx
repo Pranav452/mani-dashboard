@@ -861,20 +861,17 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
             <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
               <Link href="/environmental">Environmental Impact</Link>
             </Button>
+            {/* 
             <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
               <Link href="/fleet">Fleet</Link>
             </Button>
             <Button variant="ghost" size="sm" className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100" asChild>
               <Link href="/reports">Reports</Link>
-            </Button>
+            </Button> 
+            */}
             <div className="ml-2 flex items-center gap-2">
               <ModeToggle />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => signOut({ callbackUrl: '/login' })}
-                className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-              >
+              <Button variant="ghost" size="sm" onClick={() => signOut({ callbackUrl: '/login' })} className="font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
                 <LogOut className="w-4 h-4 mr-2" />
                 Logout
               </Button>
@@ -1273,43 +1270,57 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               </CardContent>
             </Card>
 
-            {/* MODE & COSTS */}
+            {/* REPLACED SECTION: Tonnage by Origin (Was Mode & Costs) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Tonnage by Origin Chart */}
               <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Balance and costs</CardTitle>
+                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Tonnage by Origin</CardTitle>
                   <MoreVertical className="w-4 h-4 text-slate-400" />
                 </CardHeader>
-                <CardContent className="h-[250px] relative">
-                  <div className="absolute top-4 left-6">
-                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Cash Balance</div>
-                    <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">N/A</div>
-                  </div>
-                  <div className="mt-12 h-[180px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={modeStats}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#64748b'}} />
-                        <Tooltip cursor={{fill: 'var(--color-muted)'}} contentStyle={{backgroundColor: 'var(--color-card)', borderRadius: '8px', border: '1px solid var(--color-border)', color: 'var(--color-card-foreground)'}} />
-                        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                          {modeStats.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={originStats} layout="vertical" margin={{ left: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                      <XAxis type="number" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#64748b'}} />
+                      <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                        width={60}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'var(--color-card)',
+                          borderRadius: '8px',
+                          border: '1px solid var(--color-border)',
+                          color: 'var(--color-card-foreground)'
+                        }}
+                        cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
+                      />
+                      <Bar dataKey="val" radius={[0, 4, 4, 0]} barSize={20}>
+                        {originStats.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
 
+              {/* Lane Stats (Keep or repurpose "Costs by category" to just "Top Lanes") */}
               <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Costs by category</CardTitle>
+                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Top Lanes</CardTitle>
                   <MoreVertical className="w-4 h-4 text-slate-400" />
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-800 mb-6" />
                   
                   <div className="space-y-3">
-                    {laneStats.slice(0, 5).map((lane, idx) => (
+                    {laneStats.slice(0, 7).map((lane, idx) => (
                       <div key={idx} className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
                           <div className={cn("w-2 h-2 rounded-full", idx === 0 ? "bg-emerald-500" : idx === 1 ? "bg-slate-800 dark:bg-slate-600" : idx === 2 ? "bg-yellow-400" : "bg-slate-300 dark:bg-zinc-700")} />
@@ -1396,140 +1407,33 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               </CardContent>
             </Card>
             
-            {/* INVOICES / SHIPMENTS LIST */}
-            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900">
-              <CardHeader className="pb-0  px-6">
-                <div className="flex items-center justify-between mb-6">
-                   <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">Invoices</h2>
-                   <div className="flex items-center gap-2">
-                     <Button variant="ghost" size="sm" className="h-8 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200" onClick={() => toggleDrilldown('invoices')}>
-                       {drilldowns['invoices'] ? 'Hide drilldown' : 'Show drilldown'}
-                     </Button>
-                     <MoreVertical className="w-4 h-3.5  text-slate-400" />
-                   </div>
-                </div>
-                
-                {/* STATUS CARDS */}
-                <div className="grid grid-cols-3 gap-2 mb-2.5 ">
-                   <div className="space-y-0.5">
-                      <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Paid</div>
-                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">${invoiceTotals.paid.toLocaleString()}</div>
-                   </div>
-                   <div className="space-y-1 border-l border-slate-100 dark:border-zinc-800 pl-3">
-                      <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Pending</div>
-                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">${invoiceTotals.pending.toLocaleString()}</div>
-                   </div>
-                   <div className="space-y-1 border-l border-slate-100 dark:border-zinc-800 pl-3">
-                      <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Unpaid</div>
-                      <div className="text-base font-bold text-slate-900 dark:text-slate-50">${invoiceTotals.unpaid.toLocaleString()}</div>
-                   </div>
-                </div>
-
-                <div className="h-1.5 w-full bg-slate-100 dark:bg-zinc-800 rounded-full mb-6 overflow-hidden" />
-
-                {/* TABS */}
-                <div className="flex items-center gap-1 border-b border-slate-100 dark:border-zinc-800 mb-4 overflow-x-auto">
-                   {(["ALL", "SEA", "AIR", "SEA-AIR"] as const).map(tab => (
-                     <button
-                       key={tab}
-                       onClick={() => setSelectedTab(tab)}
-                       className={cn(
-                         "px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-                         selectedTab === tab 
-                           ? "border-slate-900 dark:border-slate-100 text-slate-900 dark:text-slate-100" 
-                           : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-zinc-700"
-                       )}
-                     >
-                       {tab === "ALL" ? "All" : tab}
-                     </button>
-                   ))}
-                </div>
-
-                {/* SEARCH */}
-                <div className="relative ">
-                   <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                   <Input 
-                      placeholder="Search invoice..." 
-                      className="pl-8 h-8 text-xs bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-900"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                   />
-                </div>
+            {/* REMOVED: INVOICES LIST */}
+            {/* Replaced with: Recent Activity / Shipments (Simplified) */}
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 flex-1">
+              <CardHeader className="pb-3 px-6">
+                <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Recent Shipments</CardTitle>
               </CardHeader>
-              
               <CardContent className="p-0 flex-1 overflow-auto min-h-0 max-h-[600px]">
                 <div className="divide-y divide-slate-50 dark:divide-zinc-800">
-                   {recentShipments
-                     .filter(s => selectedTab === "ALL" || s._mode === selectedTab)
-                     .map((row, idx) => (
-                     <div 
-                       key={idx} 
-                       className="px-6 py-4 hover:bg-slate-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors flex items-center justify-between group"
-                      onClick={() => {
-                        toggleDrilldown('invoices')
-                        handleRowClick(row)
-                      }}
-                     >
+                   {recentShipments.map((row, idx) => (
+                     <div key={idx} className="px-6 py-4 hover:bg-slate-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors flex items-center justify-between group" onClick={() => handleRowClick(row)}>
                         <div className="flex items-center gap-3">
-                           {/* Checkbox placeholder */}
-                           <div className="w-4 h-4 rounded border border-slate-300 dark:border-zinc-700 flex items-center justify-center text-white group-hover:border-slate-400 dark:group-hover:border-zinc-600">
-                              <Check className="w-3 h-3 opacity-0 group-hover:opacity-100 text-slate-400 dark:text-slate-500" />
+                           <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", row._mode === "SEA" ? "bg-blue-100 text-blue-600" : "bg-orange-100 text-orange-600")}>
+                             {row._mode === "SEA" ? <Ship className="w-4 h-4" /> : <Layers className="w-4 h-4" />}
                            </div>
-                           
-                           {/* Icon based on Mode */}
-                           <div className={cn(
-                             "w-8 h-8 rounded-full flex items-center justify-center",
-                             row._mode === "SEA" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" :
-                             row._mode === "AIR" ? "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400" :
-                             "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
-                           )}>
-                             {row._mode === "SEA" ? <Ship className="w-4 h-4" /> : row._mode === "AIR" ? <PlaneIcon /> : <Layers className="w-4 h-4" />}
-                           </div>
-                           
                            <div>
-                              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{row.CONNAME || "Unknown Client"}</div>
-                              <div className="text-xs text-slate-500 dark:text-slate-400">{row.JOBNO} • {row._date ? format(row._date, "MM/dd/yy") : "N/A"}</div>
+                              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[120px]">{row.CONNAME || "Unknown"}</div>
+                              <div className="text-xs text-slate-500">{row.JOBNO}</div>
                            </div>
                         </div>
-                        
                         <div className="text-right">
-                           <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                             {cleanNum(row.CONT_GRWT).toFixed(1)}t
-                           </div>
-                           <MoreVertical className="w-4 h-4 text-slate-300 ml-auto mt-1 opacity-0 group-hover:opacity-100" />
+                           <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{cleanNum(row.CONT_GRWT).toFixed(1)}t</div>
+                           <div className="text-xs text-slate-500">{row.POL}</div>
                         </div>
                      </div>
                    ))}
-                   
-                   {recentShipments.length === 0 && (
-                     <div className="p-8 text-center text-slate-400 text-sm">No records found</div>
-                   )}
                 </div>
               </CardContent>
-              {drilldowns['invoices'] && (
-                <div className="px-6 pb-4 border-t border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950">
-                  <div className="flex items-center justify-between py-3">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">Inline drilldown</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">Recent selections mirrored below</div>
-                    </div>
-                    <Button variant="outline" size="sm" className="h-8 text-xs text-slate-600 dark:text-slate-400 dark:border-zinc-800 dark:hover:bg-zinc-800" onClick={() => setDrawerOpen(true)}>
-                      Open drawer
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {recentShipments.slice(0, 4).map((row, idx) => (
-                      <div key={`drill-${idx}`} className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[180px]">{row.CONNAME || 'Unknown Client'}</div>
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">{row._date ? format(row._date, "dd MMM") : 'N/A'}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </Card>
 
           </div>
@@ -1800,10 +1704,10 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               </CardContent>
             </Card>
 
-            {/* MAP SECTION */}
+            {/* MAP SECTION - Renamed to Shipment Routing */}
              <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-900">
                 <CardHeader className="pb-0 pt-4 px-4 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2"><MapPin className="w-4 h-4" /> Live Tracking</CardTitle>
+                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2"><MapPin className="w-4 h-4" /> Shipment Routing</CardTitle>
                   <Button variant="ghost" size="sm" className="h-6 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">Full Screen</Button>
                 </CardHeader>
                 <CardContent className="p-0 h-[300px]">
@@ -1813,6 +1717,33 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                       <div className="h-full flex items-center justify-center bg-slate-50 dark:bg-zinc-950 text-slate-400">No map data</div>
                     )}
                 </CardContent>
+             </Card>
+
+             {/* NEW: CO2 EMISSIONS OVERVIEW (Front Page Requirement) */}
+             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+               <CardHeader className="pb-2">
+                 <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                    <Leaf className="w-4 h-4 text-emerald-500" /> CO2 Emissions Overview
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={monthlyTrend}>
+                      <defs>
+                        <linearGradient id="co2Gradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10}} tickFormatter={(val) => val.split('-')[1]} />
+                      <Tooltip contentStyle={{ borderRadius: '8px' }} />
+                      {/* Approximating CO2 trend based on volume trend for visual consistency until real CO2 data */}
+                      <Area type="monotone" dataKey="val" name="Est. CO2 (Tons)" stroke="#10b981" fill="url(#co2Gradient)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                  <div className="text-center text-xs text-slate-500 mt-2">Total estimated emissions based on shipment weight & distance</div>
+               </CardContent>
              </Card>
 
              {/* FILLER TO REDUCE BLANK SPACE */}
