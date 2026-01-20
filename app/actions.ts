@@ -16,6 +16,15 @@ export async function getShipments() {
 
   console.log(`--- FETCHING DATA FOR: ${name} (${role}) ---`)
 
+  // --- DEMO MODE: Return mock data instead of querying database ---
+  if (role === "DEMO") {
+    console.log("🎭 DEMO MODE ACTIVE: Loading comprehensive mock data...")
+    const { generateMockShipments } = await import("@/lib/mock-data")
+    const mockData = generateMockShipments(1000) // Generate 1000 impressive shipments
+    console.log(`✓ Returned ${mockData.length} mock shipments for demo`)
+    return mockData
+  }
+
   try {
     // 1. Define Fields separate from the SELECT statement
     const fields = `
