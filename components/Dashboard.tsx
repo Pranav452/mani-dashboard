@@ -17,14 +17,14 @@ const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: 
   ssr: false,
   loading: () => <div className="h-[400px] flex items-center justify-center bg-slate-50 rounded-lg"><span className="text-slate-400 text-sm">Loading map...</span></div>
 })
-import { format, isWithinInterval, parse, isValid, startOfDay, endOfDay, subDays, startOfYear, differenceInDays } from "date-fns"
+import { format, isWithinInterval, parse, startOfDay, endOfDay, subDays, startOfYear } from "date-fns"
 import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare, Briefcase, LayoutDashboard, FileText, Users, BarChart3, PieChart as PieChartIcon, Settings, MoreVertical, Check, ArrowUpRight, ArrowDownRight, Printer, DollarSign, Leaf, TrendingUp, TrendingDown, Activity, Snowflake, LogOut } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend, LineChart, Line } from "recharts"
 import { cn } from "@/lib/utils"
 import Snowfall from 'react-snowfall'
 
 // Import Logic
-import { cleanNum, getValidDate, getComputedMode, calculateTEU, calculateUniqueTEU, generateFinancials, generateEmissions, filterData } from "@/lib/dashboard-logic"
+import { cleanNum, getValidDate, getComputedMode, calculateTEU, calculateUniqueTEU, generateFinancials, generateEmissions, filterData, calculateTransitStats, calculateLinerStats } from "@/lib/dashboard-logic"
 
 // Import Shadcn Chart Components
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
@@ -410,7 +410,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
   }
 
   // --- 5. STATS ---
-  const kpis = useMemo((): { shipments: number; weight: number; teu: number; cbm: number; avgTransit: number; revenue: number; profit: number; co2: number } => {
+  const kpis = useMemo(() => {
     const uniqueJobs = new globalThis.Map<string, ShipmentRecord>()
     chartData.forEach((r, idx) => {
       const key = r.JOBNO ? String(r.JOBNO) : `__${idx}`
@@ -418,28 +418,37 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
     })
     const uniqueRows = Array.from(uniqueJobs.values()) as ShipmentRecord[]
 
-    let totalTransitDays = 0
-    let transitCount = 0
-
-    uniqueRows.forEach((r: ShipmentRecord) => {
-      const start = getValidDate({ ATD: r.ATD, ETD: r.ETD }) // Use helper properly
-      const end = getValidDate({ ATA: r.ATA, ETA: r.ETA })
-
-      if (start && isValid(start) && end && isValid(end)) {
-        const days = differenceInDays(end, start)
-        if (days >= 0 && days < 150) {
-          totalTransitDays += days
-          transitCount++
-        }
-      }
-    })
+    const transitStats = calculateTransitStats(uniqueRows)
+    const linerStats = calculateLinerStats(chartData)
 
     return {
       shipments: uniqueRows.length,
       weight: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_GRWT), 0),
-      teu: calculateUniqueTEU(chartData), // FIXED: Now uses deduplicated container TEU calculation
+      teu: calculateUniqueTEU(chartData),
       cbm: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0),
-      avgTransit: transitCount > 0 ? (totalTransitDays / transitCount) : 0,
+      
+      // Transit KPIs (Overall)
+      avgTransit: transitStats.avg,
+      minTransit: transitStats.min,
+      maxTransit: transitStats.max,
+      medianTransit: transitStats.median,
+      stddevTransit: transitStats.stddev,
+      transitShipmentCount: transitStats.transitShipmentCount,
+      
+      // On-Time KPIs
+      onTimeShipments: transitStats.onTimeShipments,
+      onTimeBase: transitStats.onTimeBase,
+      onTimePct: transitStats.onTimePct,
+      
+      // Transit Legs
+      legs: transitStats.legs,
+      
+      // Change KPIs (MoM/YoY for all legs)
+      changes: transitStats.changes,
+      
+      // Liner KPIs
+      liner: linerStats,
+      
       revenue: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._financials?.revenue || 0), 0),
       profit: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._financials?.profit || 0), 0),
       co2: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._env?.co2 || 0), 0)
@@ -727,6 +736,19 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
 
   const formatNumber = (val: number) => {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(val)
+  }
+
+  const formatCompactNumber = (val: number) => {
+    if (val >= 1000000000) {
+      return `${(val / 1000000000).toFixed(1)}B`
+    }
+    if (val >= 1000000) {
+      return `${(val / 1000000).toFixed(1)}M`
+    }
+    if (val >= 1000) {
+      return `${(val / 1000).toFixed(1)}K`
+    }
+    return formatNumber(val)
   }
 
   const hasData = chartData.length > 0
@@ -1063,27 +1085,76 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                    </CardContent>
                  </Card>
 
-                 {/* METRIC 2: AVG TRANSIT TIME */}
+                {/* METRIC 2: TRANSIT PERFORMANCE */}
                  <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-950">
                    <CardContent className="p-6">
                      <div className="flex items-center justify-between mb-3">
-                       <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Avg Transit Time</div>
-                       <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                         <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                       </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Transit Performance</div>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">
+                              View legs
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 p-3" align="end">
+                            <div className="space-y-2">
+                              <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">Transit by leg (avg days)</div>
+                              <div className="space-y-1 text-sm">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Pickup → Arrival</span>
+                                  <span className="font-semibold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.pickupToArrival.toFixed(1)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Pickup → Delivery</span>
+                                  <span className="font-semibold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.pickupToDelivery.toFixed(1)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Departure → Arrival</span>
+                                  <span className="font-semibold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.depToArrival.toFixed(1)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-600 dark:text-slate-400">Departure → Delivery</span>
+                                  <span className="font-semibold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.depToDelivery.toFixed(1)}</span>
+                                </div>
+                              </div>
+                              <div className="pt-2 mt-2 border-t border-slate-200 dark:border-zinc-800 text-[11px] text-slate-500 dark:text-slate-400">
+                                On-time logic: <span className="font-medium text-slate-700 dark:text-slate-300">ATA ≤ ETA</span>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                        <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      </div>
                      </div>
                      <div className="flex items-end justify-between mb-4">
                        <div className="text-3xl font-bold text-slate-900 dark:text-slate-50">{kpis.avgTransit.toFixed(1)}</div>
                        <div className="text-sm font-normal text-slate-500 dark:text-slate-400 mb-1">days</div>
                      </div>
+                     <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                       <span>MoM change</span>
+                       {kpis.changes.depToArrival.hasMom ? (
+                         <span className={cn(
+                           "inline-flex items-center gap-1 font-medium tabular-nums",
+                           kpis.changes.depToArrival.momDays > 0 ? "text-red-600 dark:text-red-400" : kpis.changes.depToArrival.momDays < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600 dark:text-slate-300"
+                         )}>
+                           {kpis.changes.depToArrival.momDays > 0 ? <ArrowUpRight className="w-3 h-3" /> : kpis.changes.depToArrival.momDays < 0 ? <ArrowDownRight className="w-3 h-3" /> : null}
+                           {kpis.changes.depToArrival.momDays >= 0 ? "+" : ""}{kpis.changes.depToArrival.momDays.toFixed(1)}d
+                         </span>
+                       ) : (
+                         <span className="font-medium text-slate-500 dark:text-slate-400">N/A</span>
+                       )}
+                     </div>
                      <div className="space-y-2 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
                        <div className="flex justify-between text-xs">
                           <span className="text-slate-500 dark:text-slate-400">Fastest</span>
-                          <span className="font-medium text-slate-900 dark:text-slate-50">N/A</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-50 tabular-nums">{kpis.minTransit > 0 ? `${kpis.minTransit} days` : "N/A"}</span>
                        </div>
                        <div className="flex justify-between text-xs">
                           <span className="text-slate-500 dark:text-slate-400">Slowest</span>
-                          <span className="font-medium text-slate-900 dark:text-slate-50">N/A</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-50 tabular-nums">{kpis.maxTransit > 0 ? `${kpis.maxTransit} days` : "N/A"}</span>
                        </div>
                      </div>
                    </CardContent>
@@ -1346,62 +1417,67 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
           <div className="flex flex-col space-y-4 lg:space-y-1.5  min-h-0 lg:w-[340px]">
             
             {/* QUICK SNAPSHOT */}
-            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden flex-shrink-0 lg:h-[380px] mb-6 bg-white dark:bg-zinc-900">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50"> Quick Snapshot</CardTitle>
-                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Compact overview for the right column</CardDescription>
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden flex-shrink-0 mb-2 bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2.5">
+                <CardTitle className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">Quick Snapshot</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
-                  <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">On-Time</div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? `${quickSnapshot.onTime}%` : "N/A"}</span>
-                    <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                      <ArrowUpRight className="w-3 h-3" />
-                      {hasData ? "On track" : "N/A"}
+              <CardContent className="grid grid-cols-2 gap-2.5">
+                <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800 min-w-0">
+                  <div className="text-[10px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1 truncate">On-Time</div>
+                  <div className="flex items-end justify-between gap-1 min-w-0">
+                    <span className="text-lg font-semibold text-slate-900 dark:text-slate-50 truncate">
+                      {hasData ? `${Math.round(kpis.onTimePct)}%` : "N/A"}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-0.5 shrink-0">
+                      <ArrowUpRight className="w-2.5 h-2.5" />
+                      <span className="hidden sm:inline">ATA ≤ ETA</span>
                     </span>
                   </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${quickSnapshot.onTime}%` }} />
+                  <div className="mt-1.5 h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${Math.min(Math.max(kpis.onTimePct, 0), 100)}%` }} />
                   </div>
                 </div>
-                <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
-                  <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">Exceptions</div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? quickSnapshot.exceptions : "N/A"}</span>
-                    <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                      <ArrowDownRight className="w-3 h-3" />
-                      {hasData ? "Issues" : "N/A"}
+                <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800 min-w-0">
+                  <div className="text-[10px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1 truncate">Exceptions</div>
+                  <div className="flex items-end justify-between gap-1 min-w-0">
+                    <span className="text-lg font-semibold text-slate-900 dark:text-slate-50 truncate">{hasData ? quickSnapshot.exceptions : "N/A"}</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-0.5 shrink-0">
+                      <ArrowDownRight className="w-2.5 h-2.5" />
+                      <span className="hidden sm:inline">{hasData ? "Issues" : "N/A"}</span>
                     </span>
                   </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="mt-1.5 h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div className="h-full bg-amber-500 transition-all" style={{ width: `${hasData && kpis.shipments > 0 ? Math.min((quickSnapshot.exceptions / kpis.shipments) * 100, 100) : 0}%` }} />
                   </div>
                 </div>
-                <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
-                  <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">Fleet Utilization</div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? `${quickSnapshot.utilization}%` : "N/A"}</span>
-                    <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                      <ArrowUpRight className="w-3 h-3" />
-                      {hasData ? "Capacity" : "N/A"}
-                    </span>
+                <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800 min-w-0">
+                  <div className="text-[10px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1 truncate">Total Weight</div>
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <div className="flex items-baseline gap-1 min-w-0">
+                      <span className="text-lg font-semibold text-slate-900 dark:text-slate-50 truncate">{hasData ? formatCompactNumber(kpis.weight) : "N/A"}</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-0.5 shrink-0">
+                        <Box className="w-2.5 h-2.5" />
+                        <span>Tons</span>
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-slate-900 dark:bg-slate-100 transition-all" style={{ width: `${quickSnapshot.utilization}%` }} />
+                  <div className="mt-1.5 h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 transition-all" style={{ width: `${hasData ? 75 : 0}%` }} />
                   </div>
                 </div>
-                <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800">
-                  <div className="text-[11px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1">Sea Freight Yield</div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-xl font-semibold text-slate-900 dark:text-slate-50">{hasData ? `$${quickSnapshot.yield.toLocaleString()}` : "N/A"}</span>
-                    <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                      <ArrowUpRight className="w-3 h-3" />
-                      {hasData ? "Per TEU" : "N/A"}
-                    </span>
+                <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800 min-w-0">
+                  <div className="text-[10px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1 truncate">CO2 Emissions</div>
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <div className="flex items-baseline gap-1 min-w-0">
+                      <span className="text-lg font-semibold text-slate-900 dark:text-slate-50 truncate">{hasData ? formatCompactNumber(kpis.co2) : "N/A"}</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-0.5 shrink-0">
+                        <Leaf className="w-2.5 h-2.5" />
+                        <span>Tons</span>
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${hasData && quickSnapshot.yield > 0 ? Math.min((quickSnapshot.yield / 10000) * 100, 100) : 0}%` }} />
+                  <div className="mt-1.5 h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${hasData ? 70 : 0}%` }} />
                   </div>
                 </div>
               </CardContent>
@@ -1436,9 +1512,360 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
               </CardContent>
             </Card>
 
+            {/* CO2 EMISSIONS OVERVIEW */}
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                   <Leaf className="w-4 h-4 text-emerald-500" /> CO2 Emissions Overview
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="h-[200px]">
+                 <ResponsiveContainer width="100%" height="100%">
+                   <AreaChart data={monthlyTrend}>
+                     <defs>
+                       <linearGradient id="co2Gradient" x1="0" y1="0" x2="0" y2="1">
+                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                         <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                       </linearGradient>
+                     </defs>
+                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                     <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10}} tickFormatter={(val) => val.split('-')[1]} />
+                     <Tooltip contentStyle={{ borderRadius: '8px' }} />
+                     {/* Approximating CO2 trend based on volume trend for visual consistency until real CO2 data */}
+                     <Area type="monotone" dataKey="val" name="Est. CO2 (Tons)" stroke="#10b981" fill="url(#co2Gradient)" />
+                   </AreaChart>
+                 </ResponsiveContainer>
+                 <div className="text-center text-xs text-slate-500 -mt-3">Total estimated emissions based on shipment weight & distance</div>
+              </CardContent>
+            </Card>
+
           </div>
 
         </div>
+
+        {/* COMPREHENSIVE KPI SECTIONS */}
+        
+        {/* SECTION 1: TRANSIT PERFORMANCE (OVERALL) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Transit Performance (ATD → ATA)</h2>
+            {/* <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">{kpis.transitShipmentCount} valid shipments</span> */}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* AVG TRANSIT */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">Avg Transit</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.avgTransit.toFixed(1)}</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500">days</div>
+              </CardContent>
+            </Card>
+            
+            {/* MIN TRANSIT */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">Fastest</div>
+                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{kpis.minTransit > 0 ? kpis.minTransit : 'N/A'}</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500">days</div>
+              </CardContent>
+            </Card>
+            
+            {/* MAX TRANSIT */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">Slowest</div>
+                <div className="text-2xl font-bold text-red-600 dark:text-red-400 tabular-nums">{kpis.maxTransit > 0 ? kpis.maxTransit : 'N/A'}</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500">days</div>
+              </CardContent>
+            </Card>
+            
+            {/* MEDIAN TRANSIT */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">Median</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.medianTransit.toFixed(1)}</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500">days</div>
+              </CardContent>
+            </Card>
+            
+            {/* STDDEV */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">Std Dev</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.stddevTransit.toFixed(1)}</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500">days</div>
+              </CardContent>
+            </Card>
+            
+            {/* MOM CHANGE */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">MoM Change</div>
+                {kpis.changes.depToArrival.hasMom ? (
+                  <>
+                    <div className={cn("text-2xl font-bold tabular-nums", kpis.changes.depToArrival.momDays > 0 ? "text-red-600 dark:text-red-400" : kpis.changes.depToArrival.momDays < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-slate-50")}>
+                      {kpis.changes.depToArrival.momDays >= 0 ? '+' : ''}{kpis.changes.depToArrival.momDays.toFixed(1)}
+                    </div>
+                    <div className="text-[10px] text-slate-400 dark:text-slate-500">{kpis.changes.depToArrival.momPct.toFixed(1)}%</div>
+                  </>
+                ) : (
+                  <div className="text-2xl font-bold text-slate-400 dark:text-slate-500">N/A</div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* SECTION 2: ON-TIME PERFORMANCE */}
+        <div className="space-y-3">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">On-Time Performance (ATA ≤ ETA)</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* ON-TIME SHIPMENTS */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">On-Time Shipments</div>
+                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{kpis.onTimeShipments}</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500">shipments</div>
+              </CardContent>
+            </Card>
+            
+            {/* ON-TIME BASE */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">On-Time Base</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.onTimeBase}</div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500">shipments</div>
+              </CardContent>
+            </Card>
+            
+            {/* ON-TIME % */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">On-Time %</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.onTimePct.toFixed(1)}%</div>
+                <div className="mt-1.5 h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 transition-all" style={{ width: `${Math.min(Math.max(kpis.onTimePct, 0), 100)}%` }} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* SECTION 3: TRANSIT LEGS - BAR CHART */}
+        <div className="space-y-3">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Transit by Leg</h2>
+          <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Average Transit Days by Journey Leg</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 min-h-0">
+              <div className="h-[320px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={[
+                      { 
+                        leg: 'Pickup → Arrival', 
+                        days: kpis.legs.pickupToArrival,
+                        mom: kpis.changes.pickupToArrival.hasMom ? kpis.changes.pickupToArrival.momDays : 0,
+                        momPct: kpis.changes.pickupToArrival.hasMom ? kpis.changes.pickupToArrival.momPct : 0,
+                      },
+                      { 
+                        leg: 'Pickup → Delivery', 
+                        days: kpis.legs.pickupToDelivery,
+                        mom: kpis.changes.pickupToDelivery.hasMom ? kpis.changes.pickupToDelivery.momDays : 0,
+                        momPct: kpis.changes.pickupToDelivery.hasMom ? kpis.changes.pickupToDelivery.momPct : 0,
+                      },
+                      { 
+                        leg: 'Departure → Arrival', 
+                        days: kpis.legs.depToArrival,
+                        mom: kpis.changes.depToArrival.hasMom ? kpis.changes.depToArrival.momDays : 0,
+                        momPct: kpis.changes.depToArrival.hasMom ? kpis.changes.depToArrival.momPct : 0,
+                      },
+                      { 
+                        leg: 'Departure → Delivery', 
+                        days: kpis.legs.depToDelivery,
+                        mom: kpis.changes.depToDelivery.hasMom ? kpis.changes.depToDelivery.momDays : 0,
+                        momPct: kpis.changes.depToDelivery.hasMom ? kpis.changes.depToDelivery.momPct : 0,
+                      },
+                    ]}
+                    margin={{ top: 40, right: 30, bottom: 80, left: 50 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                    <XAxis 
+                      dataKey="leg" 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{fontSize: 12, fill: '#64748b'}}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      dy={10}
+                    />
+                    <YAxis 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{fontSize: 12, fill: '#64748b'}}
+                      dx={-10}
+                      label={{ value: 'Transit Days', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12, fontWeight: 600 } }}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'var(--color-card)', 
+                        borderRadius: '12px', 
+                        border: '1px solid var(--color-border)',
+                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                        color: 'var(--color-card-foreground)'
+                      }}
+                      itemStyle={{color: 'var(--color-foreground)', fontWeight: 600}}
+                      cursor={false}
+                      formatter={(value: any, name: any, props: any) => {
+                        const data = props.payload
+                        return [
+                          <div key="content" className="space-y-1">
+                            <div className="font-semibold tabular-nums">{value.toFixed(1)} days</div>
+                            {data.mom !== 0 && (
+                              <div className={cn("text-xs tabular-nums flex items-center gap-1", data.mom > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>
+                                {data.mom > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                                MoM: {data.mom >= 0 ? '+' : ''}{data.mom.toFixed(1)}d ({data.momPct.toFixed(1)}%)
+                              </div>
+                            )}
+                          </div>
+                        ]
+                      }}
+                      labelFormatter={(label) => label}
+                    />
+                    <Legend 
+                      verticalAlign="top" 
+                      height={36} 
+                      iconType="circle" 
+                      wrapperStyle={{ color: 'var(--color-muted-foreground)', paddingBottom: '10px' }}
+                      payload={[
+                        { value: 'Pickup → Arrival', type: 'circle', color: '#3b82f6' },
+                        { value: 'Pickup → Delivery', type: 'circle', color: '#8b5cf6' },
+                        { value: 'Departure → Arrival', type: 'circle', color: '#10b981' },
+                        { value: 'Departure → Delivery', type: 'circle', color: '#f59e0b' },
+                      ]}
+                    />
+                    <Bar dataKey="days" radius={[8, 8, 0, 0]} maxBarSize={80}>
+                      {[
+                        { color: '#3b82f6' },
+                        { color: '#8b5cf6' },
+                        { color: '#10b981' },
+                        { color: '#f59e0b' },
+                      ].map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* SECTION 4: LINER PERFORMANCE */}
+        <div className="space-y-3">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Liner Performance</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* BEST LINER */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">Best Liner (Min Avg TT)</div>
+                {kpis.liner.bestLiner ? (
+                  <>
+                    <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 truncate">{kpis.liner.bestLiner.liner}</div>
+                    <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.liner.bestLiner.avgTransit.toFixed(1)}</div>
+                    <div className="text-[10px] text-slate-400 dark:text-slate-500">{kpis.liner.bestLiner.shipments} shipments</div>
+                  </>
+                ) : (
+                  <div className="text-2xl font-bold text-slate-400 dark:text-slate-500">N/A</div>
+                )}
+              </CardContent>
+            </Card>
+            
+            {/* WORST LINER */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">Worst Liner (Max Avg TT)</div>
+                {kpis.liner.worstLiner ? (
+                  <>
+                    <div className="text-lg font-bold text-red-600 dark:text-red-400 truncate">{kpis.liner.worstLiner.liner}</div>
+                    <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.liner.worstLiner.avgTransit.toFixed(1)}</div>
+                    <div className="text-[10px] text-slate-400 dark:text-slate-500">{kpis.liner.worstLiner.shipments} shipments</div>
+                  </>
+                ) : (
+                  <div className="text-2xl font-bold text-slate-400 dark:text-slate-500">N/A</div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* LINER BAR CHART */}
+          <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Top Liners by Average Transit Time</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 min-h-0">
+              <div className="h-[380px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={kpis.liner.topLiners.slice(0, 8)}
+                    layout="vertical"
+                    margin={{ top: 20, right: 30, bottom: 20, left: 100 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                    <XAxis 
+                      type="number"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{fontSize: 12, fill: '#64748b'}}
+                      label={{ value: 'Average Transit Days', position: 'insideBottom', offset: -10, style: { fill: '#64748b', fontSize: 12, fontWeight: 600 } }}
+                    />
+                    <YAxis 
+                      type="category"
+                      dataKey="liner"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{fontSize: 12, fill: '#64748b'}}
+                      width={90}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'var(--color-card)', 
+                        borderRadius: '12px', 
+                        border: '1px solid var(--color-border)',
+                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                        color: 'var(--color-card-foreground)'
+                      }}
+                      itemStyle={{color: 'var(--color-foreground)', fontWeight: 600}}
+                      cursor={false}
+                      formatter={(value: any, name: any, props: any) => {
+                        const data = props.payload
+                        return [
+                          <div key="content" className="space-y-1">
+                            <div className="font-semibold tabular-nums">{value.toFixed(1)} days avg</div>
+                            <div className="text-xs text-slate-600 dark:text-slate-400">{data.shipments} shipments</div>
+                          </div>,
+                          'Transit Time'
+                        ]
+                      }}
+                      labelFormatter={(label) => label}
+                    />
+                    <Bar dataKey="avgTransit" radius={[0, 8, 8, 0]} maxBarSize={40}>
+                      {kpis.liner.topLiners.slice(0, 8).map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={index === 0 ? '#10b981' : index === kpis.liner.topLiners.slice(0, 8).length - 1 ? '#ef4444' : '#3b82f6'} 
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
                 {/* MODE INSIGHTS WIDE CARD */}
             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
@@ -1719,137 +2146,6 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                 </CardContent>
              </Card>
 
-             {/* NEW: CO2 EMISSIONS OVERVIEW (Front Page Requirement) */}
-             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
-               <CardHeader className="pb-2">
-                 <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
-                    <Leaf className="w-4 h-4 text-emerald-500" /> CO2 Emissions Overview
-                 </CardTitle>
-               </CardHeader>
-               <CardContent className="h-[200px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={monthlyTrend}>
-                      <defs>
-                        <linearGradient id="co2Gradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
-                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10}} tickFormatter={(val) => val.split('-')[1]} />
-                      <Tooltip contentStyle={{ borderRadius: '8px' }} />
-                      {/* Approximating CO2 trend based on volume trend for visual consistency until real CO2 data */}
-                      <Area type="monotone" dataKey="val" name="Est. CO2 (Tons)" stroke="#10b981" fill="url(#co2Gradient)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                  <div className="text-center text-xs text-slate-500 mt-2">Total estimated emissions based on shipment weight & distance</div>
-               </CardContent>
-             </Card>
-
-             {/* FILLER TO REDUCE BLANK SPACE */}
-             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
-               <CardHeader className="pb-3">
-                 <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Operational insights</CardTitle>
-                 <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Quick highlights to balance layout</CardDescription>
-               </CardHeader>
-               <CardContent className="space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                   {[
-                     { label: "On-time", value: "N/A", trend: "N/A", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" },
-                     { label: "Exceptions", value: "N/A", trend: "N/A", color: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" },
-                     { label: "Sea Freight Yield", value: "N/A", trend: "N/A", color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" },
-                   ].map(tile => (
-                     <div key={tile.label} className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between">
-                       <div>
-                         <div className="text-[11px] uppercase text-slate-500 dark:text-slate-400 font-semibold">{tile.label}</div>
-                         <div className="text-lg font-semibold text-slate-900 dark:text-slate-50">{tile.value}</div>
-                       </div>
-                       <span className={`text-xs px-2 py-1 rounded-full ${tile.color}`}>{tile.trend}</span>
-                     </div>
-                   ))}
-                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                   <div className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                     <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">Lane watch</div>
-                     <div className="space-y-2 text-sm">
-                       {laneStats.slice(0, 3).map((lane, idx) => (
-                         <div key={`lane-${idx}`} className="flex items-center justify-between">
-                           <span className="text-slate-700 dark:text-slate-300 truncate pr-2">{lane.name}</span>
-                           <span className="text-slate-900 dark:text-slate-100 font-semibold">{lane.weight}t</span>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                   <div className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                     <div className="text-xs text-slate-500 dark:text-slate-400 mb-2">Upcoming docs</div>
-                     <div className="space-y-2 text-sm">
-                       {recentShipments.slice(0, 3).map((row, idx) => (
-                         <div key={`doc-${idx}`} className="flex items-center justify-between">
-                           <span className="text-slate-700 dark:text-slate-300 truncate pr-2">{row.CONNAME || "Unknown"}</span>
-                           <span className="text-slate-500 dark:text-slate-400">{row.DOCRECD || "Pending"}</span>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                 </div>
-               </CardContent>
-             </Card>
-
-             {/* ACTIVITY FEED TO FILL SPACE */}
-             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
-               <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                 <div>
-                   <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Activity feed</CardTitle>
-                   <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Latest shipment and finance signals</CardDescription>
-                 </div>
-                 <Button variant="ghost" size="sm" className="h-8 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">View all</Button>
-               </CardHeader>
-               <CardContent className="space-y-3">
-                 <div className="space-y-2">
-                   {recentShipments.slice(0, 6).map((row, idx) => (
-                     <div key={`feed-${idx}`} className="flex items-start justify-between rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-3 py-2">
-                       <div className="flex items-center gap-3">
-                         <div className={cn(
-                           "w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold",
-                           row._mode === "SEA" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" :
-                           row._mode === "AIR" ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400" :
-                           "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
-                         )}>
-                           {row._mode || "N/A"}
-                         </div>
-                         <div className="text-sm">
-                           <div className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[220px]">{row.CONNAME || "Unknown Client"}</div>
-                           <div className="text-xs text-slate-500 dark:text-slate-400">
-                             {row.POL || "Origin"} → {row.POD || "Dest"} · {row._date ? format(row._date, "dd MMM yyyy") : "N/A"}
-                           </div>
-                         </div>
-                       </div>
-                       <div className="text-right">
-                         <div className="text-xs text-slate-500 dark:text-slate-400">Weight</div>
-                         <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{(cleanNum(row.CONT_GRWT) / 1000).toFixed(1)}t</div>
-                       </div>
-                     </div>
-                   ))}
-                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                   <div className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                     <div className="text-[11px] uppercase text-slate-500 dark:text-slate-400 font-semibold">Upcoming departures</div>
-                     <div className="text-lg font-semibold text-slate-900 dark:text-slate-50 mt-1">{recentShipments.slice(0, 10).filter(r => r.ETD).length}</div>
-                     <div className="text-xs text-slate-500 dark:text-slate-400">With ETD dates</div>
-                   </div>
-                   <div className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                     <div className="text-[11px] uppercase text-slate-500 dark:text-slate-400 font-semibold">Docs pending</div>
-                     <div className="text-lg font-semibold text-slate-900 dark:text-slate-50 mt-1">{recentShipments.slice(0, 10).filter(r => !r.DOCRECD).length}</div>
-                     <div className="text-xs text-slate-500 dark:text-slate-400">Missing DOCRECD</div>
-                   </div>
-                   <div className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                     <div className="text-[11px] uppercase text-slate-500 dark:text-slate-400 font-semibold">Top provider</div>
-                     <div className="text-sm font-semibold text-slate-900 dark:text-slate-50 mt-1">{recentShipments[0]?.CONNAME || "N/A"}</div>
-                     <div className="text-xs text-slate-500 dark:text-slate-400">By latest arrivals</div>
-                   </div>
-                 </div>
-               </CardContent>
-             </Card>
           </main>
 
       {/* Shipment Detail Drawer */}

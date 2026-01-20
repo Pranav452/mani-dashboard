@@ -1,4 +1,4 @@
-import { parse, isValid, isWithinInterval, startOfDay, endOfDay } from "date-fns"
+import { parse, isValid, isWithinInterval, startOfDay, endOfDay, differenceInDays } from "date-fns"
 
 // --- 1. CLEANING UTILS ---
 export const cleanNum = (val: any) => {
@@ -11,6 +11,37 @@ export const cleanNum = (val: any) => {
   } catch (e) { return 0 }
 }
 
+// Helper: Parse a single value into a Date
+export const parseDateValue = (val: any): Date | null => {
+  if (!val) return null
+  try {
+    // 1. Handle "dd/MM/yyyy" (SQL format)
+    if (typeof val === 'string' && val.includes('/')) {
+      const parsed = parse(val, 'dd/MM/yyyy', new Date())
+      if (isValid(parsed)) return parsed
+    }
+
+    // 2. Handle "dd-MM-yyyy" (legacy)
+    if (typeof val === 'string' && val.includes('-')) {
+      const parsed = parse(val, 'dd-MM-yyyy', new Date())
+      if (isValid(parsed)) return parsed
+    }
+
+    // 3. Handle JS Date object
+    if (val instanceof Date) return val
+
+    // 4. Handle "yyyyMMdd" (e.g. 20240117)
+    const str = String(val)
+    if (str.length === 8 && !isNaN(Number(str))) {
+      const parsed = parse(str, 'yyyyMMdd', new Date())
+      if (isValid(parsed)) return parsed
+    }
+  } catch (e) {
+    return null
+  }
+  return null
+}
+
 export const getValidDate = (row: any) => {
   if (!row) return null
   
@@ -19,31 +50,8 @@ export const getValidDate = (row: any) => {
   const candidates = [row.ATD, row.ATA, row.ETD, row.ETA, row.DOCRECD, row.DOCDT]
   
   for (const dateStr of candidates) {
-    if (!dateStr) continue;
-    
-    try {
-      // 1. Handle "dd/MM/yyyy" (Your SQL format: 17/01/2024)
-      if (typeof dateStr === 'string' && dateStr.includes('/')) {
-        const parsed = parse(dateStr, 'dd/MM/yyyy', new Date())
-        if (isValid(parsed)) return parsed
-      }
-
-      // 2. Handle "dd-MM-yyyy" (Legacy format support)
-      if (typeof dateStr === 'string' && dateStr.includes('-')) {
-        const parsed = parse(dateStr, 'dd-MM-yyyy', new Date())
-        if (isValid(parsed)) return parsed
-      }
-
-      // 3. Handle ISO string or JS Date object
-      if (dateStr instanceof Date) return dateStr
-      
-      // 4. Handle "yyyyMMdd" (e.g. 20240117)
-      const str = String(dateStr)
-      if (str.length === 8 && !isNaN(Number(str))) {
-        const parsed = parse(str, 'yyyyMMdd', new Date())
-        if (isValid(parsed)) return parsed
-      }
-    } catch (e) { continue }
+    const date = parseDateValue(dateStr)
+    if (date) return date
   }
   return null
 }
@@ -140,7 +148,262 @@ export const calculateUniqueTEU = (data: any[]) => {
   return totalTEU;
 }
 
-// --- 3. FINANCIALS ---
+// --- 3. TRANSIT STATS (EXTENDED) ---
+export const calculateTransitStats = (data: any[]) => {
+  let totalDays = 0
+  let count = 0
+  let min = Number.POSITIVE_INFINITY
+  let max = 0
+  const validTransits: number[] = [] // For median/stddev
+
+  let onTimeCount = 0
+  let onTimeBase = 0
+
+  const legsAcc = {
+    pickupToArrival: { total: 0, count: 0, values: [] as number[] },
+    pickupToDelivery: { total: 0, count: 0, values: [] as number[] },
+    depToArrival: { total: 0, count: 0, values: [] as number[] },
+    depToDelivery: { total: 0, count: 0, values: [] as number[] },
+  }
+
+  // MoM/YoY tracking (all 4 legs)
+  const monthly = {
+    depToArrival: new Map<string, { total: number; count: number }>(),
+    pickupToArrival: new Map<string, { total: number; count: number }>(),
+    depToDelivery: new Map<string, { total: number; count: number }>(),
+    pickupToDelivery: new Map<string, { total: number; count: number }>(),
+  }
+
+  const yearly = {
+    depToArrival: new Map<string, { total: number; count: number }>(),
+    pickupToArrival: new Map<string, { total: number; count: number }>(),
+    depToDelivery: new Map<string, { total: number; count: number }>(),
+    pickupToDelivery: new Map<string, { total: number; count: number }>(),
+  }
+
+  const monthKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  
+  const yearKey = (d: Date) => `${d.getFullYear()}`
+
+  const diff = (start: Date | null, end: Date | null) => {
+    if (start && end && end >= start) return differenceInDays(end, start)
+    return null
+  }
+
+  const pushPeriod = (map: Map<string, { total: number; count: number }>, key: string, val: number) => {
+    const prev = map.get(key) || { total: 0, count: 0 }
+    map.set(key, { total: prev.total + val, count: prev.count + 1 })
+  }
+
+  data.forEach((row) => {
+    const atd = parseDateValue(row.ATD)
+    const ata = parseDateValue(row.ATA)
+    const eta = parseDateValue(row.ETA)
+    const delivery = parseDateValue(row.DELIVERY)
+    const cargoRecpt = parseDateValue(row.CARGORECPT)
+
+    // 1) Core Transit (ATD -> ATA) - MUST match DAX validity
+    const transit = diff(atd, ata)
+    if (transit !== null && transit >= 0 && transit < 150) {
+      totalDays += transit
+      count++
+      validTransits.push(transit)
+      if (transit < min) min = transit
+      if (transit > max) max = transit
+
+      legsAcc.depToArrival.total += transit
+      legsAcc.depToArrival.count++
+      legsAcc.depToArrival.values.push(transit)
+
+      if (ata) {
+        pushPeriod(monthly.depToArrival, monthKey(ata), transit)
+        pushPeriod(yearly.depToArrival, yearKey(ata), transit)
+      }
+    }
+
+    // 2) On-time (ATA <= ETA)
+    if (ata && eta) {
+      onTimeBase++
+      if (ata <= eta) onTimeCount++
+    }
+
+    // 3) Legs
+    const p2a = diff(cargoRecpt, ata)
+    if (p2a !== null && p2a >= 0 && p2a < 365) {
+      legsAcc.pickupToArrival.total += p2a
+      legsAcc.pickupToArrival.count++
+      legsAcc.pickupToArrival.values.push(p2a)
+      if (ata) {
+        pushPeriod(monthly.pickupToArrival, monthKey(ata), p2a)
+        pushPeriod(yearly.pickupToArrival, yearKey(ata), p2a)
+      }
+    }
+
+    const p2d = diff(cargoRecpt, delivery)
+    if (p2d !== null && p2d >= 0 && p2d < 365) {
+      legsAcc.pickupToDelivery.total += p2d
+      legsAcc.pickupToDelivery.count++
+      legsAcc.pickupToDelivery.values.push(p2d)
+      if (delivery) {
+        pushPeriod(monthly.pickupToDelivery, monthKey(delivery), p2d)
+        pushPeriod(yearly.pickupToDelivery, yearKey(delivery), p2d)
+      }
+    }
+
+    const d2d = diff(atd, delivery)
+    if (d2d !== null && d2d >= 0 && d2d < 365) {
+      legsAcc.depToDelivery.total += d2d
+      legsAcc.depToDelivery.count++
+      legsAcc.depToDelivery.values.push(d2d)
+      if (delivery) {
+        pushPeriod(monthly.depToDelivery, monthKey(delivery), d2d)
+        pushPeriod(yearly.depToDelivery, yearKey(delivery), d2d)
+      }
+    }
+  })
+
+  // Compute median (from validTransits array)
+  const median = (arr: number[]) => {
+    if (arr.length === 0) return 0
+    const sorted = [...arr].sort((a, b) => a - b)
+    const mid = Math.floor(sorted.length / 2)
+    if (sorted.length % 2 === 0) {
+      return (sorted[mid - 1] + sorted[mid]) / 2
+    }
+    return sorted[mid]
+  }
+
+  // Compute stddev population (match STDEVX.P)
+  const stddev = (arr: number[], avg: number) => {
+    if (arr.length === 0) return 0
+    const variance = arr.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / arr.length
+    return Math.sqrt(variance)
+  }
+
+  const avg = count > 0 ? totalDays / count : 0
+  const minDays = Number.isFinite(min) ? min : 0
+  const maxDays = max
+  const medianDays = median(validTransits)
+  const stddevDays = stddev(validTransits, avg)
+
+  // Compute MoM/YoY changes for all legs
+  const computeChange = (
+    monthMap: Map<string, { total: number; count: number }>,
+    yearMap: Map<string, { total: number; count: number }>
+  ) => {
+    const months = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b))
+    const years = Array.from(yearMap.keys()).sort((a, b) => a.localeCompare(b))
+    
+    const currentMonth = months[months.length - 1]
+    const prevMonth = months.length > 1 ? months[months.length - 2] : null
+    const currentYear = years[years.length - 1]
+    const prevYear = years.length > 1 ? years[years.length - 2] : null
+
+    let momDays = 0, momPct = 0, hasMom = false
+    if (currentMonth && prevMonth) {
+      const cur = monthMap.get(currentMonth)!
+      const prev = monthMap.get(prevMonth)!
+      const curAvg = cur.count > 0 ? cur.total / cur.count : 0
+      const prevAvg = prev.count > 0 ? prev.total / prev.count : 0
+      momDays = curAvg - prevAvg
+      momPct = prevAvg !== 0 ? (momDays / prevAvg) * 100 : 0
+      hasMom = true
+    }
+
+    let yoyDays = 0, yoyPct = 0, hasYoy = false
+    if (currentYear && prevYear) {
+      const cur = yearMap.get(currentYear)!
+      const prev = yearMap.get(prevYear)!
+      const curAvg = cur.count > 0 ? cur.total / cur.count : 0
+      const prevAvg = prev.count > 0 ? prev.total / prev.count : 0
+      yoyDays = curAvg - prevAvg
+      yoyPct = prevAvg !== 0 ? (yoyDays / prevAvg) * 100 : 0
+      hasYoy = true
+    }
+
+    return { hasMom, momDays, momPct, hasYoy, yoyDays, yoyPct }
+  }
+
+  const changeDepArr = computeChange(monthly.depToArrival, yearly.depToArrival)
+  const changePickupArr = computeChange(monthly.pickupToArrival, yearly.pickupToArrival)
+  const changeDepDel = computeChange(monthly.depToDelivery, yearly.depToDelivery)
+  const changePickupDel = computeChange(monthly.pickupToDelivery, yearly.pickupToDelivery)
+
+  return {
+    avg,
+    min: minDays,
+    max: maxDays,
+    median: medianDays,
+    stddev: stddevDays,
+    transitShipmentCount: count,
+    onTimeShipments: onTimeCount,
+    onTimeBase: onTimeBase,
+    onTimePct: onTimeBase > 0 ? (onTimeCount / onTimeBase) * 100 : 0,
+    legs: {
+      pickupToArrival: legsAcc.pickupToArrival.count > 0 ? legsAcc.pickupToArrival.total / legsAcc.pickupToArrival.count : 0,
+      pickupToDelivery: legsAcc.pickupToDelivery.count > 0 ? legsAcc.pickupToDelivery.total / legsAcc.pickupToDelivery.count : 0,
+      depToArrival: legsAcc.depToArrival.count > 0 ? legsAcc.depToArrival.total / legsAcc.depToArrival.count : 0,
+      depToDelivery: legsAcc.depToDelivery.count > 0 ? legsAcc.depToDelivery.total / legsAcc.depToDelivery.count : 0,
+    },
+    changes: {
+      depToArrival: changeDepArr,
+      pickupToArrival: changePickupArr,
+      depToDelivery: changeDepDel,
+      pickupToDelivery: changePickupDel,
+    },
+  }
+}
+
+// --- 4. LINER STATS ---
+export const calculateLinerStats = (data: any[]) => {
+  const linerMap = new Map<string, { total: number; count: number; shipments: number }>()
+
+  data.forEach((row) => {
+    const liner = row.LINER_NAME || row.LINER_CODE || 'Unknown'
+    const atd = parseDateValue(row.ATD)
+    const ata = parseDateValue(row.ATA)
+
+    if (!linerMap.has(liner)) {
+      linerMap.set(liner, { total: 0, count: 0, shipments: 0 })
+    }
+
+    const stats = linerMap.get(liner)!
+    stats.shipments++
+
+    // Only count valid transit (ATD & ATA present, ATA >= ATD)
+    if (atd && ata && ata >= atd) {
+      const days = differenceInDays(ata, atd)
+      if (days >= 0 && days < 150) {
+        stats.total += days
+        stats.count++
+      }
+    }
+  })
+
+  const liners = Array.from(linerMap.entries())
+    .map(([liner, stats]) => ({
+      liner,
+      avgTransit: stats.count > 0 ? stats.total / stats.count : 0,
+      shipments: stats.shipments,
+      validTransitCount: stats.count
+    }))
+    .filter(l => l.validTransitCount > 0) // Only include liners with valid transit data
+    .sort((a, b) => a.avgTransit - b.avgTransit)
+
+  const bestLiner = liners[0] || null
+  const worstLiner = liners[liners.length - 1] || null
+
+  return {
+    bestLiner,
+    worstLiner,
+    topLiners: liners.slice(0, 5),
+    bottomLiners: liners.slice(-5).reverse(),
+    allLiners: liners
+  }
+}
+
+// --- 5. FINANCIALS ---
 export const generateFinancials = (row: any) => {
   // Pure DB Read. 
   return {
@@ -150,7 +413,7 @@ export const generateFinancials = (row: any) => {
   };
 }
 
-// --- 4. EMISSIONS ---
+// --- 6. EMISSIONS ---
 export const generateEmissions = (row: any) => {
   if (row.CO2_EMISSIONS || row.Co2_Emissions) {
       return { co2: cleanNum(row.CO2_EMISSIONS || row.Co2_Emissions), distance: 0 }
@@ -173,7 +436,7 @@ export const generateEmissions = (row: any) => {
   }
 }
 
-// --- 5. FILTERING ---
+// --- 7. FILTERING ---
 export const filterData = (data: any[], mode: string, client: string, dateRange: { from?: Date, to?: Date }) => {
   return data.filter(row => {
     if (mode !== "ALL" && row._mode !== mode) return false
