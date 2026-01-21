@@ -32,35 +32,10 @@ export async function getShipments() {
     
     console.log(`--- CALLING USP_CLIENT_DASHBOARD_PAGELOAD with username: ${username} ---`)
     
-    // Execute Stored Procedure
     const query = `EXEC USP_CLIENT_DASHBOARD_PAGELOAD @p0, @p1`
     const params = [username, username]
     
-    // Use executeSP to get ALL result sets
-    const resultSets = await executeSP(query, params)
-
-    if (!resultSets || !Array.isArray(resultSets) || resultSets.length === 0) {
-      console.log("--- QUERY RETURNED NULL ---")
-      return []
-    }
-
-    // LOGIC: The SP returns 3 tables.
-    // Table 0: Mapping Info (CMPID, PKID, CONCODE, GRPCODE)
-    // Table 1: Dropdown Data (TEXTFIELD, VALUEFIELD)
-    // Table 2: SHIPMENT DATA (This is what we want - JOBNO, MODE, ETD, etc.)
-    
-    console.log(`--- RAW RESULT SETS: ${resultSets.length} ---`)
-    
-    // Log each result set for debugging
-    resultSets.forEach((rs: any, index: number) => {
-      console.log(`--- RESULT SET ${index}: ${rs.length} rows ---`)
-      if (rs.length > 0) {
-        console.log(`--- RESULT SET ${index} KEYS:`, Object.keys(rs[0]))
-      }
-    })
-
-    // Check if we have the 3rd table
-    const shipmentData = resultSets.length >= 3 ? resultSets[2] : []
+    const data = await executeQuery(query, params)
 
     console.log(`--- SHIPMENT ROWS FOUND: ${shipmentData.length} ---`)
 
@@ -69,8 +44,8 @@ export async function getShipments() {
       return []
     }
 
-    // Normalize Keys to Uppercase with safeguards
-    const normalizedData = shipmentData.map((row: any) => {
+    // Normalize Keys to uppercase for consistency
+    const normalizedData = data.map((row: any) => {
       const newRow: any = {}
       Object.keys(row).forEach(key => {
         // Remove any potential whitespace from keys and uppercase them
