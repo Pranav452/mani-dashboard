@@ -37,6 +37,7 @@ const sqlConfig: sql.config = {
   }
 }
 
+// Keep this for backward compatibility (Auth uses it)
 export async function executeQuery(query: string, params: any[] = []) {
   try {
     let pool = await sql.connect(sqlConfig)
@@ -47,9 +48,27 @@ export async function executeQuery(query: string, params: any[] = []) {
     })
     
     const result = await request.query(query)
-    return result.recordset
+    return result.recordset // Returns only the first table
   } catch (err) {
     console.error('SQL Error', err)
+    return null
+  }
+}
+
+// NEW: Use this for Stored Procedures that return multiple tables
+export async function executeSP(query: string, params: any[] = []) {
+  try {
+    let pool = await sql.connect(sqlConfig)
+    let request = pool.request()
+    
+    params.forEach((p, index) => {
+        request.input(`p${index}`, p)
+    })
+    
+    const result = await request.query(query)
+    return result.recordsets // Returns ARRAY of tables (e.g. [Table1, Table2, Table3])
+  } catch (err) {
+    console.error('SQL SP Error', err)
     return null
   }
 }

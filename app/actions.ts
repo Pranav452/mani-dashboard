@@ -2,7 +2,7 @@
 
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { executeQuery } from "@/lib/db"
+import { executeQuery, executeSP } from "@/lib/db"
 
 export async function getShipments() {
   const session = await getServerSession(authOptions)
@@ -36,28 +36,41 @@ export async function getShipments() {
     const query = `EXEC USP_CLIENT_DASHBOARD_PAGELOAD @p0, @p1`
     const params = [username, username]
     
-    const data = await executeQuery(query, params)
+    // Use executeSP to get ALL result sets
+    const resultSets = await executeSP(query, params)
 
-    if (!data || !Array.isArray(data)) {
-      console.log("--- QUERY RETURNED NULL OR INVALID DATA ---")
-      console.log(`--- DATA TYPE: ${typeof data}, IS ARRAY: ${Array.isArray(data)} ---`)
+    if (!resultSets || resultSets.length === 0) {
+      console.log("--- QUERY RETURNED NULL ---")
       return []
     }
 
-    console.log(`--- RAW ROWS RECEIVED: ${data.length} ---`)
+    // LOGIC: The SP returns 3 tables.
+    // Table 0: Mapping Info (CMPID, PKID, CONCODE, GRPCODE)
+    // Table 1: Dropdown Data (TEXTFIELD, VALUEFIELD)
+    // Table 2: SHIPMENT DATA (This is what we want - JOBNO, MODE, ETD, etc.)
     
-    // DEBUG: Log the first row keys to check casing and format
-    if (data.length > 0) {
-      console.log("--- SAMPLE ROW KEYS:", Object.keys(data[0]))
-      console.log("--- SAMPLE ROW DATA (first 3 keys):", JSON.stringify(
-        Object.fromEntries(Object.entries(data[0]).slice(0, 3)),
-        null,
-        2
-      ))
+    console.log(`--- RAW RESULT SETS: ${resultSets.length} ---`)
+    
+    // Log each result set for debugging
+    resultSets.forEach((rs, index) => {
+      console.log(`--- RESULT SET ${index}: ${rs.length} rows ---`)
+      if (rs.length > 0) {
+        console.log(`--- RESULT SET ${index} KEYS:`, Object.keys(rs[0]))
+      }
+    })
+
+    // Check if we have the 3rd table
+    const shipmentData = resultSets.length >= 3 ? resultSets[2] : []
+
+    console.log(`--- SHIPMENT ROWS FOUND: ${shipmentData.length} ---`)
+
+    if (shipmentData.length === 0) {
+      console.log("--- WARNING: No shipment data in 3rd result set ---")
+      return []
     }
 
     // Normalize Keys to Uppercase with safeguards
-    const normalizedData = data.map((row: any) => {
+    const normalizedData = shipmentData.map((row: any) => {
       const newRow: any = {}
       Object.keys(row).forEach(key => {
         // Remove any potential whitespace from keys and uppercase them
