@@ -32,30 +32,50 @@ export async function getShipments() {
     
     console.log(`--- CALLING USP_CLIENT_DASHBOARD_PAGELOAD with username: ${username} ---`)
     
+    // Execute Stored Procedure
     const query = `EXEC USP_CLIENT_DASHBOARD_PAGELOAD @p0, @p1`
     const params = [username, username]
     
     const data = await executeQuery(query, params)
 
-    if (!data) {
-      console.log("--- QUERY RETURNED NULL/UNDEFINED ---")
+    if (!data || !Array.isArray(data)) {
+      console.log("--- QUERY RETURNED NULL OR INVALID DATA ---")
+      console.log(`--- DATA TYPE: ${typeof data}, IS ARRAY: ${Array.isArray(data)} ---`)
       return []
     }
 
-    // Normalize Keys to uppercase for consistency
+    console.log(`--- RAW ROWS RECEIVED: ${data.length} ---`)
+    
+    // DEBUG: Log the first row keys to check casing and format
+    if (data.length > 0) {
+      console.log("--- SAMPLE ROW KEYS:", Object.keys(data[0]))
+      console.log("--- SAMPLE ROW DATA (first 3 keys):", JSON.stringify(
+        Object.fromEntries(Object.entries(data[0]).slice(0, 3)),
+        null,
+        2
+      ))
+    }
+
+    // Normalize Keys to Uppercase with safeguards
     const normalizedData = data.map((row: any) => {
       const newRow: any = {}
       Object.keys(row).forEach(key => {
-        newRow[key.toUpperCase()] = row[key]
+        // Remove any potential whitespace from keys and uppercase them
+        const cleanKey = key.trim().toUpperCase()
+        newRow[cleanKey] = row[key]
       })
       return newRow
     })
 
-    console.log(`--- RETURNED ${normalizedData.length} ROWS ---`)
+    console.log(`--- PROCESSED ${normalizedData.length} ROWS ---`)
     return normalizedData
 
   } catch (err) {
     console.error("Error fetching shipments:", err)
+    console.error("Error details:", {
+      message: err instanceof Error ? err.message : 'Unknown error',
+      stack: err instanceof Error ? err.stack : undefined
+    })
     return []
   }
 }
