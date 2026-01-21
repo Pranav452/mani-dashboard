@@ -39,7 +39,7 @@ export async function getShipments() {
     // Use executeSP to get ALL result sets
     const resultSets = await executeSP(query, params)
 
-    if (!resultSets || resultSets.length === 0) {
+    if (!resultSets || !Array.isArray(resultSets) || resultSets.length === 0) {
       console.log("--- QUERY RETURNED NULL ---")
       return []
     }
@@ -52,7 +52,7 @@ export async function getShipments() {
     console.log(`--- RAW RESULT SETS: ${resultSets.length} ---`)
     
     // Log each result set for debugging
-    resultSets.forEach((rs, index) => {
+    resultSets.forEach((rs: any, index: number) => {
       console.log(`--- RESULT SET ${index}: ${rs.length} rows ---`)
       if (rs.length > 0) {
         console.log(`--- RESULT SET ${index} KEYS:`, Object.keys(rs[0]))
