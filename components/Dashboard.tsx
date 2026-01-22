@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils"
 import Snowfall from 'react-snowfall'
 
 // Import Logic
-import { cleanNum, getValidDate, getComputedMode, calculateTEU, calculateUniqueTEU, generateFinancials, generateEmissions, filterData, calculateTransitStats, calculateLinerStats } from "@/lib/dashboard-logic"
+import { cleanNum, getValidDate, getComputedMode, generateFinancials, generateEmissions, filterData, calculateTransitStats, calculateLinerStats } from "@/lib/dashboard-logic"
 
 // Import Shadcn Chart Components
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
@@ -224,7 +224,7 @@ type ShipmentRecord = {
   _office?: string;
 }
 
-export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
+export default function Dashboard({ data, monthlyData = [] }: { data: ShipmentRecord[], monthlyData?: any[] }) {
   const { data: session } = useSession()
   const username = session?.user?.email || session?.user?.name || 'User'
   const [selectedMode, setSelectedMode] = useState<string>("ALL")
@@ -273,7 +273,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
         _mode: mode, // We use this new _mode for everything
         _carrier: getCarrier(row), // NEW: Uses smart fallback
         _office: getOffice(row.POL),
-        _teu: calculateTEU(row.CONT_CONTSIZE, row.CONT_CONTSTATUS, mode), // Real TEU Logic
+        _teu: cleanNum(row.CONT_TEU) || 0, // Use direct TEU from database
         _financials: financials,
         _env: environment
       }
@@ -426,7 +426,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
     return {
       shipments: uniqueRows.length,
       weight: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_GRWT), 0),
-      teu: calculateUniqueTEU(chartData),
+      teu: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0), // Use direct TEU from database
       cbm: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0),
       
       // Transit KPIs (Overall)
@@ -465,6 +465,42 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
   } as const
 
   const monthlyTrend = useMemo(() => {
+    // Use pre-aggregated monthly data from database if available
+    if (monthlyData && monthlyData.length > 0) {
+      const monthMap: Record<string, number> = {}
+      
+      monthlyData.forEach((row: any) => {
+        const month = String(row.MONTH || row.Month || '')
+        if (!month) return
+        
+        // Convert YYYYMM format to YYYY-MM format
+        let monthKey = month
+        if (month.length === 6 && /^\d{6}$/.test(month)) {
+          monthKey = `${month.substring(0, 4)}-${month.substring(4, 6)}`
+        }
+        
+        // Map based on selected trend metric
+        let value = 0
+        if (trendMetric === 'teu') {
+          value = cleanNum(row.TOTAL_TEU || row.Total_TEU || 0)
+        } else if (trendMetric === 'cbm') {
+          value = cleanNum(row.TOTAL_CBM || row.Total_CBM || 0)
+        } else if (trendMetric === 'weight') {
+          // Convert weight from KG to tons
+          value = cleanNum(row.TOTAL_WEIGHT_KG || row.Total_Weight_KG || 0) / 1000
+        } else if (trendMetric === 'shipments') {
+          value = cleanNum(row.TOTAL_SHIPMENT || row.Total_Shipment || 0)
+        }
+        
+        monthMap[monthKey] = value
+      })
+      
+      return Object.entries(monthMap)
+        .map(([date, val]) => ({ date, val: Math.round(val * 100) / 100 }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+    }
+    
+    // Fallback to calculating from individual rows if monthly data not available
     const stats: Record<string, number> = {}
     const seenJobs = new Set<string>()
     chartData.forEach((row, idx) => {
@@ -478,7 +514,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
     return Object.entries(stats)
       .map(([date, val]) => ({ date, val: Math.round(val * 100) / 100 }))
       .sort((a, b) => a.date.localeCompare(b.date))
-  }, [chartData, trendMetric])
+  }, [monthlyData, chartData, trendMetric])
 
   const monthlyTrendWithPrev = useMemo(() => {
     return monthlyTrend.map((entry, idx) => ({

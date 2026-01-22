@@ -6,6 +6,7 @@ import { getShipments } from '@/app/actions'
 
 interface ShipmentContextType {
   data: any[]
+  monthlyData: any[]
   loading: boolean
   error: any
   refresh: () => Promise<void>
@@ -15,6 +16,7 @@ const ShipmentContext = createContext<ShipmentContextType | undefined>(undefined
 
 export function ShipmentProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<any[]>([])
+  const [monthlyData, setMonthlyData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<any>(null)
   const { data: session, status } = useSession()
@@ -23,7 +25,14 @@ export function ShipmentProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true)
       const result = await getShipments()
-      setData(result)
+      // Handle both old format (array) and new format (object with shipments and monthlyData)
+      if (Array.isArray(result)) {
+        setData(result)
+        setMonthlyData([])
+      } else {
+        setData(result.shipments || [])
+        setMonthlyData(result.monthlyData || [])
+      }
       setError(null)
     } catch (err) {
       setError(err)
@@ -47,7 +56,7 @@ export function ShipmentProvider({ children }: { children: ReactNode }) {
   }, [status])
 
   return (
-    <ShipmentContext.Provider value={{ data, loading, error, refresh: fetchData }}>
+    <ShipmentContext.Provider value={{ data, monthlyData, loading, error, refresh: fetchData }}>
       {children}
     </ShipmentContext.Provider>
   )

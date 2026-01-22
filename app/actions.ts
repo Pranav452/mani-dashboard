@@ -9,7 +9,7 @@ export async function getShipments() {
 
   if (!session?.user) {
     console.warn("Unauthorized access attempt to getShipments")
-    return []
+    return { shipments: [], monthlyData: [] }
   }
 
   const { role, name } = session.user as any
@@ -22,7 +22,8 @@ export async function getShipments() {
     const { generateMockShipments } = await import("@/lib/mock-data")
     const mockData = generateMockShipments(1000) // Generate 1000 impressive shipments
     console.log(`Returned ${mockData.length} mock shipments for demo`)
-    return mockData
+    // Return in same format as real data (empty monthlyData for demo mode)
+    return { shipments: mockData, monthlyData: [] }
   }
 
   try {
@@ -35,17 +36,28 @@ export async function getShipments() {
     const query = `EXEC USP_CLIENT_DASHBOARD_PAGELOAD @p0, @p1`
     const params = [username, username]
     
-    const data = await executeQuery(query, params)
+    // Use executeSP to get all result sets (the stored procedure returns multiple tables)
+    const resultSets = await executeSP(query, params)
+
+    if (!resultSets || !Array.isArray(resultSets) || resultSets.length === 0) {
+      console.log("--- WARNING: No result sets returned from stored procedure ---")
+      return { shipments: [], monthlyData: [] }
+    }
+
+    // The 3rd result set (index 2) contains shipment data
+    const shipmentData = resultSets[2] || []
+    // The 5th result set (index 4) contains monthly aggregated data
+    const monthlyData = resultSets[4] || []
 
     console.log(`--- SHIPMENT ROWS FOUND: ${shipmentData.length} ---`)
+    console.log(`--- MONTHLY DATA ROWS FOUND: ${monthlyData.length} ---`)
 
     if (shipmentData.length === 0) {
       console.log("--- WARNING: No shipment data in 3rd result set ---")
-      return []
     }
 
     // Normalize Keys to uppercase for consistency
-    const normalizedData = data.map((row: any) => {
+    const normalizedData = shipmentData.map((row: any) => {
       const newRow: any = {}
       Object.keys(row).forEach(key => {
         // Remove any potential whitespace from keys and uppercase them
@@ -55,8 +67,20 @@ export async function getShipments() {
       return newRow
     })
 
-    console.log(`--- PROCESSED ${normalizedData.length} ROWS ---`)
-    return normalizedData
+    // Normalize monthly data keys to uppercase
+    const normalizedMonthlyData = monthlyData.map((row: any) => {
+      const newRow: any = {}
+      Object.keys(row).forEach(key => {
+        const cleanKey = key.trim().toUpperCase()
+        newRow[cleanKey] = row[key]
+      })
+      return newRow
+    })
+
+    console.log(`--- PROCESSED ${normalizedData.length} SHIPMENT ROWS ---`)
+    console.log(`--- PROCESSED ${normalizedMonthlyData.length} MONTHLY DATA ROWS ---`)
+    
+    return { shipments: normalizedData, monthlyData: normalizedMonthlyData }
 
   } catch (err) {
     console.error("Error fetching shipments:", err)
@@ -64,7 +88,7 @@ export async function getShipments() {
       message: err instanceof Error ? err.message : 'Unknown error',
       stack: err instanceof Error ? err.stack : undefined
     })
-    return []
+    return { shipments: [], monthlyData: [] }
   }
 }
 
