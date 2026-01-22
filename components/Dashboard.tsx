@@ -423,11 +423,26 @@ export default function Dashboard({ data, monthlyData = [] }: { data: ShipmentRe
     const transitStats = calculateTransitStats(uniqueRows)
     const linerStats = calculateLinerStats(chartData)
 
+    // Use monthly aggregated totals if available and no filters are applied (for better accuracy)
+    // Otherwise calculate from filtered chartData
+    let totalWeight = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_GRWT), 0) / 1000 // Convert KG to tons
+    let totalTEU = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0)
+    let totalCBM = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0)
+    let totalShipments = uniqueRows.length
+
+    // If monthly data is available and we're not filtering by date, use aggregated totals
+    if (monthlyData && monthlyData.length > 0 && !dateRange.from && !dateRange.to && selectedMode === "ALL" && selectedClient === "ALL" && selectedOffice === "ALL") {
+      totalWeight = monthlyData.reduce((sum: number, row: any) => sum + cleanNum(row.TOTAL_WEIGHT_KG || row.Total_Weight_KG || 0), 0) / 1000 // Convert KG to tons
+      totalTEU = monthlyData.reduce((sum: number, row: any) => sum + cleanNum(row.TOTAL_TEU || row.Total_TEU || 0), 0)
+      totalCBM = monthlyData.reduce((sum: number, row: any) => sum + cleanNum(row.TOTAL_CBM || row.Total_CBM || 0), 0)
+      totalShipments = monthlyData.reduce((sum: number, row: any) => sum + cleanNum(row.TOTAL_SHIPMENT || row.Total_Shipment || 0), 0)
+    }
+
     return {
-      shipments: uniqueRows.length,
-      weight: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_GRWT), 0),
-      teu: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0), // Use direct TEU from database
-      cbm: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0),
+      shipments: totalShipments,
+      weight: totalWeight, // In tons
+      teu: totalTEU, // Use direct TEU from database
+      cbm: totalCBM,
       
       // Transit KPIs (Overall)
       avgTransit: transitStats.avg,
@@ -455,11 +470,11 @@ export default function Dashboard({ data, monthlyData = [] }: { data: ShipmentRe
       profit: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._financials?.profit || 0), 0),
       co2: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._env?.co2 || 0), 0)
     }
-  }, [chartData])
+  }, [chartData, monthlyData, dateRange, selectedMode, selectedClient, selectedOffice])
 
   const metricConfig = {
-    weight: { label: "Weight (Tons)", accessor: (row: any) => cleanNum(row.CONT_GRWT) },
-    teu: { label: "TEU", accessor: (row: any) => row._teu || 0 },
+    weight: { label: "Weight (Tons)", accessor: (row: any) => cleanNum(row.CONT_GRWT) / 1000 }, // Convert KG to tons
+    teu: { label: "TEU", accessor: (row: any) => cleanNum(row.CONT_TEU) || 0 }, // Use direct TEU from database
     cbm: { label: "CBM", accessor: (row: any) => cleanNum(row.CONT_CBM) },
     shipments: { label: "Shipments", accessor: () => 1 }
   } as const
@@ -486,7 +501,7 @@ export default function Dashboard({ data, monthlyData = [] }: { data: ShipmentRe
         } else if (trendMetric === 'cbm') {
           value = cleanNum(row.TOTAL_CBM || row.Total_CBM || 0)
         } else if (trendMetric === 'weight') {
-          // Convert weight from KG to tons
+          // Convert weight from KG to tons (consistent with KPI display)
           value = cleanNum(row.TOTAL_WEIGHT_KG || row.Total_Weight_KG || 0) / 1000
         } else if (trendMetric === 'shipments') {
           value = cleanNum(row.TOTAL_SHIPMENT || row.Total_Shipment || 0)
@@ -1325,7 +1340,13 @@ export default function Dashboard({ data, monthlyData = [] }: { data: ShipmentRe
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {monthlyTrend.slice(-6).map(entry => (
                         <div key={entry.date} className="p-3 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
-                          <div className="text-xs text-slate-500 dark:text-slate-400">{format(new Date(entry.date + '-01'), 'MMM yyyy')}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {entry.date.includes('-') 
+                              ? format(new Date(entry.date + '-01'), 'MMM yyyy')
+                              : entry.date.length === 6 
+                                ? format(new Date(`${entry.date.substring(0, 4)}-${entry.date.substring(4, 6)}-01`), 'MMM yyyy')
+                                : entry.date}
+                          </div>
                           <div className="text-lg font-semibold text-slate-900 dark:text-slate-50">{formatNumber(entry.val)}</div>
                           <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                             <div className="h-full bg-emerald-500" style={{ width: `${Math.min(entry.val / (monthlyTrend[monthlyTrend.length -1]?.val || 1) * 100, 100)}%` }} />
