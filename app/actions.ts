@@ -29,9 +29,10 @@ export async function getShipments() {
   try {
     // Use centralized stored procedure for all data fetching
     // This ensures consistency and simplifies maintenance
-    const username = name || 'HAPPYCHIC'
-    
-    console.log(`--- CALLING USP_CLIENT_DASHBOARD_PAGELOAD with username: ${username} ---`)
+    // 1. FIX TRAILING SPACES (Crucial)
+    const username = name ? name.trim() : 'HAPPYCHIC'
+
+    console.log(`--- CALLING USP_CLIENT_DASHBOARD_PAGELOAD with username: '${username}' ---`)
     
     const query = `EXEC USP_CLIENT_DASHBOARD_PAGELOAD @p0, @p1`
     const params = [username, username]
@@ -44,16 +45,42 @@ export async function getShipments() {
       return { shipments: [], monthlyData: [] }
     }
 
-    // The 3rd result set (index 2) contains shipment data
-    const shipmentData = resultSets[2] || []
-    // The 5th result set (index 4) contains monthly aggregated data
-    const monthlyData = resultSets[4] || []
+    // --- 2. DYNAMIC TABLE DETECTION ---
+    // Don't rely on fixed indices like resultSets[2] and resultSets[4].
+    // Instead, scan each table and infer its role from the column names.
+    let shipmentData: any[] = []
+    let monthlyData: any[] = []
+
+    for (let i = 0; i < resultSets.length; i++) {
+      const rs = resultSets[i]
+
+      // Skip empty tables or scalar values (like counts)
+      if (!rs || rs.length === 0) continue
+
+      // Check column names of the first row
+      const firstRow = rs[0]
+      const columns = Object.keys(firstRow).map((k) => k.toUpperCase())
+
+      // LOGIC: Identifying tables based on unique columns
+
+      // A. Main Shipment Table usually has 'JOBNO' and 'MODE'
+      if (columns.includes('JOBNO') && columns.includes('MODE')) {
+        console.log(`>>> FOUND SHIPMENTS AT INDEX ${i} (${rs.length} rows) <<<`)
+        shipmentData = rs
+      }
+      // B. Monthly Stats usually has 'TOTAL_TEU' or 'MONTH' (based on SQL)
+      else if (columns.includes('TOTAL_TEU') || columns.includes('MONTH')) {
+        console.log(`>>> FOUND MONTHLY STATS AT INDEX ${i} (${rs.length} rows) <<<`)
+        monthlyData = rs
+      }
+    }
 
     console.log(`--- SHIPMENT ROWS FOUND: ${shipmentData.length} ---`)
     console.log(`--- MONTHLY DATA ROWS FOUND: ${monthlyData.length} ---`)
 
     if (shipmentData.length === 0) {
-      console.log("--- WARNING: No shipment data in 3rd result set ---")
+      console.log("--- WARNING: 0 Shipment rows found after scanning all tables ---")
+      // It might be that the user simply has no shipment data within the date window.
     }
 
     // Normalize Keys to uppercase for consistency
