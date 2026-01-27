@@ -260,13 +260,13 @@ type DashboardProps = {
     kpiTotals: any;
     monthlyStats: any[];
     avgTransit: any;
-    monthlyAvgTransit: any[];
+    monthlyAvgTransit?: any[];
     extremes: any;
     median: any;
     onTime: any;
     monthlyOnTime: any[];
     transitBreakdown: any;
-    originModeTEU: any[];
+    originModeTEU?: any[];
   } | null
 }
 
@@ -279,13 +279,13 @@ export default function Dashboard({ data }: DashboardProps) {
     kpiTotals, 
     monthlyStats, 
     avgTransit, 
-    monthlyAvgTransit,
+    monthlyAvgTransit = [],
     extremes, 
     median,
     onTime, 
     monthlyOnTime,
     transitBreakdown,
-    originModeTEU
+    originModeTEU = []
   } = data
 
   const { data: session } = useSession()
