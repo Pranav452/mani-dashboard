@@ -1688,128 +1688,147 @@ export default function Dashboard({ data }: DashboardProps) {
         {/* COMPREHENSIVE KPI SECTIONS */}
         
         {/* SECTION 1: ALL KPIs */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="h-1 w-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full" />
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">Key Performance Indicators</h2>
-            <div className="h-1 flex-1 bg-gradient-to-r from-purple-500 to-transparent rounded-full" />
+        <div className="space-y-8">
+          <div className="flex items-center gap-4">
+            <div className="h-px w-16 bg-slate-300 dark:bg-slate-700" />
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight">Key Performance Indicators</h2>
+            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
           </div>
 
           {/* VOLUME METRICS SECTION */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Box className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Volume Metrics</h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="space-y-5">
+            <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400 tracking-wide">Volume Metrics</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* TOTAL SHIPMENTS */}
-              <Card className="shadow-md border border-slate-200 dark:border-zinc-800 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20 hover:shadow-lg transition-all duration-200">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wider">Total Shipments</div>
-                    <div className="w-10 h-10 rounded-lg bg-purple-200 dark:bg-purple-900/50 flex items-center justify-center">
-                      <Ship className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Shipments</div>
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                      <Ship className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.shipments.toLocaleString()}</div>
-                  <div className="text-xs text-purple-600 dark:text-purple-400 mt-1 font-medium">files</div>
+                  <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.shipments.toLocaleString()}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">files</div>
                 </CardContent>
               </Card>
 
               {/* TOTAL WEIGHT */}
-              <Card className="shadow-md border border-slate-200 dark:border-zinc-800 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/20 hover:shadow-lg transition-all duration-200">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Total Weight</div>
-                    <div className="w-10 h-10 rounded-lg bg-emerald-200 dark:bg-emerald-900/50 flex items-center justify-center">
-                      <Box className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Weight</div>
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                      <Box className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.weight.toFixed(1)}</div>
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">tons</div>
+                  <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.weight.toFixed(1)}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">tons</div>
                 </CardContent>
               </Card>
 
+              {/* CHARGEABLE WEIGHT */}
+              {kpis.chargeableWeight > 0 && (
+                <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Chargeable Weight</div>
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                        <Box className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                      </div>
+                    </div>
+                    <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.chargeableWeight.toFixed(1)}</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">tons</div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* TEU */}
-              <Card className="shadow-md border border-slate-200 dark:border-zinc-800 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 hover:shadow-lg transition-all duration-200">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wider">TEU</div>
-                    <div className="w-10 h-10 rounded-lg bg-blue-200 dark:bg-blue-900/50 flex items-center justify-center">
-                      <Container className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">TEU</div>
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                      <Container className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.teu.toFixed(0)}</div>
-                  <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">units</div>
+                  <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.teu.toFixed(0)}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">units</div>
                 </CardContent>
               </Card>
 
               {/* CBM */}
-              <Card className="shadow-md border border-slate-200 dark:border-zinc-800 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100/50 dark:from-indigo-950/30 dark:to-indigo-900/20 hover:shadow-lg transition-all duration-200">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">CBM</div>
-                    <div className="w-10 h-10 rounded-lg bg-indigo-200 dark:bg-indigo-900/50 flex items-center justify-center">
-                      <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">CBM</div>
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                      <Layers className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.cbm.toFixed(1)}</div>
-                  <div className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 font-medium">m³</div>
+                  <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.cbm.toFixed(1)}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">m³</div>
                 </CardContent>
               </Card>
             </div>
           </div>
 
           {/* TRANSIT PERFORMANCE SECTION */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Transit Performance</h3>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="space-y-5">
+            <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400 tracking-wide">Transit Performance</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               {/* AVG TRANSIT */}
-              <Card className="shadow-md border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 hover:shadow-lg transition-all duration-200">
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
                 <CardContent className="p-5">
-                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Avg Transit</div>
-                  <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.avgTransit.toFixed(1)}</div>
-                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Avg Transit</div>
+                  <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.avgTransit.toFixed(1)}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
                 </CardContent>
               </Card>
               
               {/* FASTEST */}
-              <Card className="shadow-md border border-emerald-200 dark:border-emerald-800 rounded-xl bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-zinc-950 hover:shadow-lg transition-all duration-200">
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
                 <CardContent className="p-5">
-                  <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider mb-2">Fastest</div>
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{kpis.minTransit > 0 ? kpis.minTransit : 'N/A'}</div>
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">days</div>
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Fastest</div>
+                  <div className="text-2xl font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums tracking-tight">{kpis.minTransit > 0 ? kpis.minTransit : 'N/A'}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
                 </CardContent>
               </Card>
               
               {/* SLOWEST */}
-              <Card className="shadow-md border border-red-200 dark:border-red-800 rounded-xl bg-gradient-to-br from-red-50 to-white dark:from-red-950/20 dark:to-zinc-950 hover:shadow-lg transition-all duration-200">
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
                 <CardContent className="p-5">
-                  <div className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wider mb-2">Slowest</div>
-                  <div className="text-2xl font-bold text-red-600 dark:text-red-400 tabular-nums">{kpis.maxTransit > 0 ? kpis.maxTransit : 'N/A'}</div>
-                  <div className="text-xs text-red-600 dark:text-red-400 mt-1">days</div>
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Slowest</div>
+                  <div className="text-2xl font-semibold text-red-700 dark:text-red-400 tabular-nums tracking-tight">{kpis.maxTransit > 0 ? kpis.maxTransit : 'N/A'}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
                 </CardContent>
               </Card>
               
               {/* MEDIAN */}
-              <Card className="shadow-md border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 hover:shadow-lg transition-all duration-200">
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
                 <CardContent className="p-5">
-                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Median</div>
-                  <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.medianTransit > 0 ? kpis.medianTransit.toFixed(1) : 'N/A'}</div>
-                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Median</div>
+                  <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.medianTransit > 0 ? kpis.medianTransit.toFixed(1) : 'N/A'}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
+                </CardContent>
+              </Card>
+              
+              {/* STD DEV */}
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-5">
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Std Dev</div>
+                  <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.stddevTransit.toFixed(1)}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
                 </CardContent>
               </Card>
               
               {/* ON-TIME % */}
-              <Card className="shadow-md border border-slate-200 dark:border-zinc-800 rounded-xl bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-zinc-950 hover:shadow-lg transition-all duration-200">
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
                 <CardContent className="p-5">
-                  <div className="text-xs font-semibold text-green-700 dark:text-green-300 uppercase tracking-wider mb-2">On-Time %</div>
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400 tabular-nums">{kpis.onTimePct.toFixed(1)}%</div>
-                  <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-green-500 transition-all" style={{ width: `${Math.min(Math.max(kpis.onTimePct, 0), 100)}%` }} />
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">On-Time %</div>
+                  <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight mb-2">{kpis.onTimePct.toFixed(1)}%</div>
+                  <div className="h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-slate-400 dark:bg-slate-500 transition-all" style={{ width: `${Math.min(Math.max(kpis.onTimePct, 0), 100)}%` }} />
                   </div>
                 </CardContent>
               </Card>
@@ -1817,25 +1836,21 @@ export default function Dashboard({ data }: DashboardProps) {
           </div>
 
           {/* TRANSIT LEGS SECTION */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Transit Legs Breakdown</h3>
-            </div>
+          <div className="space-y-5">
+            <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400 tracking-wide">Transit Legs Breakdown</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
               {/* PICKUP → ARRIVAL (WITH MoM/YoY) */}
-              <Card className="shadow-md border border-blue-200 dark:border-blue-800 rounded-xl bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-zinc-950 hover:shadow-lg transition-all duration-200">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wider">Pickup → Arrival</div>
-                    <div className="w-8 h-8 rounded-lg bg-blue-200 dark:bg-blue-900/50 flex items-center justify-center">
-                      <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pickup → Arrival</div>
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                      <TrendingUp className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 dark:text-slate-50 tabular-nums mb-1">{kpis.legs.pickupToArrival.toFixed(1)}</div>
-                  <div className="text-xs text-blue-600 dark:text-blue-400 mb-4 font-medium">days</div>
-                  <div className="space-y-2 pt-3 border-t border-blue-100 dark:border-blue-900/50">
+                  <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight mb-1">{kpis.legs.pickupToArrival.toFixed(1)}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mb-4">days</div>
+                  <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-zinc-800">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-500 dark:text-slate-400">Vs Prv MM</span>
                       <LegDelta has={kpis.changes.pickupToArrival.hasMom} days={kpis.changes.pickupToArrival.momDays} pct={kpis.changes.pickupToArrival.momPct} />
@@ -1849,17 +1864,17 @@ export default function Dashboard({ data }: DashboardProps) {
               </Card>
 
               {/* PICKUP → DELIVERY (WITH MoM/YoY) */}
-              <Card className="shadow-md border border-purple-200 dark:border-purple-800 rounded-xl bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/20 dark:to-zinc-950 hover:shadow-lg transition-all duration-200">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-xs font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wider">Pickup → Delivery</div>
-                    <div className="w-8 h-8 rounded-lg bg-purple-200 dark:bg-purple-900/50 flex items-center justify-center">
-                      <Activity className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pickup → Delivery</div>
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                      <Activity className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 dark:text-slate-50 tabular-nums mb-1">{kpis.legs.pickupToDelivery.toFixed(1)}</div>
-                  <div className="text-xs text-purple-600 dark:text-purple-400 mb-4 font-medium">days</div>
-                  <div className="space-y-2 pt-3 border-t border-purple-100 dark:border-purple-900/50">
+                  <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight mb-1">{kpis.legs.pickupToDelivery.toFixed(1)}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mb-4">days</div>
+                  <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-zinc-800">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-500 dark:text-slate-400">Vs Prv MM</span>
                       <LegDelta has={kpis.changes.pickupToDelivery.hasMom} days={kpis.changes.pickupToDelivery.momDays} pct={kpis.changes.pickupToDelivery.momPct} />
@@ -1873,17 +1888,17 @@ export default function Dashboard({ data }: DashboardProps) {
               </Card>
 
               {/* DEPARTURE → ARRIVAL (WITH MoM/YoY) */}
-              <Card className="shadow-md border border-emerald-200 dark:border-emerald-800 rounded-xl bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-zinc-950 hover:shadow-lg transition-all duration-200">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Departure → Arrival</div>
-                    <div className="w-8 h-8 rounded-lg bg-emerald-200 dark:bg-emerald-900/50 flex items-center justify-center">
-                      <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Departure → Arrival</div>
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                      <Clock className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 dark:text-slate-50 tabular-nums mb-1">{kpis.legs.depToArrival.toFixed(1)}</div>
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400 mb-4 font-medium">days</div>
-                  <div className="space-y-2 pt-3 border-t border-emerald-100 dark:border-emerald-900/50">
+                  <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight mb-1">{kpis.legs.depToArrival.toFixed(1)}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mb-4">days</div>
+                  <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-zinc-800">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-500 dark:text-slate-400">Vs Prv MM</span>
                       <LegDelta has={kpis.changes.depToArrival.hasMom} days={kpis.changes.depToArrival.momDays} pct={kpis.changes.depToArrival.momPct} />
@@ -1897,17 +1912,17 @@ export default function Dashboard({ data }: DashboardProps) {
               </Card>
 
               {/* DEPARTURE → DELIVERY (WITH MoM/YoY) */}
-              <Card className="shadow-md border border-orange-200 dark:border-orange-800 rounded-xl bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/20 dark:to-zinc-950 hover:shadow-lg transition-all duration-200">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-xs font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wider">Departure → Delivery</div>
-                    <div className="w-8 h-8 rounded-lg bg-orange-200 dark:bg-orange-900/50 flex items-center justify-center">
-                      <Anchor className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Departure → Delivery</div>
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                      <Anchor className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-slate-900 dark:text-slate-50 tabular-nums mb-1">{kpis.legs.depToDelivery.toFixed(1)}</div>
-                  <div className="text-xs text-orange-600 dark:text-orange-400 mb-4 font-medium">days</div>
-                  <div className="space-y-2 pt-3 border-t border-orange-100 dark:border-orange-900/50">
+                  <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight mb-1">{kpis.legs.depToDelivery.toFixed(1)}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mb-4">days</div>
+                  <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-zinc-800">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-500 dark:text-slate-400">Vs Prv MM</span>
                       <LegDelta has={kpis.changes.depToDelivery.hasMom} days={kpis.changes.depToDelivery.momDays} pct={kpis.changes.depToDelivery.momPct} />
@@ -1921,6 +1936,46 @@ export default function Dashboard({ data }: DashboardProps) {
               </Card>
             </div>
           </div>
+
+          {/* ADDITIONAL LEGS SECTION */}
+          {(kpis.legs.cargoToATD > 0 || kpis.legs.ataToDelivery > 0) && (
+            <div className="space-y-5">
+              <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400 tracking-wide">Additional Transit Legs</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* CARGO → ATD */}
+                {kpis.legs.cargoToATD > 0 && (
+                  <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cargo → ATD</div>
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                          <Activity className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                        </div>
+                      </div>
+                      <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.legs.cargoToATD.toFixed(1)}</div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* ATA → DELIVERY */}
+                {kpis.legs.ataToDelivery > 0 && (
+                  <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">ATA → Delivery</div>
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                          <Anchor className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                        </div>
+                      </div>
+                      <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.legs.ataToDelivery.toFixed(1)}</div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* SECTION 3: TRANSIT LEGS - BAR CHART */}
