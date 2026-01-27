@@ -466,8 +466,12 @@ export default function Dashboard({ data }: DashboardProps) {
     const linerStats = calculateLinerStats(chartData)
 
     // BACKEND BINDING: Use backend values when no filters are applied
+    // For single provider: selectedClient filter is ignored (same as "ALL") since DB already returns values for that user
     // Otherwise calculate from filtered chartData
-    const hasFilters = dateRange.from || dateRange.to || selectedMode !== "ALL" || selectedClient !== "ALL" || selectedOffice !== "ALL"
+    const isSingleProvider = allProviders.length === 1
+    // When single provider: ignore selectedClient filter (DB already filtered by user)
+    const effectiveClientFilter = isSingleProvider ? "ALL" : selectedClient
+    const hasFilters = dateRange.from || dateRange.to || selectedMode !== "ALL" || effectiveClientFilter !== "ALL" || selectedOffice !== "ALL"
     
     let totalWeight: number
     let totalTEU: number
@@ -545,7 +549,7 @@ export default function Dashboard({ data }: DashboardProps) {
       profit: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._financials?.profit || 0), 0),
       co2: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._env?.co2 || 0), 0)
     }
-  }, [chartData, kpiTotals, avgTransit, extremes, median, onTime, transitBreakdown, dateRange, selectedMode, selectedClient, selectedOffice])
+  }, [chartData, kpiTotals, avgTransit, extremes, median, onTime, transitBreakdown, dateRange, selectedMode, selectedClient, selectedOffice, allProviders])
 
   const metricConfig = {
     weight: { label: "Weight (Tons)", accessor: (row: any) => cleanNum(row.CONT_GRWT) / 1000 }, // Convert KG to tons
