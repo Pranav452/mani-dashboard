@@ -28,7 +28,9 @@ export async function getShipments() {
       rawShipments: mockData,
       kpiTotals: { TOTAL_SHIPMENT: mockData.length, CONT_GRWT: mockData.reduce((sum: number, r: any) => sum + (r.CONT_GRWT || 0), 0) },
       monthlyStats: [],
-      avgTransit: { Avg_Pickup_To_Arrival_Days: 0 },
+      avgTransit: { AvgTT_Pickup_Arrival: 0 },
+      monthlyAvgTransit: [],
+      originModeTEU: [],
       extremes: { Fastest_TT: 0, Slowest_TT: 0 },
       median: { Median_TT: 0 },
       onTime: { OnTime_Percentage: 0 },
@@ -58,28 +60,32 @@ export async function getShipments() {
     if (!resultSets || !Array.isArray(resultSets)) return null
 
     // 4. MAP RESULT SETS (Based on your provided SP structure)
-    // Index 0: Mapping (Ignore)
-    // Index 1: Dropdown (Ignore)
+    // Index 0: CMPID, PKID, CONCODE, GRPCODE (metadata - ignore)
+    // Index 1: TEXTFIELD, VALUEFIELD (consignee groups - ignore)
     // Index 2: RAW SHIPMENT LIST
-    // Index 3: TOTALS (Shipment count, weight)
-    // Index 4: MONTHLY STATS (TEU, Weight trends)
-    // Index 5: AVG TRANSIT
-    // Index 6: FASTEST/SLOWEST
-    // Index 7: MEDIAN
-    // Index 8: ON TIME %
-    // Index 9: MONTHLY ON TIME
-    // Index 10: TRANSIT BREAKDOWN
+    // Index 3: TOTAL_SHIPMENT, CONT_GRWT, ORD_CHBLWT
+    // Index 4: Month, Total_TEU, Total_CBM, Total_Weight_KG
+    // Index 5: AvgTT_Pickup_Arrival (single value)
+    // Index 6: Month, AvgTT_Pickup_Arrival (monthly breakdown)
+    // Index 7: Fastest_TT, Slowest_TT
+    // Index 8: Median_TT
+    // Index 9: OnTime_Percentage
+    // Index 10: Month, OnTime_Percentage
+    // Index 11: Avg_Pickup_Arrival, Avg_Departure_Delivery, Avg_Cargo_ATD, Avg_ATD_ATA, Avg_ATA_Delivery
+    // Index 12: ORIGIN, MODE, Total_TEU (for pie chart)
 
     const payload = {
       rawShipments: resultSets[2] || [],
-      kpiTotals: resultSets[3]?.[0] || { TOTAL_SHIPMENT: 0, CONT_GRWT: 0 },
+      kpiTotals: resultSets[3]?.[0] || { TOTAL_SHIPMENT: 0, CONT_GRWT: 0, ORD_CHBLWT: 0 },
       monthlyStats: resultSets[4] || [],
-      avgTransit: resultSets[5]?.[0] || { Avg_Pickup_To_Arrival_Days: 0 },
-      extremes: resultSets[6]?.[0] || { Fastest_TT: 0, Slowest_TT: 0 },
-      median: resultSets[7]?.[0] || { Median_TT: 0 },
-      onTime: resultSets[8]?.[0] || { OnTime_Percentage: 0 },
-      monthlyOnTime: resultSets[9] || [],
-      transitBreakdown: resultSets[10]?.[0] || {}
+      avgTransit: resultSets[5]?.[0] || { AvgTT_Pickup_Arrival: 0 },
+      monthlyAvgTransit: resultSets[6] || [],
+      extremes: resultSets[7]?.[0] || { Fastest_TT: 0, Slowest_TT: 0 },
+      median: resultSets[8]?.[0] || { Median_TT: 0 },
+      onTime: resultSets[9]?.[0] || { OnTime_Percentage: 0 },
+      monthlyOnTime: resultSets[10] || [],
+      transitBreakdown: resultSets[11]?.[0] || {},
+      originModeTEU: resultSets[12] || []
     }
 
     console.log(`--- DATA LOADED: ${payload.rawShipments.length} Rows, Total Weight: ${payload.kpiTotals.CONT_GRWT} ---`)

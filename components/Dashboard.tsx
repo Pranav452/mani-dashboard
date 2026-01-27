@@ -260,11 +260,13 @@ type DashboardProps = {
     kpiTotals: any;
     monthlyStats: any[];
     avgTransit: any;
+    monthlyAvgTransit: any[];
     extremes: any;
     median: any;
     onTime: any;
     monthlyOnTime: any[];
     transitBreakdown: any;
+    originModeTEU: any[];
   } | null
 }
 
@@ -277,11 +279,13 @@ export default function Dashboard({ data }: DashboardProps) {
     kpiTotals, 
     monthlyStats, 
     avgTransit, 
+    monthlyAvgTransit,
     extremes, 
     median,
     onTime, 
     monthlyOnTime,
-    transitBreakdown 
+    transitBreakdown,
+    originModeTEU
   } = data
 
   const { data: session } = useSession()
@@ -517,7 +521,7 @@ export default function Dashboard({ data }: DashboardProps) {
       // Use backend calculated values (divide weight by 1000 for tons, assuming SP returns KG)
       totalWeight = (kpiTotals.CONT_GRWT || 0) / 1000
       totalShipments = kpiTotals.TOTAL_SHIPMENT || 0
-      displayTransit = avgTransit.Avg_Pickup_To_Arrival_Days || 0
+      displayTransit = avgTransit.AvgTT_Pickup_Arrival || 0
       displayOnTime = onTime.OnTime_Percentage || 0
       displayMedian = median.Median_TT || 0
       displayFastest = extremes.Fastest_TT || 0
@@ -2090,7 +2094,71 @@ export default function Dashboard({ data }: DashboardProps) {
           </Card>
         </div>
 
-        {/* SECTION 4: LINER PERFORMANCE */}
+        {/* SECTION 4: ORIGIN/MODE TEU BREAKDOWN - PIE CHART */}
+        {originModeTEU && originModeTEU.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">TEU by Origin & Mode</h2>
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Total TEU Distribution</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 min-h-0">
+                <div className="h-[400px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={originModeTEU.map((item: any) => ({
+                          name: `${item.ORIGIN} - ${item.MODE}`,
+                          value: item.Total_TEU || 0,
+                          origin: item.ORIGIN,
+                          mode: item.MODE
+                        }))}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                        outerRadius={120}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {originModeTEU.map((entry: any, index: number) => {
+                          const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
+                          return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                        })}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'var(--color-card)',
+                          borderRadius: '12px',
+                          border: '1px solid var(--color-border)',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          color: 'var(--color-card-foreground)'
+                        }}
+                        formatter={(value: any, name: any, props: any) => {
+                          const data = props.payload
+                          return [
+                            <div key="content" className="space-y-1">
+                              <div className="font-semibold tabular-nums">{value.toFixed(1)} TEU</div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">{data.origin} - {data.mode}</div>
+                            </div>
+                          ]
+                        }}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        height={36}
+                        iconType="circle"
+                        wrapperStyle={{ color: 'var(--color-muted-foreground)', paddingTop: '20px' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* SECTION 5: LINER PERFORMANCE */}
         <div className="space-y-3">
           <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Liner Performance</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
