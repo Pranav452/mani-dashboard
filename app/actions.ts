@@ -43,10 +43,37 @@ export async function getShipments() {
     const authQuery = `SELECT CMP_PASSWORD FROM CMP_DTLS WHERE LTRIM(RTRIM(CMP_USERNAME)) = @p0`
     const authResult = await executeQuery(authQuery, [username])
     
-    if (!authResult || authResult.length === 0) {
-      console.error(`User ${username} not found in CMP_DTLS`)
-      return null
+    console.log(`--- CALLING USP_CLIENT_DASHBOARD_PAGELOAD with username: ${username} ---`)
+    
+    // Execute Stored Procedure
+    const query = `EXEC USP_CLIENT_DASHBOARD_PAGELOAD @p0, @p1`
+    const params = [username, username]
+    
+    // Use executeSP to get ALL result sets
+    const resultSets = await executeSP(query, params)
+
+    if (!resultSets || !Array.isArray(resultSets) || resultSets.length === 0) {
+      console.log("--- QUERY RETURNED NULL ---")
+      return []
     }
+
+    // LOGIC: The SP returns 3 tables.
+    // Table 0: Mapping Info (CMPID, PKID, CONCODE, GRPCODE)
+    // Table 1: Dropdown Data (TEXTFIELD, VALUEFIELD)
+    // Table 2: SHIPMENT DATA (This is what we want - JOBNO, MODE, ETD, etc.)
+    
+    console.log(`--- RAW RESULT SETS: ${resultSets.length} ---`)
+    
+    // Log each result set for debugging
+    resultSets.forEach((rs: any, index: number) => {
+      console.log(`--- RESULT SET ${index}: ${rs.length} rows ---`)
+      if (rs.length > 0) {
+        console.log(`--- RESULT SET ${index} KEYS:`, Object.keys(rs[0]))
+      }
+    })
+
+    // Check if we have the 3rd table
+    const shipmentData = resultSets.length >= 3 ? resultSets[2] : []
 
     const dbPassword = authResult[0].CMP_PASSWORD
     console.log(`--- CREDENTIALS VERIFIED. CALLING SP... ---`)
@@ -70,17 +97,16 @@ export async function getShipments() {
     // Index 9: MONTHLY ON TIME
     // Index 10: TRANSIT BREAKDOWN
 
-    const payload = {
-      rawShipments: resultSets[2] || [],
-      kpiTotals: resultSets[3]?.[0] || { TOTAL_SHIPMENT: 0, CONT_GRWT: 0 },
-      monthlyStats: resultSets[4] || [],
-      avgTransit: resultSets[5]?.[0] || { Avg_Pickup_To_Arrival_Days: 0 },
-      extremes: resultSets[6]?.[0] || { Fastest_TT: 0, Slowest_TT: 0 },
-      median: resultSets[7]?.[0] || { Median_TT: 0 },
-      onTime: resultSets[8]?.[0] || { OnTime_Percentage: 0 },
-      monthlyOnTime: resultSets[9] || [],
-      transitBreakdown: resultSets[10]?.[0] || {}
-    }
+    // Normalize Keys to Uppercase with safeguards
+    const normalizedData = shipmentData.map((row: any) => {
+      const newRow: any = {}
+      Object.keys(row).forEach(key => {
+        // Remove any potential whitespace from keys and uppercase them
+        const cleanKey = key.trim().toUpperCase()
+        newRow[cleanKey] = row[key]
+      })
+      return newRow
+    })
 
     console.log(`--- DATA LOADED: ${payload.rawShipments.length} Rows, Total Weight: ${payload.kpiTotals.CONT_GRWT} ---`)
     
