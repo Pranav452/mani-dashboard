@@ -291,6 +291,9 @@ export default function Dashboard({ data }: DashboardProps) {
 
   // --- 1. PARSE DATA & COMPUTE MODE ---
   const parsedData = useMemo<ShipmentRecord[]>(() => {
+    // Safety check if rawShipments is missing
+    if (!rawShipments || !Array.isArray(rawShipments)) return [];
+
     return rawShipments.map(row => {
       const mode = getComputedMode(row);
       const financials = generateFinancials(row); // Inject Mock Money
@@ -298,6 +301,8 @@ export default function Dashboard({ data }: DashboardProps) {
 
       return {
         ...row,
+        // FIX: Trim the provider name to ensure matching works
+        CONNAME: (row.CONNAME || "Unknown").trim(),
         _date: getValidDate(row),
         _mode: mode, // We use this new _mode for everything
         _carrier: getCarrier(row), // NEW: Uses smart fallback
@@ -307,7 +312,7 @@ export default function Dashboard({ data }: DashboardProps) {
         _env: environment
       }
     })
-  }, [data])
+  }, [rawShipments])
 
   // --- 2. WATERFALL LOGIC ---
   const { minDate, maxDate } = useMemo(() => {
@@ -359,6 +364,13 @@ export default function Dashboard({ data }: DashboardProps) {
     }
   }, [parsedData, selectedMode, dateRange, selectedOffice])
 
+  // Auto-select single provider if only one exists
+  useEffect(() => {
+    if (allProviders.length === 1 && selectedClient === "ALL") {
+      setSelectedClient(allProviders[0]);
+    }
+  }, [allProviders, selectedClient]);
+
   // --- 3. FILTER DATA (with search) ---
   const chartData = useMemo<ShipmentRecord[]>(() => {
     return parsedData.filter(row => {
@@ -373,7 +385,8 @@ export default function Dashboard({ data }: DashboardProps) {
         if (!isWithinInterval(row._date, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })) return false
       }
       
-      if (selectedClient !== "ALL" && row.CONNAME !== selectedClient) return false
+      // FIX: Robust Provider Check with defensive trim
+      if (selectedClient !== "ALL" && row.CONNAME?.trim() !== selectedClient.trim()) return false
       
       // Search filter
       if (searchQuery) {
@@ -1044,18 +1057,20 @@ export default function Dashboard({ data }: DashboardProps) {
               </PopoverContent>
             </Popover>
 
-            {/* Provider Filter */}
-            <Select value={selectedClient} onValueChange={setSelectedClient}>
-              <SelectTrigger className="h-9 text-sm w-[180px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800">
-                <SelectValue placeholder="Provider" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Providers</SelectItem>
-                {allProviders.map(provider => (
-                  <SelectItem key={provider} value={provider}>{provider}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Provider Filter - Only show if there is more than 1 provider */}
+            {allProviders.length > 1 && (
+              <Select value={selectedClient} onValueChange={setSelectedClient}>
+                <SelectTrigger className="h-9 text-sm w-[180px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800">
+                  <SelectValue placeholder="Provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Providers</SelectItem>
+                  {allProviders.map(provider => (
+                    <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             {/* Search */}
             <div className="relative flex-1 min-w-[200px] max-w-[300px]">
