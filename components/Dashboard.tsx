@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils"
 import Snowfall from 'react-snowfall'
 
 // Import Logic
-import { cleanNum, getValidDate, getComputedMode, calculateTEU, calculateUniqueTEU, generateFinancials, generateEmissions, filterData, calculateTransitStats, calculateLinerStats } from "@/lib/dashboard-logic"
+import { cleanNum, getValidDate, getComputedMode, generateFinancials, generateEmissions, filterData, calculateTransitStats, calculateLinerStats } from "@/lib/dashboard-logic"
 
 // Import Shadcn Chart Components
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
@@ -224,7 +224,36 @@ type ShipmentRecord = {
   _office?: string;
 }
 
-export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
+type DashboardProps = {
+  data: {
+    rawShipments: any[];
+    kpiTotals: any;
+    monthlyStats: any[];
+    avgTransit: any;
+    extremes: any;
+    median: any;
+    onTime: any;
+    monthlyOnTime: any[];
+    transitBreakdown: any;
+  } | null
+}
+
+export default function Dashboard({ data }: DashboardProps) {
+  // If data is null (loading or error), handle gracefully
+  if (!data) return <div className="p-10 text-center">Loading Data...</div>
+
+  const { 
+    rawShipments, 
+    kpiTotals, 
+    monthlyStats, 
+    avgTransit, 
+    extremes, 
+    median,
+    onTime, 
+    monthlyOnTime,
+    transitBreakdown 
+  } = data
+
   const { data: session } = useSession()
   const username = session?.user?.email || session?.user?.name || 'User'
   const [selectedMode, setSelectedMode] = useState<string>("ALL")
@@ -262,7 +291,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
 
   // --- 1. PARSE DATA & COMPUTE MODE ---
   const parsedData = useMemo<ShipmentRecord[]>(() => {
-    return data.map(row => {
+    return rawShipments.map(row => {
       const mode = getComputedMode(row);
       const financials = generateFinancials(row); // Inject Mock Money
       const environment = generateEmissions(row); // Inject Mock CO2
@@ -273,7 +302,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
         _mode: mode, // We use this new _mode for everything
         _carrier: getCarrier(row), // NEW: Uses smart fallback
         _office: getOffice(row.POL),
-        _teu: calculateTEU(row.CONT_CONTSIZE, row.CONT_CONTSTATUS, mode), // Real TEU Logic
+        _teu: cleanNum(row.CONT_TEU) || 0, // Use direct TEU from database
         _financials: financials,
         _env: environment
       }
@@ -423,27 +452,75 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
     const transitStats = calculateTransitStats(uniqueRows)
     const linerStats = calculateLinerStats(chartData)
 
-    return {
-      shipments: uniqueRows.length,
-      weight: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_GRWT), 0),
-      teu: calculateUniqueTEU(chartData),
-      cbm: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0),
+    // BACKEND BINDING: Use backend values when no filters are applied
+    // Otherwise calculate from filtered chartData
+    const hasFilters = dateRange.from || dateRange.to || selectedMode !== "ALL" || selectedClient !== "ALL" || selectedOffice !== "ALL"
+    
+    let totalWeight: number
+    let totalTEU: number
+    let totalCBM: number
+    let totalShipments: number
+    let displayTransit: number
+    let displayOnTime: number
+    let displayMedian: number
+    let displayFastest: number
+    let displaySlowest: number
+
+    if (!hasFilters) {
+      // Use backend calculated values (divide weight by 1000 for tons, assuming SP returns KG)
+      totalWeight = (kpiTotals.CONT_GRWT || 0) / 1000
+      totalShipments = kpiTotals.TOTAL_SHIPMENT || 0
+      displayTransit = avgTransit.Avg_Pickup_To_Arrival_Days || 0
+      displayOnTime = onTime.OnTime_Percentage || 0
+      displayMedian = median.Median_TT || 0
+      displayFastest = extremes.Fastest_TT || 0
+      displaySlowest = extremes.Slowest_TT || 0
       
-      // Transit KPIs (Overall)
-      avgTransit: transitStats.avg,
-      minTransit: transitStats.min,
-      maxTransit: transitStats.max,
-      medianTransit: transitStats.median,
+      // Calculate TEU and CBM from filtered data (not provided by SP)
+      totalTEU = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0)
+      totalCBM = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0)
+    } else {
+      // Calculate from filtered data when filters are applied
+      totalWeight = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_GRWT), 0) / 1000
+      totalTEU = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0)
+      totalCBM = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0)
+      totalShipments = uniqueRows.length
+      displayTransit = transitStats.avg
+      displayOnTime = transitStats.onTimePct
+      displayMedian = transitStats.median
+      displayFastest = transitStats.min
+      displaySlowest = transitStats.max
+    }
+
+    return {
+      shipments: totalShipments,
+      weight: totalWeight, // In tons
+      teu: totalTEU,
+      cbm: totalCBM,
+      
+      // Transit KPIs (Use backend values when no filters, otherwise calculated)
+      avgTransit: displayTransit,
+      minTransit: displayFastest,
+      maxTransit: displaySlowest,
+      medianTransit: displayMedian,
       stddevTransit: transitStats.stddev,
       transitShipmentCount: transitStats.transitShipmentCount,
       
       // On-Time KPIs
       onTimeShipments: transitStats.onTimeShipments,
       onTimeBase: transitStats.onTimeBase,
-      onTimePct: transitStats.onTimePct,
+      onTimePct: displayOnTime,
       
-      // Transit Legs
-      legs: transitStats.legs,
+      // Transit Legs (Use backend breakdown when no filters)
+      // Backend provides: Avg_Pickup_Arrival, Avg_Departure_Delivery, Avg_Arrival_Departure
+      // Frontend expects: pickupToArrival, pickupToDelivery, depToArrival, depToDelivery
+      legs: !hasFilters && transitBreakdown ? {
+        pickupToArrival: transitBreakdown.Avg_Pickup_Arrival || 0,
+        depToArrival: transitBreakdown.Avg_Arrival_Departure || 0,
+        depToDelivery: transitBreakdown.Avg_Departure_Delivery || 0,
+        // Calculate pickupToDelivery from other legs if possible, otherwise use calculated value
+        pickupToDelivery: transitStats.legs.pickupToDelivery
+      } : transitStats.legs,
       
       // Change KPIs (MoM/YoY for all legs)
       changes: transitStats.changes,
@@ -455,16 +532,52 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
       profit: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._financials?.profit || 0), 0),
       co2: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._env?.co2 || 0), 0)
     }
-  }, [chartData])
+  }, [chartData, kpiTotals, avgTransit, extremes, median, onTime, transitBreakdown, dateRange, selectedMode, selectedClient, selectedOffice])
 
   const metricConfig = {
-    weight: { label: "Weight (Tons)", accessor: (row: any) => cleanNum(row.CONT_GRWT) },
-    teu: { label: "TEU", accessor: (row: any) => row._teu || 0 },
+    weight: { label: "Weight (Tons)", accessor: (row: any) => cleanNum(row.CONT_GRWT) / 1000 }, // Convert KG to tons
+    teu: { label: "TEU", accessor: (row: any) => cleanNum(row.CONT_TEU) || 0 }, // Use direct TEU from database
     cbm: { label: "CBM", accessor: (row: any) => cleanNum(row.CONT_CBM) },
     shipments: { label: "Shipments", accessor: () => 1 }
   } as const
 
   const monthlyTrend = useMemo(() => {
+    // Use backend monthlyStats directly
+    if (monthlyStats && monthlyStats.length > 0) {
+      const monthMap: Record<string, number> = {}
+      
+      monthlyStats.forEach((row: any) => {
+        const month = String(row.MONTH || row.Month || '')
+        if (!month) return
+        
+        // Convert YYYYMM format to YYYY-MM format
+        let monthKey = month
+        if (month.length === 6 && /^\d{6}$/.test(month)) {
+          monthKey = `${month.substring(0, 4)}-${month.substring(4, 6)}`
+        }
+        
+        // Map based on selected trend metric
+        let value = 0
+        if (trendMetric === 'teu') {
+          value = cleanNum(row.TOTAL_TEU || row.Total_TEU || 0)
+        } else if (trendMetric === 'cbm') {
+          value = cleanNum(row.TOTAL_CBM || row.Total_CBM || 0)
+        } else if (trendMetric === 'weight') {
+          // Convert weight from KG to tons (consistent with KPI display)
+          value = cleanNum(row.TOTAL_WEIGHT_KG || row.Total_Weight_KG || 0) / 1000
+        } else if (trendMetric === 'shipments') {
+          value = cleanNum(row.TOTAL_SHIPMENT || row.Total_Shipment || 0)
+        }
+        
+        monthMap[monthKey] = value
+      })
+      
+      return Object.entries(monthMap)
+        .map(([date, val]) => ({ date, val: Math.round(val * 100) / 100 }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+    }
+    
+    // Fallback to calculating from individual rows if monthly data not available
     const stats: Record<string, number> = {}
     const seenJobs = new Set<string>()
     chartData.forEach((row, idx) => {
@@ -478,7 +591,7 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
     return Object.entries(stats)
       .map(([date, val]) => ({ date, val: Math.round(val * 100) / 100 }))
       .sort((a, b) => a.date.localeCompare(b.date))
-  }, [chartData, trendMetric])
+  }, [monthlyStats, chartData, trendMetric])
 
   const monthlyTrendWithPrev = useMemo(() => {
     return monthlyTrend.map((entry, idx) => ({
@@ -1289,7 +1402,13 @@ export default function Dashboard({ data }: { data: ShipmentRecord[] }) {
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {monthlyTrend.slice(-6).map(entry => (
                         <div key={entry.date} className="p-3 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
-                          <div className="text-xs text-slate-500 dark:text-slate-400">{format(new Date(entry.date + '-01'), 'MMM yyyy')}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {entry.date.includes('-') 
+                              ? format(new Date(entry.date + '-01'), 'MMM yyyy')
+                              : entry.date.length === 6 
+                                ? format(new Date(`${entry.date.substring(0, 4)}-${entry.date.substring(4, 6)}-01`), 'MMM yyyy')
+                                : entry.date}
+                          </div>
                           <div className="text-lg font-semibold text-slate-900 dark:text-slate-50">{formatNumber(entry.val)}</div>
                           <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                             <div className="h-full bg-emerald-500" style={{ width: `${Math.min(entry.val / (monthlyTrend[monthlyTrend.length -1]?.val || 1) * 100, 100)}%` }} />

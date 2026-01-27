@@ -2,33 +2,46 @@
 
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { executeQuery, executeSP } from "@/lib/db"
+import { executeSP, executeQuery } from "@/lib/db"
 
 export async function getShipments() {
   const session = await getServerSession(authOptions)
 
-  if (!session?.user) {
-    console.warn("Unauthorized access attempt to getShipments")
-    return []
-  }
+  if (!session?.user) return null
 
-  const { role, name } = session.user as any
+  // 1. GENERAL AUTH FIX: Trim the username from session
+  // This fixes 'TAOE                 ' becoming 'TAOE'
+  const rawName = (session.user as any).name || ''
+  const username = rawName.trim()
 
-  console.log(`--- FETCHING DATA FOR: ${name} (${role}) ---`)
+  console.log(`--- FETCHING DATA FOR: '${username}' ---`)
 
   // --- DEMO MODE: Return mock data instead of querying database ---
+  const { role } = session.user as any
   if (role === "DEMO") {
     console.log("DEMO MODE ACTIVE: Loading comprehensive mock data...")
     const { generateMockShipments } = await import("@/lib/mock-data")
-    const mockData = generateMockShipments(1000) // Generate 1000 impressive shipments
+    const mockData = generateMockShipments(1000)
     console.log(`Returned ${mockData.length} mock shipments for demo`)
-    return mockData
+    // Return in new format for demo mode
+    return {
+      rawShipments: mockData,
+      kpiTotals: { TOTAL_SHIPMENT: mockData.length, CONT_GRWT: mockData.reduce((sum: number, r: any) => sum + (r.CONT_GRWT || 0), 0) },
+      monthlyStats: [],
+      avgTransit: { Avg_Pickup_To_Arrival_Days: 0 },
+      extremes: { Fastest_TT: 0, Slowest_TT: 0 },
+      median: { Median_TT: 0 },
+      onTime: { OnTime_Percentage: 0 },
+      monthlyOnTime: [],
+      transitBreakdown: {}
+    }
   }
 
   try {
-    // Use centralized stored procedure for all data fetching
-    // This ensures consistency and simplifies maintenance
-    const username = name || 'HAPPYCHIC'
+    // 2. DYNAMIC PASSWORD LOOKUP (Removes hardcoding)
+    // We fetch the correct DB password for this user so we can call the SP successfully
+    const authQuery = `SELECT CMP_PASSWORD FROM CMP_DTLS WHERE LTRIM(RTRIM(CMP_USERNAME)) = @p0`
+    const authResult = await executeQuery(authQuery, [username])
     
     console.log(`--- CALLING USP_CLIENT_DASHBOARD_PAGELOAD with username: ${username} ---`)
     
@@ -62,12 +75,27 @@ export async function getShipments() {
     // Check if we have the 3rd table
     const shipmentData = resultSets.length >= 3 ? resultSets[2] : []
 
-    console.log(`--- SHIPMENT ROWS FOUND: ${shipmentData.length} ---`)
+    const dbPassword = authResult[0].CMP_PASSWORD
+    console.log(`--- CREDENTIALS VERIFIED. CALLING SP... ---`)
 
-    if (shipmentData.length === 0) {
-      console.log("--- WARNING: No shipment data in 3rd result set ---")
-      return []
-    }
+    // 3. EXECUTE DASHBOARD SP
+    const spQuery = `EXEC USP_CLIENT_DASHBOARD_PAGELOAD @p0, @p1`
+    const resultSets = await executeSP(spQuery, [username, dbPassword])
+
+    if (!resultSets || !Array.isArray(resultSets)) return null
+
+    // 4. MAP RESULT SETS (Based on your provided SP structure)
+    // Index 0: Mapping (Ignore)
+    // Index 1: Dropdown (Ignore)
+    // Index 2: RAW SHIPMENT LIST
+    // Index 3: TOTALS (Shipment count, weight)
+    // Index 4: MONTHLY STATS (TEU, Weight trends)
+    // Index 5: AVG TRANSIT
+    // Index 6: FASTEST/SLOWEST
+    // Index 7: MEDIAN
+    // Index 8: ON TIME %
+    // Index 9: MONTHLY ON TIME
+    // Index 10: TRANSIT BREAKDOWN
 
     // Normalize Keys to Uppercase with safeguards
     const normalizedData = shipmentData.map((row: any) => {
@@ -80,16 +108,13 @@ export async function getShipments() {
       return newRow
     })
 
-    console.log(`--- PROCESSED ${normalizedData.length} ROWS ---`)
-    return normalizedData
+    console.log(`--- DATA LOADED: ${payload.rawShipments.length} Rows, Total Weight: ${payload.kpiTotals.CONT_GRWT} ---`)
+    
+    return payload
 
   } catch (err) {
-    console.error("Error fetching shipments:", err)
-    console.error("Error details:", {
-      message: err instanceof Error ? err.message : 'Unknown error',
-      stack: err instanceof Error ? err.stack : undefined
-    })
-    return []
+    console.error("Error in getShipments:", err)
+    return null
   }
 }
 
