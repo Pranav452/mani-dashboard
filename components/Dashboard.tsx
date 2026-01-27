@@ -539,11 +539,20 @@ export default function Dashboard({ data }: DashboardProps) {
       displaySlowest = transitStats.max
     }
 
+    // Calculate TEU and CBM from monthlyStats when no filters (backend aggregated)
+    let backendTEU = 0
+    let backendCBM = 0
+    if (!hasFilters && monthlyStats && monthlyStats.length > 0) {
+      backendTEU = monthlyStats.reduce((sum: number, row: any) => sum + cleanNum(row.Total_TEU || row.TOTAL_TEU || 0), 0)
+      backendCBM = monthlyStats.reduce((sum: number, row: any) => sum + cleanNum(row.Total_CBM || row.TOTAL_CBM || 0), 0)
+    }
+
     return {
       shipments: totalShipments,
       weight: totalWeight, // In tons
-      teu: totalTEU,
-      cbm: totalCBM,
+      teu: !hasFilters && backendTEU > 0 ? backendTEU : totalTEU,
+      cbm: !hasFilters && backendCBM > 0 ? backendCBM : totalCBM,
+      chargeableWeight: !hasFilters && kpiTotals ? (kpiTotals.ORD_CHBLWT || 0) / 1000 : 0, // In tons
       
       // Transit KPIs (Use backend values when no filters, otherwise calculated)
       avgTransit: displayTransit,
@@ -559,15 +568,19 @@ export default function Dashboard({ data }: DashboardProps) {
       onTimePct: displayOnTime,
       
       // Transit Legs (Use backend breakdown when no filters)
-      // Backend provides: Avg_Pickup_Arrival, Avg_Departure_Delivery, Avg_Arrival_Departure
-      // Frontend expects: pickupToArrival, pickupToDelivery, depToArrival, depToDelivery
+      // Backend provides: Avg_Pickup_Arrival, Avg_Departure_Delivery, Avg_ATD_ATA, Avg_Cargo_ATD, Avg_ATA_Delivery
       legs: !hasFilters && transitBreakdown ? {
-        pickupToArrival: transitBreakdown.Avg_Pickup_Arrival || 0,
-        depToArrival: transitBreakdown.Avg_Arrival_Departure || 0,
-        depToDelivery: transitBreakdown.Avg_Departure_Delivery || 0,
-        // Calculate pickupToDelivery from other legs if possible, otherwise use calculated value
-        pickupToDelivery: transitStats.legs.pickupToDelivery
-      } : transitStats.legs,
+        pickupToArrival: cleanNum(transitBreakdown.Avg_Pickup_Arrival) || 0,
+        depToArrival: cleanNum(transitBreakdown.Avg_ATD_ATA) || 0,
+        depToDelivery: cleanNum(transitBreakdown.Avg_Departure_Delivery) || 0,
+        pickupToDelivery: transitStats.legs.pickupToDelivery || 0,
+        cargoToATD: cleanNum(transitBreakdown.Avg_Cargo_ATD) || 0,
+        ataToDelivery: cleanNum(transitBreakdown.Avg_ATA_Delivery) || 0
+      } : {
+        ...transitStats.legs,
+        cargoToATD: 0,
+        ataToDelivery: 0
+      },
       
       // Change KPIs (MoM/YoY for all legs)
       changes: transitStats.changes,
@@ -579,7 +592,7 @@ export default function Dashboard({ data }: DashboardProps) {
       profit: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._financials?.profit || 0), 0),
       co2: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._env?.co2 || 0), 0)
     }
-  }, [chartData, kpiTotals, avgTransit, extremes, median, onTime, transitBreakdown, dateRange, selectedMode, selectedClient, selectedOffice, allProviders])
+  }, [chartData, kpiTotals, monthlyStats, avgTransit, extremes, median, onTime, transitBreakdown, dateRange, selectedMode, selectedClient, selectedOffice, allProviders])
 
   const metricConfig = {
     weight: { label: "Weight (Tons)", accessor: (row: any) => cleanNum(row.CONT_GRWT) / 1000 }, // Convert KG to tons
@@ -1184,142 +1197,12 @@ export default function Dashboard({ data }: DashboardProps) {
                 <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Deliveries</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                 {/* METRIC 1: TOTAL WEIGHT */}
-                 <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-950">
-                   <CardContent className="p-6">
-                     <div className="flex items-center justify-between mb-3">
-                       <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Weight</div>
-                       <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                         <Box className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                       </div>
-                     </div>
-                     <div className="flex items-end justify-between mb-4">
-                       <div className="text-3xl font-bold text-slate-900 dark:text-slate-50">{kpis.weight.toFixed(1)}</div>
-                       <div className="text-sm font-normal text-slate-500 dark:text-slate-400 mb-1">tons</div>
-                     </div>
-                     <div className="h-[50px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={monthlyTrend.slice(-12)}>
-                            <Bar dataKey="val" fill="#10b981" radius={[4, 4, 0, 0]} barSize={6} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                     </div>
-                   </CardContent>
-                 </Card>
-
-                {/* METRIC 2: TRANSIT PERFORMANCE */}
-                 <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-950">
-                   <CardContent className="p-6">
-                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Transit Performance</div>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">
-                              View legs
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-72 p-3" align="end">
-                            <div className="space-y-2">
-                              <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">Transit by leg (avg days)</div>
-                              <div className="space-y-1 text-sm">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-slate-600 dark:text-slate-400">Pickup → Arrival</span>
-                                  <span className="font-semibold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.pickupToArrival.toFixed(1)}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-slate-600 dark:text-slate-400">Pickup → Delivery</span>
-                                  <span className="font-semibold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.pickupToDelivery.toFixed(1)}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-slate-600 dark:text-slate-400">Departure → Arrival</span>
-                                  <span className="font-semibold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.depToArrival.toFixed(1)}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-slate-600 dark:text-slate-400">Departure → Delivery</span>
-                                  <span className="font-semibold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.depToDelivery.toFixed(1)}</span>
-                                </div>
-                              </div>
-                              <div className="pt-2 mt-2 border-t border-slate-200 dark:border-zinc-800 text-[11px] text-slate-500 dark:text-slate-400">
-                                On-time logic: <span className="font-medium text-slate-700 dark:text-slate-300">ATA ≤ ETA</span>
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                        <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                      </div>
-                     </div>
-                     <div className="flex items-end justify-between mb-4">
-                       <div className="text-3xl font-bold text-slate-900 dark:text-slate-50">{kpis.avgTransit.toFixed(1)}</div>
-                       <div className="text-sm font-normal text-slate-500 dark:text-slate-400 mb-1">days</div>
-                     </div>
-                     <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                       <span>MoM change</span>
-                       {kpis.changes.depToArrival.hasMom ? (
-                         <span className={cn(
-                           "inline-flex items-center gap-1 font-medium tabular-nums",
-                           kpis.changes.depToArrival.momDays > 0 ? "text-red-600 dark:text-red-400" : kpis.changes.depToArrival.momDays < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600 dark:text-slate-300"
-                         )}>
-                           {kpis.changes.depToArrival.momDays > 0 ? <ArrowUpRight className="w-3 h-3" /> : kpis.changes.depToArrival.momDays < 0 ? <ArrowDownRight className="w-3 h-3" /> : null}
-                           {kpis.changes.depToArrival.momDays >= 0 ? "+" : ""}{kpis.changes.depToArrival.momDays.toFixed(1)}d
-                         </span>
-                       ) : (
-                         <span className="font-medium text-slate-500 dark:text-slate-400">N/A</span>
-                       )}
-                     </div>
-                     <div className="space-y-2 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
-                       <div className="flex justify-between text-xs">
-                          <span className="text-slate-500 dark:text-slate-400">Fastest</span>
-                          <span className="font-medium text-slate-900 dark:text-slate-50 tabular-nums">{kpis.minTransit > 0 ? `${kpis.minTransit} days` : "N/A"}</span>
-                       </div>
-                       <div className="flex justify-between text-xs">
-                          <span className="text-slate-500 dark:text-slate-400">Slowest</span>
-                          <span className="font-medium text-slate-900 dark:text-slate-50 tabular-nums">{kpis.maxTransit > 0 ? `${kpis.maxTransit} days` : "N/A"}</span>
-                       </div>
-                     </div>
-                   </CardContent>
-                 </Card>
-
-                 {/* METRIC 3: TOTAL SHIPMENTS */}
-                 <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-950">
-                   <CardContent className="p-6">
-                     <div className="flex items-center justify-between mb-3">
-                       <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Shipments</div>
-                       <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                         <Ship className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                       </div>
-                     </div>
-                     <div className="flex items-end justify-between mb-4">
-                       <div className="text-3xl font-bold text-slate-900 dark:text-slate-50">{kpis.shipments.toLocaleString()}</div>
-                       <div className="text-sm font-normal text-slate-500 dark:text-slate-400 mb-1">files</div>
-                     </div>
-                     <div className="h-[50px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={monthlyTrend.slice(-12)}>
-                            <defs>
-                              <linearGradient id="colorShipments" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#818cf8" stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
-                              </linearGradient>
-                            </defs>
-                            <Area type="monotone" dataKey="val" stroke="#6366f1" strokeWidth={2} fill="url(#colorShipments)" />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                     </div>
-                   </CardContent>
-                 </Card>
-                </div>
-
                 {/* TRANSIT LEGS (MINI CARDS) */}
-                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-zinc-800">
+                <div>
                   <div className="flex items-center justify-between gap-3 mb-3">
                     <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                       Transit legs (avg days)
                     </div>
-                    {/* Keep existing popover above; no new interaction added here */}
                   </div>
 
                   {(() => {
@@ -1733,109 +1616,168 @@ export default function Dashboard({ data }: DashboardProps) {
 
         {/* COMPREHENSIVE KPI SECTIONS */}
         
-        {/* SECTION 1: TRANSIT PERFORMANCE (OVERALL) */}
+        {/* SECTION 1: ALL KPIs */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Transit Performance (ATD → ATA)</h2>
-            {/* <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">{kpis.transitShipmentCount} valid shipments</span> */}
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">KPI</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {/* TOTAL SHIPMENTS */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Total Shipments</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.shipments.toLocaleString()}</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">files</div>
+              </CardContent>
+            </Card>
+
+            {/* TOTAL WEIGHT */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Total Weight</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.weight.toFixed(1)}</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">tons</div>
+              </CardContent>
+            </Card>
+
+            {/* CHARGEABLE WEIGHT */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Chargeable Weight</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.chargeableWeight > 0 ? kpis.chargeableWeight.toFixed(1) : 'N/A'}</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">tons</div>
+              </CardContent>
+            </Card>
+
+            {/* TEU */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">TEU</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.teu.toFixed(0)}</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">units</div>
+              </CardContent>
+            </Card>
+
+            {/* CBM */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">CBM</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.cbm.toFixed(1)}</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">m³</div>
+              </CardContent>
+            </Card>
+
             {/* AVG TRANSIT */}
             <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
               <CardContent className="p-4">
-                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">Avg Transit</div>
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Avg Transit</div>
                 <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.avgTransit.toFixed(1)}</div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500">days</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
               </CardContent>
             </Card>
             
-            {/* MIN TRANSIT */}
+            {/* FASTEST */}
             <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
               <CardContent className="p-4">
-                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">Fastest</div>
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Fastest</div>
                 <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{kpis.minTransit > 0 ? kpis.minTransit : 'N/A'}</div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500">days</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
               </CardContent>
             </Card>
             
-            {/* MAX TRANSIT */}
+            {/* SLOWEST */}
             <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
               <CardContent className="p-4">
-                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">Slowest</div>
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Slowest</div>
                 <div className="text-2xl font-bold text-red-600 dark:text-red-400 tabular-nums">{kpis.maxTransit > 0 ? kpis.maxTransit : 'N/A'}</div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500">days</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
               </CardContent>
             </Card>
             
-            {/* MEDIAN TRANSIT */}
+            {/* MEDIAN */}
             <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
               <CardContent className="p-4">
-                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">Median</div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.medianTransit.toFixed(1)}</div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500">days</div>
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Median</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.medianTransit > 0 ? kpis.medianTransit.toFixed(1) : 'N/A'}</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
               </CardContent>
             </Card>
             
-            {/* STDDEV */}
+            {/* STD DEV */}
             <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
               <CardContent className="p-4">
-                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">Std Dev</div>
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Std Dev</div>
                 <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.stddevTransit.toFixed(1)}</div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500">days</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
               </CardContent>
             </Card>
-            
-            {/* MOM CHANGE */}
-            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
-              <CardContent className="p-4">
-                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">MoM Change</div>
-                {kpis.changes.depToArrival.hasMom ? (
-                  <>
-                    <div className={cn("text-2xl font-bold tabular-nums", kpis.changes.depToArrival.momDays > 0 ? "text-red-600 dark:text-red-400" : kpis.changes.depToArrival.momDays < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-slate-50")}>
-                      {kpis.changes.depToArrival.momDays >= 0 ? '+' : ''}{kpis.changes.depToArrival.momDays.toFixed(1)}
-                    </div>
-                    <div className="text-[10px] text-slate-400 dark:text-slate-500">{kpis.changes.depToArrival.momPct.toFixed(1)}%</div>
-                  </>
-                ) : (
-                  <div className="text-2xl font-bold text-slate-400 dark:text-slate-500">N/A</div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
 
-        {/* SECTION 2: ON-TIME PERFORMANCE */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">On-Time Performance (ATA ≤ ETA)</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {/* ON-TIME SHIPMENTS */}
-            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
-              <CardContent className="p-4">
-                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">On-Time Shipments</div>
-                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{kpis.onTimeShipments}</div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500">shipments</div>
-              </CardContent>
-            </Card>
-            
-            {/* ON-TIME BASE */}
-            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
-              <CardContent className="p-4">
-                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">On-Time Base</div>
-                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.onTimeBase}</div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500">shipments</div>
-              </CardContent>
-            </Card>
-            
             {/* ON-TIME % */}
             <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
               <CardContent className="p-4">
-                <div className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate">On-Time %</div>
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">On-Time %</div>
                 <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.onTimePct.toFixed(1)}%</div>
-                <div className="mt-1.5 h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 transition-all" style={{ width: `${Math.min(Math.max(kpis.onTimePct, 0), 100)}%` }} />
-                </div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">percentage</div>
               </CardContent>
             </Card>
+
+            {/* PICKUP → ARRIVAL */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Pickup → Arrival</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.pickupToArrival.toFixed(1)}</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
+              </CardContent>
+            </Card>
+
+            {/* PICKUP → DELIVERY */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Pickup → Delivery</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.pickupToDelivery.toFixed(1)}</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
+              </CardContent>
+            </Card>
+
+            {/* DEPARTURE → ARRIVAL */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Departure → Arrival</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.depToArrival.toFixed(1)}</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
+              </CardContent>
+            </Card>
+
+            {/* DEPARTURE → DELIVERY */}
+            <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+              <CardContent className="p-4">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Departure → Delivery</div>
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.depToDelivery.toFixed(1)}</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
+              </CardContent>
+            </Card>
+
+            {/* CARGO → ATD */}
+            {kpis.legs.cargoToATD > 0 && (
+              <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+                <CardContent className="p-4">
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">Cargo → ATD</div>
+                  <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.cargoToATD.toFixed(1)}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ATA → DELIVERY */}
+            {kpis.legs.ataToDelivery > 0 && (
+              <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950">
+                <CardContent className="p-4">
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate mb-2">ATA → Delivery</div>
+                  <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.ataToDelivery.toFixed(1)}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
 
