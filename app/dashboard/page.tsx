@@ -6,11 +6,11 @@ import { DashboardSkeleton } from '@/components/DashboardSkeleton'
 import { useShipments } from '@/components/ShipmentContext'
 
 function DashboardWrapper() {
-  const { data, monthlyData, loading } = useShipments()
+  const { data, loading } = useShipments()
   
   if (loading) return <DashboardSkeleton />
   
-  return <Dashboard data={data} monthlyData={monthlyData} />
+  return <Dashboard data={data} />
 }
 
 export default function DashboardPage() {

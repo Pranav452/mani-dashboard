@@ -2,120 +2,93 @@
 
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { executeQuery, executeSP } from "@/lib/db"
+import { executeSP, executeQuery } from "@/lib/db"
 
 export async function getShipments() {
   const session = await getServerSession(authOptions)
 
-  if (!session?.user) {
-    console.warn("Unauthorized access attempt to getShipments")
-    return { shipments: [], monthlyData: [] }
-  }
+  if (!session?.user) return null
 
-  const { role, name } = session.user as any
+  // 1. GENERAL AUTH FIX: Trim the username from session
+  // This fixes 'TAOE                 ' becoming 'TAOE'
+  const rawName = (session.user as any).name || ''
+  const username = rawName.trim()
 
-  console.log(`--- FETCHING DATA FOR: ${name} (${role}) ---`)
+  console.log(`--- FETCHING DATA FOR: '${username}' ---`)
 
   // --- DEMO MODE: Return mock data instead of querying database ---
+  const { role } = session.user as any
   if (role === "DEMO") {
     console.log("DEMO MODE ACTIVE: Loading comprehensive mock data...")
     const { generateMockShipments } = await import("@/lib/mock-data")
-    const mockData = generateMockShipments(1000) // Generate 1000 impressive shipments
+    const mockData = generateMockShipments(1000)
     console.log(`Returned ${mockData.length} mock shipments for demo`)
-    // Return in same format as real data (empty monthlyData for demo mode)
-    return { shipments: mockData, monthlyData: [] }
+    // Return in new format for demo mode
+    return {
+      rawShipments: mockData,
+      kpiTotals: { TOTAL_SHIPMENT: mockData.length, CONT_GRWT: mockData.reduce((sum: number, r: any) => sum + (r.CONT_GRWT || 0), 0) },
+      monthlyStats: [],
+      avgTransit: { Avg_Pickup_To_Arrival_Days: 0 },
+      extremes: { Fastest_TT: 0, Slowest_TT: 0 },
+      median: { Median_TT: 0 },
+      onTime: { OnTime_Percentage: 0 },
+      monthlyOnTime: [],
+      transitBreakdown: {}
+    }
   }
 
   try {
-    // Use centralized stored procedure for all data fetching
-    // This ensures consistency and simplifies maintenance
-    // 1. FIX TRAILING SPACES (Crucial)
-    const username = name ? name.trim() : 'HAPPYCHIC'
-
-    console.log(`--- CALLING USP_CLIENT_DASHBOARD_PAGELOAD with username: '${username}' ---`)
+    // 2. DYNAMIC PASSWORD LOOKUP (Removes hardcoding)
+    // We fetch the correct DB password for this user so we can call the SP successfully
+    const authQuery = `SELECT CMP_PASSWORD FROM CMP_DTLS WHERE LTRIM(RTRIM(CMP_USERNAME)) = @p0`
+    const authResult = await executeQuery(authQuery, [username])
     
-    const query = `EXEC USP_CLIENT_DASHBOARD_PAGELOAD @p0, @p1`
-    const params = [username, username]
-    
-    // Use executeSP to get all result sets (the stored procedure returns multiple tables)
-    const resultSets = await executeSP(query, params)
-
-    if (!resultSets || !Array.isArray(resultSets) || resultSets.length === 0) {
-      console.log("--- WARNING: No result sets returned from stored procedure ---")
-      return { shipments: [], monthlyData: [] }
+    if (!authResult || authResult.length === 0) {
+      console.error(`User ${username} not found in CMP_DTLS`)
+      return null
     }
 
-    // --- 2. DYNAMIC TABLE DETECTION ---
-    // Don't rely on fixed indices like resultSets[2] and resultSets[4].
-    // Instead, scan each table and infer its role from the column names.
-    let shipmentData: any[] = []
-    let monthlyData: any[] = []
+    const dbPassword = authResult[0].CMP_PASSWORD
+    console.log(`--- CREDENTIALS VERIFIED. CALLING SP... ---`)
 
-    for (let i = 0; i < resultSets.length; i++) {
-      const rs = resultSets[i]
+    // 3. EXECUTE DASHBOARD SP
+    const spQuery = `EXEC USP_CLIENT_DASHBOARD_PAGELOAD @p0, @p1`
+    const resultSets = await executeSP(spQuery, [username, dbPassword])
 
-      // Skip empty tables or scalar values (like counts)
-      if (!rs || rs.length === 0) continue
+    if (!resultSets || !Array.isArray(resultSets)) return null
 
-      // Check column names of the first row
-      const firstRow = rs[0]
-      const columns = Object.keys(firstRow).map((k) => k.toUpperCase())
+    // 4. MAP RESULT SETS (Based on your provided SP structure)
+    // Index 0: Mapping (Ignore)
+    // Index 1: Dropdown (Ignore)
+    // Index 2: RAW SHIPMENT LIST
+    // Index 3: TOTALS (Shipment count, weight)
+    // Index 4: MONTHLY STATS (TEU, Weight trends)
+    // Index 5: AVG TRANSIT
+    // Index 6: FASTEST/SLOWEST
+    // Index 7: MEDIAN
+    // Index 8: ON TIME %
+    // Index 9: MONTHLY ON TIME
+    // Index 10: TRANSIT BREAKDOWN
 
-      // LOGIC: Identifying tables based on unique columns
-
-      // A. Main Shipment Table usually has 'JOBNO' and 'MODE'
-      if (columns.includes('JOBNO') && columns.includes('MODE')) {
-        console.log(`>>> FOUND SHIPMENTS AT INDEX ${i} (${rs.length} rows) <<<`)
-        shipmentData = rs
-      }
-      // B. Monthly Stats usually has 'TOTAL_TEU' or 'MONTH' (based on SQL)
-      else if (columns.includes('TOTAL_TEU') || columns.includes('MONTH')) {
-        console.log(`>>> FOUND MONTHLY STATS AT INDEX ${i} (${rs.length} rows) <<<`)
-        monthlyData = rs
-      }
+    const payload = {
+      rawShipments: resultSets[2] || [],
+      kpiTotals: resultSets[3]?.[0] || { TOTAL_SHIPMENT: 0, CONT_GRWT: 0 },
+      monthlyStats: resultSets[4] || [],
+      avgTransit: resultSets[5]?.[0] || { Avg_Pickup_To_Arrival_Days: 0 },
+      extremes: resultSets[6]?.[0] || { Fastest_TT: 0, Slowest_TT: 0 },
+      median: resultSets[7]?.[0] || { Median_TT: 0 },
+      onTime: resultSets[8]?.[0] || { OnTime_Percentage: 0 },
+      monthlyOnTime: resultSets[9] || [],
+      transitBreakdown: resultSets[10]?.[0] || {}
     }
 
-    console.log(`--- SHIPMENT ROWS FOUND: ${shipmentData.length} ---`)
-    console.log(`--- MONTHLY DATA ROWS FOUND: ${monthlyData.length} ---`)
-
-    if (shipmentData.length === 0) {
-      console.log("--- WARNING: 0 Shipment rows found after scanning all tables ---")
-      // It might be that the user simply has no shipment data within the date window.
-    }
-
-    // Normalize Keys to uppercase for consistency
-    const normalizedData = shipmentData.map((row: any) => {
-      const newRow: any = {}
-      Object.keys(row).forEach(key => {
-        // Remove any potential whitespace from keys and uppercase them
-        const cleanKey = key.trim().toUpperCase()
-        newRow[cleanKey] = row[key]
-      })
-      return newRow
-    })
-
-    // Normalize monthly data keys to uppercase
-    const normalizedMonthlyData = monthlyData.map((row: any) => {
-      const newRow: any = {}
-      Object.keys(row).forEach(key => {
-        const cleanKey = key.trim().toUpperCase()
-        newRow[cleanKey] = row[key]
-      })
-      return newRow
-    })
-
-    console.log(`--- PROCESSED ${normalizedData.length} SHIPMENT ROWS ---`)
-    console.log(`--- PROCESSED ${normalizedMonthlyData.length} MONTHLY DATA ROWS ---`)
+    console.log(`--- DATA LOADED: ${payload.rawShipments.length} Rows, Total Weight: ${payload.kpiTotals.CONT_GRWT} ---`)
     
-    return { shipments: normalizedData, monthlyData: normalizedMonthlyData }
+    return payload
 
   } catch (err) {
-    console.error("Error fetching shipments:", err)
-    console.error("Error details:", {
-      message: err instanceof Error ? err.message : 'Unknown error',
-      stack: err instanceof Error ? err.stack : undefined
-    })
-    return { shipments: [], monthlyData: [] }
+    console.error("Error in getShipments:", err)
+    return null
   }
 }
 
