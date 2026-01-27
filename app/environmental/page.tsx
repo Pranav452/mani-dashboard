@@ -10,9 +10,12 @@ export default function EnvironmentalPage() {
 
   if (loading) return <DashboardSkeleton />
 
+  // Extract rawShipments from the new data structure
+  const shipments = data?.rawShipments || []
+
   return (
     <Suspense fallback={<DashboardSkeleton />}>
-      <EnvironmentalDashboard data={data} />
+      <EnvironmentalDashboard data={shipments} />
     </Suspense>
   )
 }

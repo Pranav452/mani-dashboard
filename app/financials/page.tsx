@@ -10,9 +10,12 @@ export default function FinancialsPage() {
 
   if (loading) return <DashboardSkeleton />
 
+  // Extract rawShipments from the new data structure
+  const shipments = data?.rawShipments || []
+
   return (
     <Suspense fallback={<DashboardSkeleton />}>
-      <FinancialsDashboard data={data} />
+      <FinancialsDashboard data={shipments} />
     </Suspense>
   )
 }
