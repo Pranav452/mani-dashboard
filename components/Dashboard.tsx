@@ -40,6 +40,36 @@ const getCarrier = (row: any) => {
   return "Unknown";
 }
 
+type LegKey = 'pickupToArrival' | 'pickupToDelivery' | 'depToArrival' | 'depToDelivery'
+
+const formatLegChange = (days: number) => `${days >= 0 ? '+' : ''}${days.toFixed(1)}d`
+const formatLegPct = (pct: number) => `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`
+
+const getLegDeltaClass = (deltaDays: number) =>
+  cn(
+    "inline-flex items-center gap-1 font-medium tabular-nums",
+    deltaDays > 0
+      ? "text-red-600 dark:text-red-400"
+      : deltaDays < 0
+        ? "text-emerald-600 dark:text-emerald-400"
+        : "text-slate-600 dark:text-slate-300"
+  )
+
+const LegDelta = ({ has, days, pct }: { has: boolean; days: number; pct: number }) => {
+  if (!has) return <span className="font-medium text-slate-500 dark:text-slate-400">N/A</span>
+
+  return (
+    <span className={getLegDeltaClass(days)}>
+      {days > 0 ? (
+        <ArrowUpRight className="w-3 h-3" />
+      ) : days < 0 ? (
+        <ArrowDownRight className="w-3 h-3" />
+      ) : null}
+      {formatLegChange(days)} <span className="text-slate-500 dark:text-slate-400">({formatLegPct(pct)})</span>
+    </span>
+  )
+}
+
 // --- HELPER: Office mapping by Port of Loading ---
 const getOffice = (pol: string) => {
   if (!pol) return 'Unknown'
@@ -1281,6 +1311,65 @@ export default function Dashboard({ data }: DashboardProps) {
                      </div>
                    </CardContent>
                  </Card>
+                </div>
+
+                {/* TRANSIT LEGS (MINI CARDS) */}
+                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-zinc-800">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Transit legs (avg days)
+                    </div>
+                    {/* Keep existing popover above; no new interaction added here */}
+                  </div>
+
+                  {(() => {
+                    const legCards: Array<{ key: LegKey; label: string }> = [
+                      { key: 'pickupToArrival', label: 'Pickup → Arrival' },
+                      { key: 'pickupToDelivery', label: 'Pickup → Delivery' },
+                      { key: 'depToArrival', label: 'Departure → Arrival' },
+                      { key: 'depToDelivery', label: 'Departure → Delivery' },
+                    ]
+
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {legCards.map(({ key, label }) => {
+                          const change = kpis.changes[key]
+                          return (
+                            <Card
+                              key={key}
+                              className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-950"
+                            >
+                              <CardContent className="p-4">
+                                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">
+                                  {label} (Days)
+                                </div>
+
+                                <div className="mt-2 flex items-end justify-between">
+                                  <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 tabular-nums">
+                                    {kpis.legs[key].toFixed(2)}
+                                  </div>
+                                  <div className="text-xs font-normal text-slate-500 dark:text-slate-400 mb-0.5">
+                                    days
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 space-y-2">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="text-slate-500 dark:text-slate-400">Vs Prv MM</span>
+                                    <LegDelta has={change.hasMom} days={change.momDays} pct={change.momPct} />
+                                  </div>
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="text-slate-500 dark:text-slate-400">Vs Prv YR</span>
+                                    <LegDelta has={change.hasYoy} days={change.yoyDays} pct={change.yoyPct} />
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
                 </div>
               </CardContent>
             </Card>
