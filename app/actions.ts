@@ -59,33 +59,47 @@ export async function getShipments() {
 
     if (!resultSets || !Array.isArray(resultSets)) return null
 
-    // 4. MAP RESULT SETS (Based on your provided SP structure)
+    // 4. MAP RESULT SETS (Updated to SP: 28-01-2026)
     // Index 0: CMPID, PKID, CONCODE, GRPCODE (metadata - ignore)
     // Index 1: TEXTFIELD, VALUEFIELD (consignee groups - ignore)
-    // Index 2: RAW SHIPMENT LIST
+    // Index 2: RAW SHIPMENT LIST (from #TMP_SPResults)
     // Index 3: TOTAL_SHIPMENT, CONT_GRWT, ORD_CHBLWT
     // Index 4: Month, Total_TEU, Total_CBM, Total_Weight_KG
-    // Index 5: AvgTT_Pickup_Arrival (single value)
-    // Index 6: Month, AvgTT_Pickup_Arrival (monthly breakdown)
-    // Index 7: Fastest_TT, Slowest_TT
-    // Index 8: Median_TT
-    // Index 9: OnTime_Percentage
-    // Index 10: Month, OnTime_Percentage
-    // Index 11: Avg_Pickup_Arrival, Avg_Departure_Delivery, Avg_Cargo_ATD, Avg_ATD_ATA, Avg_ATA_Delivery
-    // Index 12: ORIGIN, MODE, Total_TEU (for pie chart)
+    // Index 5: Avg Transit Breakdown (Avg_Pickup_Arrival, Avg_Departure_Delivery, Avg_Cargo_ATD, Avg_ATD_ATA, Avg_ATA_Delivery)
+    // Index 6: Fastest_TT, Slowest_TT
+    // Index 7: OnTime_Percentage
+    // Index 8: Month, OnTime_Percentage
+    // Index 9: Month-wise AvgTT_Pickup_Arrival
+    // Index 10: ORIGIN, MODE, Total_TEU (for pie chart)
+    // Index 11: LINER_NAME, AvgTransitTime_Liner
+    // Index 12: AvgTT_Departure_LastDelivery (single)
+    // Index 13: Month-wise AvgTT_Departure_LastDelivery
+    // Index 14: Median_TT
 
+    const transitBreakdown = resultSets[5]?.[0] || {}
     const payload = {
       rawShipments: resultSets[2] || [],
       kpiTotals: resultSets[3]?.[0] || { TOTAL_SHIPMENT: 0, CONT_GRWT: 0, ORD_CHBLWT: 0 },
       monthlyStats: resultSets[4] || [],
-      avgTransit: resultSets[5]?.[0] || { AvgTT_Pickup_Arrival: 0 },
-      monthlyAvgTransit: resultSets[6] || [],
-      extremes: resultSets[7]?.[0] || { Fastest_TT: 0, Slowest_TT: 0 },
-      median: resultSets[8]?.[0] || { Median_TT: 0 },
-      onTime: resultSets[9]?.[0] || { OnTime_Percentage: 0 },
-      monthlyOnTime: resultSets[10] || [],
-      transitBreakdown: resultSets[11]?.[0] || {},
-      originModeTEU: resultSets[12] || []
+
+      // Keep the same frontend shape: Dashboard expects avgTransit.AvgTT_Pickup_Arrival
+      // New SP now outputs this value inside the breakdown table as Avg_Pickup_Arrival.
+      avgTransit: { AvgTT_Pickup_Arrival: transitBreakdown.Avg_Pickup_Arrival || 0 },
+      monthlyAvgTransit: resultSets[9] || [],
+
+      extremes: resultSets[6]?.[0] || { Fastest_TT: 0, Slowest_TT: 0 },
+      onTime: resultSets[7]?.[0] || { OnTime_Percentage: 0 },
+      monthlyOnTime: resultSets[8] || [],
+      originModeTEU: resultSets[10] || [],
+      transitBreakdown,
+
+      // Keep existing key name expected by Dashboard
+      median: resultSets[14]?.[0] || { Median_TT: 0 },
+
+      // Extra SP outputs (not required by current Dashboard, but available)
+      linerBreakdown: resultSets[11] || [],
+      departToLastDelivery: resultSets[12]?.[0] || {},
+      monthlyDepartToLastDelivery: resultSets[13] || [],
     }
 
     console.log(`--- DATA LOADED: ${payload.rawShipments.length} Rows, Total Weight: ${payload.kpiTotals.CONT_GRWT} ---`)
