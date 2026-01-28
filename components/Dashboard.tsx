@@ -260,11 +260,13 @@ type DashboardProps = {
     kpiTotals: any;
     monthlyStats: any[];
     avgTransit: any;
+    monthlyAvgTransit?: any[];
     extremes: any;
     median: any;
     onTime: any;
     monthlyOnTime: any[];
     transitBreakdown: any;
+    originModeTEU?: any[];
   } | null
 }
 
@@ -277,11 +279,13 @@ export default function Dashboard({ data }: DashboardProps) {
     kpiTotals, 
     monthlyStats, 
     avgTransit, 
+    monthlyAvgTransit = [],
     extremes, 
     median,
     onTime, 
     monthlyOnTime,
-    transitBreakdown 
+    transitBreakdown,
+    originModeTEU = []
   } = data
 
   const { data: session } = useSession()
@@ -517,7 +521,7 @@ export default function Dashboard({ data }: DashboardProps) {
       // Use backend calculated values (divide weight by 1000 for tons, assuming SP returns KG)
       totalWeight = (kpiTotals.CONT_GRWT || 0) / 1000
       totalShipments = kpiTotals.TOTAL_SHIPMENT || 0
-      displayTransit = avgTransit.Avg_Pickup_To_Arrival_Days || 0
+      displayTransit = avgTransit.AvgTT_Pickup_Arrival || 0
       displayOnTime = onTime.OnTime_Percentage || 0
       displayMedian = median.Median_TT || 0
       displayFastest = extremes.Fastest_TT || 0
@@ -779,7 +783,15 @@ export default function Dashboard({ data }: DashboardProps) {
       stats[key].shipments += 1
     })
     return Object.entries(stats)
-      .map(([name, info]) => ({ name, weight: Math.round(info.weight * 10) / 10, shipments: info.shipments }))
+      .map(([name, info]) => {
+        // CONT_GRWT is in KG, convert to tons for display
+        const weightTons = info.weight / 1000
+        return {
+          name,
+          weight: Math.round(weightTons * 10) / 10,
+          shipments: info.shipments
+        }
+      })
       .sort((a, b) => b.weight - a.weight)
       .slice(0, 8)
   }, [chartData])
@@ -1509,8 +1521,10 @@ export default function Dashboard({ data }: DashboardProps) {
                           backgroundColor: 'var(--color-card)',
                           borderRadius: '8px',
                           border: '1px solid var(--color-border)',
-                          color: 'var(--color-card-foreground)'
+                          color: '#ffffff'
                         }}
+                        labelStyle={{ color: '#ffffff' }}
+                        itemStyle={{ color: '#ffffff' }}
                         cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
                       />
                       <Bar dataKey="val" radius={[0, 4, 4, 0]} barSize={20}>
@@ -1978,119 +1992,189 @@ export default function Dashboard({ data }: DashboardProps) {
           )}
         </div>
 
-        {/* SECTION 3: TRANSIT LEGS - BAR CHART */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Transit by Leg</h2>
-          <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Average Transit Days by Journey Leg</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 min-h-0">
-              <div className="h-[320px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      { 
-                        leg: 'Pickup → Arrival', 
-                        days: kpis.legs.pickupToArrival,
-                        mom: kpis.changes.pickupToArrival.hasMom ? kpis.changes.pickupToArrival.momDays : 0,
-                        momPct: kpis.changes.pickupToArrival.hasMom ? kpis.changes.pickupToArrival.momPct : 0,
-                      },
-                      { 
-                        leg: 'Pickup → Delivery', 
-                        days: kpis.legs.pickupToDelivery,
-                        mom: kpis.changes.pickupToDelivery.hasMom ? kpis.changes.pickupToDelivery.momDays : 0,
-                        momPct: kpis.changes.pickupToDelivery.hasMom ? kpis.changes.pickupToDelivery.momPct : 0,
-                      },
-                      { 
-                        leg: 'Departure → Arrival', 
-                        days: kpis.legs.depToArrival,
-                        mom: kpis.changes.depToArrival.hasMom ? kpis.changes.depToArrival.momDays : 0,
-                        momPct: kpis.changes.depToArrival.hasMom ? kpis.changes.depToArrival.momPct : 0,
-                      },
-                      { 
-                        leg: 'Departure → Delivery', 
-                        days: kpis.legs.depToDelivery,
-                        mom: kpis.changes.depToDelivery.hasMom ? kpis.changes.depToDelivery.momDays : 0,
-                        momPct: kpis.changes.depToDelivery.hasMom ? kpis.changes.depToDelivery.momPct : 0,
-                      },
-                    ]}
-                    margin={{ top: 40, right: 30, bottom: 80, left: 50 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
-                    <XAxis 
-                      dataKey="leg" 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{fontSize: 12, fill: '#64748b'}}
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                      dy={10}
-                    />
-                    <YAxis 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{fontSize: 12, fill: '#64748b'}}
-                      dx={-10}
-                      label={{ value: 'Transit Days', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12, fontWeight: 600 } }}
-                    />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'var(--color-card)', 
-                        borderRadius: '12px', 
-                        border: '1px solid var(--color-border)',
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                        color: 'var(--color-card-foreground)'
-                      }}
-                      itemStyle={{color: 'var(--color-foreground)', fontWeight: 600}}
-                      cursor={false}
-                      formatter={(value: any, name: any, props: any) => {
-                        const data = props.payload
-                        return [
-                          <div key="content" className="space-y-1">
-                            <div className="font-semibold tabular-nums">{value.toFixed(1)} days</div>
-                            {data.mom !== 0 && (
-                              <div className={cn("text-xs tabular-nums flex items-center gap-1", data.mom > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>
-                                {data.mom > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                                MoM: {data.mom >= 0 ? '+' : ''}{data.mom.toFixed(1)}d ({data.momPct.toFixed(1)}%)
-                              </div>
-                            )}
-                          </div>
-                        ]
-                      }}
-                      labelFormatter={(label) => label}
-                    />
-                    <Legend 
-                      verticalAlign="top" 
-                      height={36} 
-                      iconType="circle" 
-                      wrapperStyle={{ color: 'var(--color-muted-foreground)', paddingBottom: '10px' }}
-                      payload={[
-                        { value: 'Pickup → Arrival', type: 'circle', color: '#3b82f6' },
-                        { value: 'Pickup → Delivery', type: 'circle', color: '#8b5cf6' },
-                        { value: 'Departure → Arrival', type: 'circle', color: '#10b981' },
-                        { value: 'Departure → Delivery', type: 'circle', color: '#f59e0b' },
+        {/* SECTIONS 3 & 4: TRANSIT LEGS + ORIGIN/MODE TEU SIDE BY SIDE */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+          {/* SECTION 3: TRANSIT LEGS - BAR CHART */}
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Transit by Leg</h2>
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Average Transit Days by Journey Leg</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 min-h-0">
+                <div className="h-[320px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        { 
+                          leg: 'Pickup → Arrival', 
+                          days: kpis.legs.pickupToArrival,
+                          mom: kpis.changes.pickupToArrival.hasMom ? kpis.changes.pickupToArrival.momDays : 0,
+                          momPct: kpis.changes.pickupToArrival.hasMom ? kpis.changes.pickupToArrival.momPct : 0,
+                        },
+                        { 
+                          leg: 'Pickup → Delivery', 
+                          days: kpis.legs.pickupToDelivery,
+                          mom: kpis.changes.pickupToDelivery.hasMom ? kpis.changes.pickupToDelivery.momDays : 0,
+                          momPct: kpis.changes.pickupToDelivery.hasMom ? kpis.changes.pickupToDelivery.momPct : 0,
+                        },
+                        { 
+                          leg: 'Departure → Arrival', 
+                          days: kpis.legs.depToArrival,
+                          mom: kpis.changes.depToArrival.hasMom ? kpis.changes.depToArrival.momDays : 0,
+                          momPct: kpis.changes.depToArrival.hasMom ? kpis.changes.depToArrival.momPct : 0,
+                        },
+                        { 
+                          leg: 'Departure → Delivery', 
+                          days: kpis.legs.depToDelivery,
+                          mom: kpis.changes.depToDelivery.hasMom ? kpis.changes.depToDelivery.momDays : 0,
+                          momPct: kpis.changes.depToDelivery.hasMom ? kpis.changes.depToDelivery.momPct : 0,
+                        },
                       ]}
-                    />
-                    <Bar dataKey="days" radius={[8, 8, 0, 0]} maxBarSize={80}>
-                      {[
-                        { color: '#3b82f6' },
-                        { color: '#8b5cf6' },
-                        { color: '#10b981' },
-                        { color: '#f59e0b' },
-                      ].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+                      margin={{ top: 40, right: 30, bottom: 80, left: 50 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                      <XAxis 
+                        dataKey="leg" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{fontSize: 12, fill: '#64748b'}}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        dy={10}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{fontSize: 12, fill: '#64748b'}}
+                        dx={-10}
+                        label={{ value: 'Transit Days', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12, fontWeight: 600 } }}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'var(--color-card)', 
+                          borderRadius: '12px', 
+                          border: '1px solid var(--color-border)',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          color: '#ffffff'
+                        }}
+                        labelStyle={{ color: '#ffffff' }}
+                        itemStyle={{color: '#ffffff', fontWeight: 600}}
+                        cursor={false}
+                        formatter={(value: any, name: any, props: any) => {
+                          const data = props.payload
+                          return [
+                            <div key="content" className="space-y-1">
+                              <div className="font-semibold tabular-nums text-white">{value.toFixed(1)} days</div>
+                              {data.mom !== 0 && (
+                                <div className={cn("text-xs tabular-nums flex items-center gap-1", data.mom > 0 ? "text-red-400" : "text-emerald-300")}>
+                                  {data.mom > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                                  MoM: {data.mom >= 0 ? '+' : ''}{data.mom.toFixed(1)}d ({data.momPct.toFixed(1)}%)
+                                </div>
+                              )}
+                            </div>
+                          ]
+                        }}
+                        labelFormatter={(label) => label}
+                      />
+                      <Legend 
+                        verticalAlign="top" 
+                        height={36} 
+                        iconType="circle" 
+                        wrapperStyle={{ color: 'var(--color-muted-foreground)', paddingBottom: '10px' }}
+                        payload={[
+                          { value: 'Pickup → Arrival', type: 'circle', color: '#3b82f6' },
+                          { value: 'Pickup → Delivery', type: 'circle', color: '#8b5cf6' },
+                          { value: 'Departure → Arrival', type: 'circle', color: '#10b981' },
+                          { value: 'Departure → Delivery', type: 'circle', color: '#f59e0b' },
+                        ]}
+                      />
+                      <Bar dataKey="days" radius={[8, 8, 0, 0]} maxBarSize={80}>
+                        {[
+                          { color: '#3b82f6' },
+                          { color: '#8b5cf6' },
+                          { color: '#10b981' },
+                          { color: '#f59e0b' },
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* SECTION 4: ORIGIN/MODE TEU BREAKDOWN - PIE CHART */}
+          {originModeTEU && originModeTEU.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">TEU by Origin & Mode</h2>
+              <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Total TEU Distribution</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 min-h-0">
+                  <div className="h-[320px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={originModeTEU.map((item: any) => ({
+                            name: `${item.ORIGIN} - ${item.MODE}`,
+                            value: item.Total_TEU || 0,
+                            origin: item.ORIGIN,
+                            mode: item.MODE
+                          }))}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                          outerRadius={110}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {originModeTEU.map((entry: any, index: number) => {
+                            const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
+                            return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                          })}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--color-card)',
+                            borderRadius: '12px',
+                            border: '1px solid var(--color-border)',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                            color: '#ffffff'
+                          }}
+                          labelStyle={{ color: '#ffffff' }}
+                          itemStyle={{ color: '#ffffff' }}
+                          formatter={(value: any, name: any, props: any) => {
+                            const data = props.payload
+                            return [
+                              <div key="content" className="space-y-1">
+                                <div className="font-semibold tabular-nums text-white">{value.toFixed(1)} TEU</div>
+                                <div className="text-xs text-slate-300 dark:text-slate-300">{data.origin} - {data.mode}</div>
+                              </div>
+                            ]
+                          }}
+                        />
+                        <Legend
+                          verticalAlign="bottom"
+                          height={36}
+                          iconType="circle"
+                          wrapperStyle={{ color: 'var(--color-muted-foreground)', paddingTop: '12px' }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
 
-        {/* SECTION 4: LINER PERFORMANCE */}
+        {/* SECTION 5: LINER PERFORMANCE */}
         <div className="space-y-3">
           <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Liner Performance</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

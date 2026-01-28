@@ -28,7 +28,9 @@ export async function getShipments() {
       rawShipments: mockData,
       kpiTotals: { TOTAL_SHIPMENT: mockData.length, CONT_GRWT: mockData.reduce((sum: number, r: any) => sum + (r.CONT_GRWT || 0), 0) },
       monthlyStats: [],
-      avgTransit: { Avg_Pickup_To_Arrival_Days: 0 },
+      avgTransit: { AvgTT_Pickup_Arrival: 0 },
+      monthlyAvgTransit: [],
+      originModeTEU: [],
       extremes: { Fastest_TT: 0, Slowest_TT: 0 },
       median: { Median_TT: 0 },
       onTime: { OnTime_Percentage: 0 },
@@ -57,29 +59,47 @@ export async function getShipments() {
 
     if (!resultSets || !Array.isArray(resultSets)) return null
 
-    // 4. MAP RESULT SETS (Based on your provided SP structure)
-    // Index 0: Mapping (Ignore)
-    // Index 1: Dropdown (Ignore)
-    // Index 2: RAW SHIPMENT LIST
-    // Index 3: TOTALS (Shipment count, weight)
-    // Index 4: MONTHLY STATS (TEU, Weight trends)
-    // Index 5: AVG TRANSIT
-    // Index 6: FASTEST/SLOWEST
-    // Index 7: MEDIAN
-    // Index 8: ON TIME %
-    // Index 9: MONTHLY ON TIME
-    // Index 10: TRANSIT BREAKDOWN
+    // 4. MAP RESULT SETS (Updated to SP: 28-01-2026)
+    // Index 0: CMPID, PKID, CONCODE, GRPCODE (metadata - ignore)
+    // Index 1: TEXTFIELD, VALUEFIELD (consignee groups - ignore)
+    // Index 2: RAW SHIPMENT LIST (from #TMP_SPResults)
+    // Index 3: TOTAL_SHIPMENT, CONT_GRWT, ORD_CHBLWT
+    // Index 4: Month, Total_TEU, Total_CBM, Total_Weight_KG
+    // Index 5: Avg Transit Breakdown (Avg_Pickup_Arrival, Avg_Departure_Delivery, Avg_Cargo_ATD, Avg_ATD_ATA, Avg_ATA_Delivery)
+    // Index 6: Fastest_TT, Slowest_TT
+    // Index 7: OnTime_Percentage
+    // Index 8: Month, OnTime_Percentage
+    // Index 9: Month-wise AvgTT_Pickup_Arrival
+    // Index 10: ORIGIN, MODE, Total_TEU (for pie chart)
+    // Index 11: LINER_NAME, AvgTransitTime_Liner
+    // Index 12: AvgTT_Departure_LastDelivery (single)
+    // Index 13: Month-wise AvgTT_Departure_LastDelivery
+    // Index 14: Median_TT
 
+    const transitBreakdown = resultSets[5]?.[0] || {}
     const payload = {
       rawShipments: resultSets[2] || [],
-      kpiTotals: resultSets[3]?.[0] || { TOTAL_SHIPMENT: 0, CONT_GRWT: 0 },
+      kpiTotals: resultSets[3]?.[0] || { TOTAL_SHIPMENT: 0, CONT_GRWT: 0, ORD_CHBLWT: 0 },
       monthlyStats: resultSets[4] || [],
-      avgTransit: resultSets[5]?.[0] || { Avg_Pickup_To_Arrival_Days: 0 },
+
+      // Keep the same frontend shape: Dashboard expects avgTransit.AvgTT_Pickup_Arrival
+      // New SP now outputs this value inside the breakdown table as Avg_Pickup_Arrival.
+      avgTransit: { AvgTT_Pickup_Arrival: transitBreakdown.Avg_Pickup_Arrival || 0 },
+      monthlyAvgTransit: resultSets[9] || [],
+
       extremes: resultSets[6]?.[0] || { Fastest_TT: 0, Slowest_TT: 0 },
-      median: resultSets[7]?.[0] || { Median_TT: 0 },
-      onTime: resultSets[8]?.[0] || { OnTime_Percentage: 0 },
-      monthlyOnTime: resultSets[9] || [],
-      transitBreakdown: resultSets[10]?.[0] || {}
+      onTime: resultSets[7]?.[0] || { OnTime_Percentage: 0 },
+      monthlyOnTime: resultSets[8] || [],
+      originModeTEU: resultSets[10] || [],
+      transitBreakdown,
+
+      // Keep existing key name expected by Dashboard
+      median: resultSets[14]?.[0] || { Median_TT: 0 },
+
+      // Extra SP outputs (not required by current Dashboard, but available)
+      linerBreakdown: resultSets[11] || [],
+      departToLastDelivery: resultSets[12]?.[0] || {},
+      monthlyDepartToLastDelivery: resultSets[13] || [],
     }
 
     console.log(`--- DATA LOADED: ${payload.rawShipments.length} Rows, Total Weight: ${payload.kpiTotals.CONT_GRWT} ---`)
