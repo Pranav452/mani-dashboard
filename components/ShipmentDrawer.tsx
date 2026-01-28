@@ -239,11 +239,11 @@ export function ShipmentDrawer({ open, onOpenChange, record }: ShipmentDrawerPro
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Document Received Date</label>
-                  <div className="text-sm text-slate-900 dark:text-slate-50">{record.DOCRECD || "-"}</div>
+                  <div className="text-sm text-slate-900 dark:text-slate-50">{renderDateValue(record.DOCRECD)}</div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Document Date</label>
-                  <div className="text-sm text-slate-900 dark:text-slate-50">{record.DOCDT || "-"}</div>
+                  <div className="text-sm text-slate-900 dark:text-slate-50">{renderDateValue(record.DOCDT)}</div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Status</label>
