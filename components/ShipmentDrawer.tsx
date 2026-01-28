@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { X, Ship, Box, Clock, MapPin, FileText, Calendar, Package, Truck, Anchor, Layers } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format, parse, isValid } from "date-fns"
+import { parseDateValue } from "@/lib/dashboard-logic"
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from "recharts"
 
 const cleanNum = (val: any) => {
@@ -27,13 +28,16 @@ const COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#9333ea']
 export function ShipmentDrawer({ open, onOpenChange, record }: ShipmentDrawerProps) {
   if (!record) return null
 
-  const getValidDate = (dateStr: any) => {
-    if (!dateStr) return null
-    if (typeof dateStr === 'string' && dateStr.includes('-')) {
-      const parsed = parse(dateStr, 'dd-MM-yyyy', new Date())
-      if (isValid(parsed)) return parsed
-    }
-    return null
+  const getSafeDate = (val: any) => {
+    const d = parseDateValue(val)
+    return d && isValid(d) ? d : null
+  }
+
+  const renderDateValue = (val: any) => {
+    const d = getSafeDate(val)
+    if (d) return format(d, 'dd MMM yyyy')
+    if (typeof val === 'string' && val.trim().length > 0) return val
+    return "-"
   }
 
   const metricsData = [
@@ -185,31 +189,19 @@ export function ShipmentDrawer({ open, onOpenChange, record }: ShipmentDrawerPro
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Estimated Departure (ETD)</label>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{record.ETD || "-"}</div>
-                    {getValidDate(record.ETD) && (
-                      <div className="text-xs text-slate-400 dark:text-slate-500">{format(getValidDate(record.ETD)!, 'EEEE, MMMM dd, yyyy')}</div>
-                    )}
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{renderDateValue(record.ETD)}</div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Actual Departure (ATD)</label>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{record.ATD || "-"}</div>
-                    {getValidDate(record.ATD) && (
-                      <div className="text-xs text-slate-400 dark:text-slate-500">{format(getValidDate(record.ATD)!, 'EEEE, MMMM dd, yyyy')}</div>
-                    )}
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{renderDateValue(record.ATD)}</div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Estimated Arrival (ETA)</label>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{record.ETA || "-"}</div>
-                    {getValidDate(record.ETA) && (
-                      <div className="text-xs text-slate-400 dark:text-slate-500">{format(getValidDate(record.ETA)!, 'EEEE, MMMM dd, yyyy')}</div>
-                    )}
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{renderDateValue(record.ETA)}</div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Actual Arrival (ATA)</label>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{record.ATA || "-"}</div>
-                    {getValidDate(record.ATA) && (
-                      <div className="text-xs text-slate-400 dark:text-slate-500">{format(getValidDate(record.ATA)!, 'EEEE, MMMM dd, yyyy')}</div>
-                    )}
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{renderDateValue(record.ATA)}</div>
                   </div>
                 </div>
               </div>
