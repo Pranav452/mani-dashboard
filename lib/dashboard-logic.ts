@@ -388,7 +388,7 @@ export const calculateLinerStats = (data: any[]) => {
       shipments: stats.shipments,
       validTransitCount: stats.count
     }))
-    .filter(l => l.validTransitCount > 0) // Only include liners with valid transit data
+    .filter(l => l.validTransitCount > 0 && l.liner !== 'Unknown' && l.liner !== 'UNKNOWN') // Only include liners with valid transit data, exclude Unknown
     .sort((a, b) => a.avgTransit - b.avgTransit)
 
   const bestLiner = liners[0] || null
