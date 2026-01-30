@@ -955,7 +955,7 @@ export default function Dashboard({ data }: DashboardProps) {
 
   // Calculate unique routes (POL → POD) for map lines
   const mapRoutes = useMemo(() => {
-    const routeMap = new Map<string, { pol: string; pod: string; shipments: number }>()
+    const routeMap = new globalThis.Map<string, { pol: string; pod: string; shipments: number }>()
     
     chartData.forEach(row => {
       const pol = row.POL?.toString().trim().toUpperCase()
@@ -1158,7 +1158,7 @@ export default function Dashboard({ data }: DashboardProps) {
     const mawbCount = uniqueRows.filter(r => r.CONTMAWB || r.MAWB).length
     
     // Airline performance (similar to liner performance)
-    const airlineMap = new Map<string, { total: number; count: number; shipments: number }>()
+    const airlineMap = new globalThis.Map<string, { total: number; count: number; shipments: number }>()
     uniqueRows.forEach((row) => {
       const airline = row.LINER_NAME || row.LINER_CODE || 'Unknown'
       const atd = getValidDate(row.ATD)
