@@ -1,27 +1,22 @@
 'use client'
 
 import { useMemo, useState, useEffect } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Input } from "@/components/ui/input"
 import { ShipmentDrawer } from "@/components/ShipmentDrawer"
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import Image from "next/image"
 
 const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: mod.Map })), {
   ssr: false,
   loading: () => <div className="h-[400px] flex items-center justify-center bg-slate-50 rounded-lg"><span className="text-slate-400 text-sm">Loading map...</span></div>
 })
-import { format, isWithinInterval, parse, startOfDay, endOfDay, subDays, startOfYear } from "date-fns"
-import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare, Briefcase, LayoutDashboard, FileText, Users, BarChart3, PieChart as PieChartIcon, Settings, MoreVertical, Check, ArrowUpRight, ArrowDownRight, Printer, DollarSign, Leaf, TrendingUp, TrendingDown, Activity, Snowflake, LogOut } from "lucide-react"
+import { format } from "date-fns"
+import { Ship, Box, Anchor, Layers, Container, MapPin, Clock, MoreVertical, ArrowUpRight, ArrowDownRight, DollarSign, Leaf, TrendingUp, TrendingDown, Activity, Users } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend, LineChart, Line } from "recharts"
 import { cn } from "@/lib/utils"
-import Snowfall from 'react-snowfall'
 
 // Import Logic
 import { cleanNum, getValidDate, getComputedMode, generateFinancials, generateEmissions, filterData, calculateTransitStats, calculateLinerStats } from "@/lib/dashboard-logic"
@@ -262,11 +257,22 @@ type DashboardProps = {
     avgTransit: any;
     monthlyAvgTransit?: any[];
     extremes: any;
-    median: any;
     onTime: any;
     monthlyOnTime: any[];
     transitBreakdown: any;
     originModeTEU?: any[];
+    linerBreakdown?: any[];
+    departToLastDelivery?: any;
+    monthlyDepartToLastDelivery?: any[];
+    linerOnTimePerformance?: any[];
+    routePerformance?: any[];
+    delayDistribution?: any[];
+    containerSizeImpact?: any[];
+    clientPerformance?: any[];
+    weekOfMonthPattern?: any[];
+    shipmentStatusBreakdown?: any[];
+    metadata?: any;
+    clientGroups?: any[];
   } | null
 }
 
@@ -281,49 +287,38 @@ export default function Dashboard({ data }: DashboardProps) {
     avgTransit, 
     monthlyAvgTransit = [],
     extremes, 
-    median,
     onTime, 
     monthlyOnTime,
     transitBreakdown,
-    originModeTEU = []
+    originModeTEU = [],
+    linerBreakdown = [],
+    departToLastDelivery = {},
+    monthlyDepartToLastDelivery = [],
+    linerOnTimePerformance = [],
+    routePerformance = [],
+    delayDistribution = [],
+    containerSizeImpact = [],
+    clientPerformance = [],
+    weekOfMonthPattern = [],
+    shipmentStatusBreakdown = [],
+    metadata = {},
+    clientGroups = []
   } = data
 
   const { data: session } = useSession()
   const username = session?.user?.email || session?.user?.name || 'User'
-  const [selectedMode, setSelectedMode] = useState<string>("ALL")
-  const [selectedClient, setSelectedClient] = useState<string>("ALL")
-  const [selectedOffice, setSelectedOffice] = useState<string>("ALL")
   const [trendMetric, setTrendMetric] = useState<"weight" | "teu" | "cbm" | "shipments">("weight")
   const [compareEnabled, setCompareEnabled] = useState<boolean>(true)
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: undefined,
-    to: undefined
-  })
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null)
-  const [selectedTab, setSelectedTab] = useState<"ALL" | "SEA" | "AIR" | "SEA-AIR">("ALL")
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [hoveredChart, setHoveredChart] = useState<string | null>(null)
-  const [selectedModeFilter, setSelectedModeFilter] = useState<string | null>(null)
   const [drilldowns, setDrilldowns] = useState<Record<string, boolean>>({})
-  const [showSnow, setShowSnow] = useState(false)
   const toggleDrilldown = (key: string) => {
     setDrilldowns(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  const applyPreset = (preset: "30d" | "90d" | "ytd") => {
-    if (!maxDate) return
-    const to = endOfDay(maxDate)
-    if (preset === "ytd") {
-      setDateRange({ from: startOfYear(maxDate), to })
-      return
-    }
-    const days = preset === "30d" ? 30 : 90
-    setDateRange({ from: startOfDay(subDays(maxDate, days - 1)), to })
-  }
-
-
-  // --- 1. PARSE DATA & COMPUTE MODE ---
+  // --- 1. PARSE DATA (NO FILTERING - SP ALREADY FILTERED) ---
   const parsedData = useMemo<ShipmentRecord[]>(() => {
     // Safety check if rawShipments is missing
     if (!rawShipments || !Array.isArray(rawShipments)) return [];
@@ -348,16 +343,13 @@ export default function Dashboard({ data }: DashboardProps) {
     })
   }, [rawShipments])
 
-  // --- 2. WATERFALL LOGIC ---
+  // --- 2. DATE RANGE (FROM SP-FILTERED DATA) ---
   const { minDate, maxDate } = useMemo(() => {
     let min = new Date(8640000000000000);
     let max = new Date(-8640000000000000);
     let hasData = false;
 
     parsedData.forEach(row => {
-      if (selectedMode !== "ALL" && row._mode !== selectedMode) return
-      if (selectedOffice !== "ALL" && row._office !== selectedOffice) return
-      if (selectedClient !== "ALL" && row.CONNAME !== selectedClient) return
       if (row._date) {
         if (row._date < min) min = row._date
         if (row._date > max) max = row._date
@@ -367,81 +359,45 @@ export default function Dashboard({ data }: DashboardProps) {
     
     if (!hasData) return { minDate: new Date(), maxDate: new Date() }
     return { minDate: min, maxDate: max }
-  }, [parsedData, selectedMode, selectedOffice, selectedClient])
+  }, [parsedData])
 
-  const { allProviders, availableProviders, offices } = useMemo(() => {
-    const all = new Set<string>()
-    const available = new Set<string>()
+  const { allProviders, offices } = useMemo(() => {
+    const providersSet = new Set<string>()
     const officesSet = new Set<string>()
 
     parsedData.forEach(row => {
       const provider = row.CONNAME || "Unknown"
       const office = row._office || "Unknown"
-      all.add(provider)
+      providersSet.add(provider)
       officesSet.add(office)
-      
-      // Filter by Computed Mode
-      if (selectedMode !== "ALL" && row._mode !== selectedMode) return
-      if (selectedOffice !== "ALL" && row._office !== selectedOffice) return
-      
-      // Filter by Date
-      if (dateRange.from && dateRange.to && row._date) {
-         if (!isWithinInterval(row._date, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })) return
-      }
-      
-      available.add(provider)
     })
+    
     return { 
-      allProviders: Array.from(all).sort(), 
-      availableProviders: available,
+      allProviders: Array.from(providersSet).sort(),
       offices: Array.from(officesSet).sort()
     }
-  }, [parsedData, selectedMode, dateRange, selectedOffice])
+  }, [parsedData])
 
-  // Auto-select single provider if only one exists
-  useEffect(() => {
-    if (allProviders.length === 1 && selectedClient === "ALL") {
-      setSelectedClient(allProviders[0]);
-    }
-  }, [allProviders, selectedClient]);
-
-  // --- 3. FILTER DATA (with search) ---
+  // --- 3. APPLY SEARCH FILTER ONLY (SP ALREADY FILTERED BY MODE/CLIENT/OFFICE/DATE) ---
   const chartData = useMemo<ShipmentRecord[]>(() => {
+    if (!searchQuery) return parsedData
+    
     return parsedData.filter(row => {
-      // Filter by Computed Mode
-      if (selectedMode !== "ALL" && row._mode !== selectedMode) return false
-
-      // Filter by Office
-      if (selectedOffice !== "ALL" && row._office !== selectedOffice) return false
-      
-      if (dateRange.from && dateRange.to) {
-        if (!row._date) return false 
-        if (!isWithinInterval(row._date, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })) return false
-      }
-      
-      // FIX: Robust Provider Check with defensive trim
-      if (selectedClient !== "ALL" && row.CONNAME?.trim() !== selectedClient.trim()) return false
-      
-      // Search filter
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase()
-        const match = 
-          (row.JOBNO?.toString().toLowerCase().includes(q)) ||
-          (row.LINER_NAME?.toString().toLowerCase().includes(q)) ||
-          (row.CONNAME?.toString().toLowerCase().includes(q)) ||
-          (row.POL?.toString().toLowerCase().includes(q)) ||
-          (row.POD?.toString().toLowerCase().includes(q)) ||
-          (row.ORDERNO?.toString().toLowerCase().includes(q)) ||
-          (row.CONTMAWB?.toString().toLowerCase().includes(q)) ||
-          (row.CONNO?.toString().toLowerCase().includes(q)) ||
-          (row.BLNO?.toString().toLowerCase().includes(q)) ||
-          (row.BOOKNO?.toString().toLowerCase().includes(q))
-        if (!match) return false
-      }
-      
-      return true
+      const q = searchQuery.toLowerCase()
+      const match = 
+        (row.JOBNO?.toString().toLowerCase().includes(q)) ||
+        (row.LINER_NAME?.toString().toLowerCase().includes(q)) ||
+        (row.CONNAME?.toString().toLowerCase().includes(q)) ||
+        (row.POL?.toString().toLowerCase().includes(q)) ||
+        (row.POD?.toString().toLowerCase().includes(q)) ||
+        (row.ORDERNO?.toString().toLowerCase().includes(q)) ||
+        (row.CONTMAWB?.toString().toLowerCase().includes(q)) ||
+        (row.CONNO?.toString().toLowerCase().includes(q)) ||
+        (row.BLNO?.toString().toLowerCase().includes(q)) ||
+        (row.BOOKNO?.toString().toLowerCase().includes(q))
+      return match
     })
-  }, [parsedData, selectedMode, selectedClient, selectedOffice, dateRange, searchQuery])
+  }, [parsedData, searchQuery])
 
   // --- 4. CHART DATA GENERATORS ---
   const getTrend = (key: string, accessor: (r: any) => number) => {
@@ -454,40 +410,7 @@ export default function Dashboard({ data }: DashboardProps) {
     return Object.entries(map).map(([name, value]) => ({ name, value }))
   }
 
-  // --- 5. EXPORT FUNCTION ---
-  const handleExport = () => {
-    if (!chartData.length) return
-    
-    const headers = ["JOBNO", "MODE", "PROVIDER", "CARRIER", "POL", "POD", "ETD", "ATD", "WEIGHT_KG", "TEU", "CBM", "BOOKNO", "CONNO", "BLNO"]
-    
-    const csvContent = [
-      headers.join(","),
-      ...chartData.map(row => [
-        row.JOBNO || "",
-        row._mode || "",
-        `"${(row.CONNAME || "").replace(/"/g, '""')}"`,
-        `"${(row.LINER_NAME || "").replace(/"/g, '""')}"`,
-        row.POL || "",
-        row.POD || "",
-        row.ETD || "",
-        row.ATD || "",
-        cleanNum(row.CONT_GRWT),
-        cleanNum(row.CONT_TEU),
-        cleanNum(row.CONT_CBM),
-        row.BOOKNO || "",
-        row.CONNO || "",
-        row.BLNO || ""
-      ].join(","))
-    ].join("\n")
-    
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    link.href = URL.createObjectURL(blob)
-    link.download = `logistics_export_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`
-    link.click()
-  }
-
-  // --- 5. STATS ---
+  // --- 4. STATS ---
   const kpis = useMemo(() => {
     const uniqueJobs = new globalThis.Map<string, ShipmentRecord>()
     chartData.forEach((r, idx) => {
@@ -499,66 +422,38 @@ export default function Dashboard({ data }: DashboardProps) {
     const transitStats = calculateTransitStats(uniqueRows)
     const linerStats = calculateLinerStats(chartData)
 
-    // BACKEND BINDING: Use backend values when no filters are applied
-    // For single provider: selectedClient filter is ignored (same as "ALL") since DB already returns values for that user
-    // Otherwise calculate from filtered chartData
-    const isSingleProvider = allProviders.length === 1
-    // When single provider: ignore selectedClient filter (DB already filtered by user)
-    const effectiveClientFilter = isSingleProvider ? "ALL" : selectedClient
-    const hasFilters = dateRange.from || dateRange.to || selectedMode !== "ALL" || effectiveClientFilter !== "ALL" || selectedOffice !== "ALL"
+    // ALL FILTERING IS DONE SERVER-SIDE NOW - Always use backend values from SP
+    // Weight is in KG from SP, convert to tons
+    const totalWeight = (kpiTotals.CONT_GRWT || 0) / 1000
+    const totalShipments = kpiTotals.TOTAL_SHIPMENT || 0
+    const displayTransit = avgTransit.AvgTT_Pickup_Arrival || 0
+    const displayOnTime = onTime.OnTime_Percentage || 0
     
-    let totalWeight: number
-    let totalTEU: number
-    let totalCBM: number
-    let totalShipments: number
-    let displayTransit: number
-    let displayOnTime: number
-    let displayMedian: number
-    let displayFastest: number
-    let displaySlowest: number
-
-    if (!hasFilters) {
-      // Use backend calculated values (divide weight by 1000 for tons, assuming SP returns KG)
-      totalWeight = (kpiTotals.CONT_GRWT || 0) / 1000
-      totalShipments = kpiTotals.TOTAL_SHIPMENT || 0
-      displayTransit = avgTransit.AvgTT_Pickup_Arrival || 0
-      displayOnTime = onTime.OnTime_Percentage || 0
-      displayMedian = median.Median_TT || 0
-      displayFastest = extremes.Fastest_TT || 0
-      displaySlowest = extremes.Slowest_TT || 0
-      
-      // Calculate TEU and CBM from filtered data (not provided by SP)
-      totalTEU = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0)
-      totalCBM = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0)
-    } else {
-      // Calculate from filtered data when filters are applied
-      totalWeight = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_GRWT), 0) / 1000
-      totalTEU = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0)
-      totalCBM = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0)
-      totalShipments = uniqueRows.length
-      displayTransit = transitStats.avg
-      displayOnTime = transitStats.onTimePct
-      displayMedian = transitStats.median
-      displayFastest = transitStats.min
-      displaySlowest = transitStats.max
-    }
-
-    // Calculate TEU and CBM from monthlyStats when no filters (backend aggregated)
+    // These are not in the main SP output, calculate from data
+    const displayMedian = transitStats.median
+    const displayFastest = extremes.Fastest_TT || transitStats.min || 0
+    const displaySlowest = extremes.Slowest_TT || transitStats.max || 0
+    
+    // Calculate TEU and CBM from monthlyStats (backend aggregated)
     let backendTEU = 0
     let backendCBM = 0
-    if (!hasFilters && monthlyStats && monthlyStats.length > 0) {
+    if (monthlyStats && monthlyStats.length > 0) {
       backendTEU = monthlyStats.reduce((sum: number, row: any) => sum + cleanNum(row.Total_TEU || row.TOTAL_TEU || 0), 0)
       backendCBM = monthlyStats.reduce((sum: number, row: any) => sum + cleanNum(row.Total_CBM || row.TOTAL_CBM || 0), 0)
     }
+    
+    // Fallback: calculate from data if not in monthlyStats
+    const totalTEU = backendTEU > 0 ? backendTEU : uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0)
+    const totalCBM = backendCBM > 0 ? backendCBM : uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0)
 
     return {
       shipments: totalShipments,
       weight: totalWeight, // In tons
-      teu: !hasFilters && backendTEU > 0 ? backendTEU : totalTEU,
-      cbm: !hasFilters && backendCBM > 0 ? backendCBM : totalCBM,
-      chargeableWeight: !hasFilters && kpiTotals ? (kpiTotals.ORD_CHBLWT || 0) / 1000 : 0, // In tons
+      teu: totalTEU,
+      cbm: totalCBM,
+      chargeableWeight: kpiTotals ? (kpiTotals.ORD_CHBLWT || 0) / 1000 : 0, // In tons
       
-      // Transit KPIs (Use backend values when no filters, otherwise calculated)
+      // Transit KPIs (from SP)
       avgTransit: displayTransit,
       minTransit: displayFastest,
       maxTransit: displaySlowest,
@@ -566,18 +461,18 @@ export default function Dashboard({ data }: DashboardProps) {
       stddevTransit: transitStats.stddev,
       transitShipmentCount: transitStats.transitShipmentCount,
       
-      // On-Time KPIs
+      // On-Time KPIs (from SP)
       onTimeShipments: transitStats.onTimeShipments,
       onTimeBase: transitStats.onTimeBase,
       onTimePct: displayOnTime,
       
-      // Transit Legs (Use backend breakdown when no filters)
+      // Transit Legs (from SP)
       // Backend provides: Avg_Pickup_Arrival, Avg_Departure_Delivery, Avg_ATD_ATA, Avg_Cargo_ATD, Avg_ATA_Delivery
-      legs: !hasFilters && transitBreakdown ? {
+      legs: transitBreakdown ? {
         pickupToArrival: cleanNum(transitBreakdown.Avg_Pickup_Arrival) || 0,
         depToArrival: cleanNum(transitBreakdown.Avg_ATD_ATA) || 0,
         depToDelivery: cleanNum(transitBreakdown.Avg_Departure_Delivery) || 0,
-        pickupToDelivery: transitStats.legs.pickupToDelivery || 0,
+        pickupToDelivery: cleanNum(transitBreakdown.Avg_Pickup_Delivery) || transitStats.legs.pickupToDelivery || 0,
         cargoToATD: cleanNum(transitBreakdown.Avg_Cargo_ATD) || 0,
         ataToDelivery: cleanNum(transitBreakdown.Avg_ATA_Delivery) || 0
       } : {
@@ -596,7 +491,7 @@ export default function Dashboard({ data }: DashboardProps) {
       profit: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._financials?.profit || 0), 0),
       co2: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._env?.co2 || 0), 0)
     }
-  }, [chartData, kpiTotals, monthlyStats, avgTransit, extremes, median, onTime, transitBreakdown, dateRange, selectedMode, selectedClient, selectedOffice, allProviders])
+  }, [chartData, kpiTotals, monthlyStats, avgTransit, extremes, onTime, transitBreakdown, allProviders])
 
   const metricConfig = {
     weight: { label: "Weight (Tons)", accessor: (row: any) => cleanNum(row.CONT_GRWT) / 1000 }, // Convert KG to tons
@@ -1045,154 +940,8 @@ export default function Dashboard({ data }: DashboardProps) {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 font-sans text-slate-900 dark:text-slate-50">
       
-      {/* 1. TOP NAVBAR */}
+      {/* TOP NAVBAR */}
       <Navbar />
-
-      {/* 2. FILTERS BAR */}
-      <div className="bg-white/95 dark:bg-zinc-950/95 backdrop-blur border-b border-slate-200 dark:border-zinc-800 sticky top-16 z-30">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-3">
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Mode Filter */}
-            <Select value={selectedMode} onValueChange={(val) => {
-              setSelectedMode(val); setDateRange({ from: undefined, to: undefined }); setSelectedClient("ALL");
-            }}>
-              <SelectTrigger className="h-9 text-sm w-[130px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800">
-                <SelectValue placeholder="Mode" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Modes</SelectItem>
-                <SelectItem value="SEA">Sea</SelectItem>
-                <SelectItem value="AIR">Air</SelectItem>
-                <SelectItem value="SEA-AIR">Sea-Air</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Office Filter */}
-            <Select value={selectedOffice} onValueChange={setSelectedOffice}>
-              <SelectTrigger className="h-9 text-sm w-[130px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800">
-                <SelectValue placeholder="Office" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Offices</SelectItem>
-                {offices.map(office => (
-                  <SelectItem key={office} value={office}>{office}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Date Range Filter */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "h-9 text-sm w-[240px] justify-start text-left font-normal border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800",
-                    !dateRange.from && "text-slate-500 dark:text-slate-400"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, "MMM dd, yyyy")} - {format(dateRange.to, "MMM dd, yyyy")}
-                      </>
-                    ) : (
-                      format(dateRange.from, "MMM dd, yyyy")
-                    )
-                  ) : (
-                    <span>Date Range</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={dateRange.from}
-                  selected={{ from: dateRange.from, to: dateRange.to }}
-                  onSelect={(range: any) => setDateRange({ from: range?.from, to: range?.to })}
-                  numberOfMonths={2}
-                />
-              </PopoverContent>
-            </Popover>
-
-            {/* Provider Filter - Only show if there is more than 1 provider */}
-            {allProviders.length > 1 && (
-              <Select value={selectedClient} onValueChange={setSelectedClient}>
-                <SelectTrigger className="h-9 text-sm w-[180px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800">
-                  <SelectValue placeholder="Provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Providers</SelectItem>
-                  {allProviders.map(provider => (
-                    <SelectItem key={provider} value={provider}>{provider}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            {/* Search */}
-            <div className="relative flex-1 min-w-[200px] max-w-[300px]">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input 
-                placeholder="Search shipments..." 
-                className="pl-9 h-9 border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-950"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            <div className="flex items-center gap-2 ml-auto">
-              {/* Reset Button */}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-9 text-sm border-red-200 bg-white dark:bg-zinc-900 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 hover:text-red-700 dark:text-red-400" 
-                onClick={() => {
-                  setSelectedMode("ALL")
-                  setSelectedOffice("ALL")
-                  setSelectedClient("ALL")
-                  setSearchQuery("")
-                  setDateRange({ from: undefined, to: undefined })
-                }}
-              >
-                <FilterX className="w-4 h-4 mr-2 text-red-600 dark:text-red-400" /> Reset
-              </Button>
-
-              {/* Export Button */}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-9 text-sm border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800" 
-                onClick={handleExport}
-              >
-                <Download className="w-4 h-4 mr-2" /> Export
-              </Button>
-
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 rounded-full border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 p-0"
-                onClick={() => setShowSnow(!showSnow)}
-              >
-                <Snowflake className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {showSnow && (
-        <Snowfall
-          style={{
-            position: 'fixed',
-            width: '100vw',
-            height: '100vh',
-            zIndex: 9999,
-          }}
-          snowflakeCount={200}
-        />
-      )}
 
       {/* MAIN DASHBOARD CONTENT */}
       <main className="max-w-[1400px] mx-auto px-4 md:px-6 py-5 space-y-5">
@@ -1818,24 +1567,6 @@ export default function Dashboard({ data }: DashboardProps) {
                 </CardContent>
               </Card>
               
-              {/* MEDIAN */}
-              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
-                <CardContent className="p-5">
-                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Median</div>
-                  <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.medianTransit > 0 ? kpis.medianTransit.toFixed(1) : 'N/A'}</div>
-                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
-                </CardContent>
-              </Card>
-              
-              {/* STD DEV */}
-              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
-                <CardContent className="p-5">
-                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Std Dev</div>
-                  <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.stddevTransit.toFixed(1)}</div>
-                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
-                </CardContent>
-              </Card>
-              
               {/* ON-TIME % */}
               <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
                 <CardContent className="p-5">
@@ -1844,6 +1575,28 @@ export default function Dashboard({ data }: DashboardProps) {
                   <div className="h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div className="h-full bg-slate-400 dark:bg-slate-500 transition-all" style={{ width: `${Math.min(Math.max(kpis.onTimePct, 0), 100)}%` }} />
                   </div>
+                </CardContent>
+              </Card>
+              
+              {/* TOTAL LATE SHIPMENTS */}
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-5">
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Late Shipments</div>
+                  <div className="text-2xl font-semibold text-amber-700 dark:text-amber-400 tabular-nums tracking-tight">
+                    {kpis.onTimeBase > 0 ? kpis.onTimeBase - kpis.onTimeShipments : 'N/A'}
+                  </div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                    of {kpis.onTimeBase} total
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* TRANSIT COUNT */}
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-5">
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">With Transit Data</div>
+                  <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.transitShipmentCount}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">shipments</div>
                 </CardContent>
               </Card>
             </div>
@@ -2277,11 +2030,403 @@ export default function Dashboard({ data }: DashboardProps) {
           </Card>
         </div>
 
+        {/* ADVANCED ANALYTICS FROM SP */}
+        
+        {/* DELAY DISTRIBUTION */}
+        {delayDistribution && delayDistribution.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Delay Analysis</h2>
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Delay Distribution</CardTitle>
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">How severe are the delays?</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="h-[320px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={delayDistribution} margin={{ top: 20, right: 30, bottom: 20, left: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                      <XAxis 
+                        dataKey="Delay_Category" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                        label={{ value: 'Shipment Count', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12 } }}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'var(--color-card)',
+                          borderRadius: '12px',
+                          border: '1px solid var(--color-border)',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          color: 'var(--color-card-foreground)'
+                        }}
+                        formatter={(value: any, name: any, props: any) => {
+                          const data = props.payload
+                          return [
+                            <div key="content" className="space-y-1">
+                              <div className="font-semibold">{value} shipments</div>
+                              <div className="text-xs text-slate-600 dark:text-slate-400">{data.Percentage}% of total</div>
+                            </div>,
+                            'Count'
+                          ]
+                        }}
+                      />
+                      <Bar dataKey="Shipment_Count" radius={[8, 8, 0, 0]} maxBarSize={60}>
+                        {delayDistribution.map((entry: any, index: number) => {
+                          const category = entry.Delay_Category || ''
+                          let fill = '#3b82f6' // default blue
+                          if (category.includes('Early')) fill = '#10b981' // green
+                          else if (category.includes('On Time')) fill = '#10b981' // green
+                          else if (category.includes('1-3 Days Late')) fill = '#f59e0b' // amber
+                          else if (category.includes('4-7 Days Late')) fill = '#f97316' // orange
+                          else if (category.includes('8-14 Days Late')) fill = '#ef4444' // red
+                          else if (category.includes('15+ Days Late')) fill = '#dc2626' // dark red
+                          return <Cell key={`cell-${index}`} fill={fill} />
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* LINER ON-TIME PERFORMANCE */}
+        {linerOnTimePerformance && linerOnTimePerformance.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Carrier Reliability</h2>
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Liner On-Time Performance</CardTitle>
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Which carriers are reliable vs problematic</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {linerOnTimePerformance.slice(0, 10).map((liner: any, idx: number) => {
+                    const onTimePct = parseFloat(liner.OnTime_Percentage || 0)
+                    const isGood = onTimePct >= 80
+                    const isBad = onTimePct < 60
+                    
+                    return (
+                      <div key={`liner-${idx}`} className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "w-2 h-2 rounded-full",
+                              isGood ? "bg-emerald-500" : isBad ? "bg-red-500" : "bg-amber-500"
+                            )} />
+                            <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">{liner.LINER_NAME}</span>
+                          </div>
+                          <span className={cn(
+                            "text-sm font-bold tabular-nums",
+                            isGood ? "text-emerald-600 dark:text-emerald-400" : isBad ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+                          )}>
+                            {onTimePct.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 text-xs">
+                          <div>
+                            <div className="text-slate-500 dark:text-slate-400">Total</div>
+                            <div className="font-semibold text-slate-900 dark:text-slate-100">{liner.Total_Shipments}</div>
+                          </div>
+                          <div>
+                            <div className="text-slate-500 dark:text-slate-400">On-Time</div>
+                            <div className="font-semibold text-emerald-600 dark:text-emerald-400">{liner.OnTime_Shipments}</div>
+                          </div>
+                          <div>
+                            <div className="text-slate-500 dark:text-slate-400">Late</div>
+                            <div className="font-semibold text-red-600 dark:text-red-400">{liner.Late_Shipments}</div>
+                          </div>
+                          <div>
+                            <div className="text-slate-500 dark:text-slate-400">Avg Delay</div>
+                            <div className="font-semibold text-slate-900 dark:text-slate-100">{parseFloat(liner.Avg_Delay_Days || 0).toFixed(1)}d</div>
+                          </div>
+                        </div>
+                        <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <div 
+                            className={cn(
+                              "h-full transition-all",
+                              isGood ? "bg-emerald-500" : isBad ? "bg-red-500" : "bg-amber-500"
+                            )}
+                            style={{ width: `${onTimePct}%` }} 
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* ROUTE PERFORMANCE */}
+        {routePerformance && routePerformance.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Route Analysis</h2>
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Route Performance (POL → POD)</CardTitle>
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Which trade lanes are problematic</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {routePerformance.slice(0, 10).map((route: any, idx: number) => {
+                    const onTimePct = parseFloat(route.OnTime_Percentage || 0)
+                    const isGood = onTimePct >= 80
+                    const isBad = onTimePct < 60
+                    
+                    return (
+                      <div key={`route-${idx}`} className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-slate-400" />
+                            <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">{route.Route}</span>
+                          </div>
+                          <span className={cn(
+                            "text-sm font-bold tabular-nums",
+                            isGood ? "text-emerald-600 dark:text-emerald-400" : isBad ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+                          )}>
+                            {onTimePct.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 text-xs">
+                          <div>
+                            <div className="text-slate-500 dark:text-slate-400">Shipments</div>
+                            <div className="font-semibold text-slate-900 dark:text-slate-100">{route.Total_Shipments}</div>
+                          </div>
+                          <div>
+                            <div className="text-slate-500 dark:text-slate-400">On-Time</div>
+                            <div className="font-semibold text-emerald-600 dark:text-emerald-400">{route.OnTime_Count}</div>
+                          </div>
+                          <div>
+                            <div className="text-slate-500 dark:text-slate-400">Avg Delay</div>
+                            <div className="font-semibold text-slate-900 dark:text-slate-100">{parseFloat(route.Avg_Delay_Days || 0).toFixed(1)}d</div>
+                          </div>
+                          <div>
+                            <div className="text-slate-500 dark:text-slate-400">Avg Transit</div>
+                            <div className="font-semibold text-slate-900 dark:text-slate-100">{parseFloat(route.Avg_Transit_Days || 0).toFixed(1)}d</div>
+                          </div>
+                        </div>
+                        <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <div 
+                            className={cn(
+                              "h-full transition-all",
+                              isGood ? "bg-emerald-500" : isBad ? "bg-red-500" : "bg-amber-500"
+                            )}
+                            style={{ width: `${onTimePct}%` }} 
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* CONTAINER SIZE & WEEK PATTERN */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* CONTAINER SIZE IMPACT */}
+          {containerSizeImpact && containerSizeImpact.length > 0 && (
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Container Size Impact</CardTitle>
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Do larger containers get delayed more?</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={containerSizeImpact} margin={{ bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                      <XAxis 
+                        dataKey="Container_Size" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                        label={{ value: 'On-Time %', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12 } }}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'var(--color-card)',
+                          borderRadius: '12px',
+                          border: '1px solid var(--color-border)',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          color: 'var(--color-card-foreground)'
+                        }}
+                        formatter={(value: any, name: any, props: any) => {
+                          const data = props.payload
+                          return [
+                            <div key="content" className="space-y-1">
+                              <div className="font-semibold">{parseFloat(value).toFixed(1)}% on-time</div>
+                              <div className="text-xs text-slate-600 dark:text-slate-400">{data.Total_Shipments} shipments</div>
+                              <div className="text-xs text-slate-600 dark:text-slate-400">Avg delay: {parseFloat(data.Avg_Delay_Days || 0).toFixed(1)} days</div>
+                            </div>,
+                            'Performance'
+                          ]
+                        }}
+                      />
+                      <Bar dataKey="OnTime_Percentage" radius={[8, 8, 0, 0]} maxBarSize={60}>
+                        {containerSizeImpact.map((entry: any, index: number) => {
+                          const pct = parseFloat(entry.OnTime_Percentage || 0)
+                          const fill = pct >= 80 ? '#10b981' : pct >= 60 ? '#f59e0b' : '#ef4444'
+                          return <Cell key={`cell-${index}`} fill={fill} />
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* WEEK OF MONTH PATTERN */}
+          {weekOfMonthPattern && weekOfMonthPattern.length > 0 && (
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Week-of-Month Pattern</CardTitle>
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Are delays more common at month-end?</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={weekOfMonthPattern} margin={{ bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                      <XAxis 
+                        dataKey="Week_Of_Month" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                        label={{ value: 'On-Time %', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12 } }}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'var(--color-card)',
+                          borderRadius: '12px',
+                          border: '1px solid var(--color-border)',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          color: 'var(--color-card-foreground)'
+                        }}
+                        formatter={(value: any, name: any, props: any) => {
+                          const data = props.payload
+                          return [
+                            <div key="content" className="space-y-1">
+                              <div className="font-semibold">{parseFloat(value).toFixed(1)}% on-time</div>
+                              <div className="text-xs text-slate-600 dark:text-slate-400">{data.Total_Shipments} shipments</div>
+                            </div>,
+                            'Performance'
+                          ]
+                        }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="OnTime_Percentage" 
+                        stroke="#3b82f6" 
+                        strokeWidth={3}
+                        dot={{ r: 5, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
+                        activeDot={{ r: 7, strokeWidth: 2 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* SHIPMENT STATUS BREAKDOWN */}
+        {shipmentStatusBreakdown && shipmentStatusBreakdown.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Shipment Status</h2>
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Current Status Breakdown</CardTitle>
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Where are all shipments in the pipeline</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={shipmentStatusBreakdown}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ Status, Percentage }) => `${Status}: ${parseFloat(Percentage).toFixed(1)}%`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="Count"
+                        >
+                          {shipmentStatusBreakdown.map((entry: any, index: number) => {
+                            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316']
+                            return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                          })}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--color-card)',
+                            borderRadius: '12px',
+                            border: '1px solid var(--color-border)',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                            color: 'var(--color-card-foreground)'
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-2">
+                    {shipmentStatusBreakdown.map((status: any, idx: number) => {
+                      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316']
+                      return (
+                        <div key={`status-${idx}`} className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors[idx % colors.length] }} />
+                              <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">{status.Status}</span>
+                            </div>
+                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{status.Count}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                            <span>{parseFloat(status.Percentage).toFixed(1)}% of total</span>
+                            <span>{parseFloat(status.Total_TEU || 0).toFixed(1)} TEU</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
                 {/* MODE INSIGHTS WIDE CARD */}
             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
-                  <PieChartIcon className="w-4 h-4" /> Mode insights
+                  <Layers className="w-4 h-4" /> Mode insights
                 </CardTitle>
                 <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Distribution, trends, and top lanes</CardDescription>
               </CardHeader>
