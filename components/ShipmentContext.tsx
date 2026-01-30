@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { getShipments, DashboardFilters } from '@/app/actions'
 
@@ -77,6 +77,31 @@ export function ShipmentProvider({ children }: { children: ReactNode }) {
   const setFilters = useCallback((newFilters: DashboardFilters) => {
     setFiltersState(newFilters)
   }, [])
+
+  // Debounce timer ref for auto-apply
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Auto-apply filters when they change (debounced by 500ms)
+  useEffect(() => {
+    if (status !== 'authenticated') return
+
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+
+    // Set new timer
+    debounceTimerRef.current = setTimeout(() => {
+      fetchData(filters)
+    }, 500)
+
+    // Cleanup
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
+  }, [filters, status, fetchData])
 
   // Initial data fetch on authentication
   useEffect(() => {
