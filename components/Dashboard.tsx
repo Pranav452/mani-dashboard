@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -313,7 +313,7 @@ export default function Dashboard({ data }: DashboardProps) {
   } = data
 
   const { data: session } = useSession()
-  const { filters, setFilters, loading } = useShipments()
+  const { filters, setFilters, loading, applyFilters } = useShipments()
   const username = session?.user?.email || session?.user?.name || 'User'
   const [trendMetric, setTrendMetric] = useState<"weight" | "teu" | "cbm" | "shipments">("weight")
   const [compareEnabled, setCompareEnabled] = useState<boolean>(true)
@@ -348,14 +348,17 @@ export default function Dashboard({ data }: DashboardProps) {
     return `${year}${month}${day}`
   }
 
-  // Update filters when date range changes
-  useEffect(() => {
-    setFilters({
+  // Handle apply filters - updates filters and then applies them
+  const handleApplyFilters = async () => {
+    const updatedFilters = {
       ...filters,
       dateFrom: formatYYYYMMDD(dateRange.from),
       dateTo: formatYYYYMMDD(dateRange.to)
-    })
-  }, [dateRange])
+    }
+    setFilters(updatedFilters)
+    // Apply filters with the updated values directly
+    await applyFilters(updatedFilters)
+  }
 
   const handleModeChange = (mode: string) => {
     setFilters({
@@ -1312,6 +1315,17 @@ export default function Dashboard({ data }: DashboardProps) {
             </div>
 
             <div className="flex items-center gap-2 ml-auto">
+              {/* Apply Filters Button */}
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="h-9 text-sm bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600" 
+                onClick={handleApplyFilters}
+                disabled={loading}
+              >
+                Apply Filters
+              </Button>
+
               {/* Reset Button */}
               <Button 
                 variant="outline" 

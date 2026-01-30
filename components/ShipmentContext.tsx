@@ -32,7 +32,7 @@ interface ShipmentContextType {
   error: any
   filters: DashboardFilters
   setFilters: (filters: DashboardFilters) => void
-  applyFilters: () => Promise<void>
+  applyFilters: (customFilters?: DashboardFilters) => Promise<void>
   refresh: () => Promise<void>
 }
 
@@ -66,8 +66,8 @@ export function ShipmentProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const applyFilters = useCallback(async () => {
-    await fetchData(filters)
+  const applyFilters = useCallback(async (customFilters?: DashboardFilters) => {
+    await fetchData(customFilters || filters)
   }, [filters, fetchData])
 
   const refresh = useCallback(async () => {
@@ -77,31 +77,6 @@ export function ShipmentProvider({ children }: { children: ReactNode }) {
   const setFilters = useCallback((newFilters: DashboardFilters) => {
     setFiltersState(newFilters)
   }, [])
-
-  // Debounce timer ref for auto-apply
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
-
-  // Auto-apply filters when they change (debounced by 500ms)
-  useEffect(() => {
-    if (status !== 'authenticated') return
-
-    // Clear existing timer
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current)
-    }
-
-    // Set new timer
-    debounceTimerRef.current = setTimeout(() => {
-      fetchData(filters)
-    }, 500)
-
-    // Cleanup
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current)
-      }
-    }
-  }, [filters, status, fetchData])
 
   // Initial data fetch on authentication
   useEffect(() => {
