@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from "react-leaflet"
 import L from "leaflet"
 import { cn } from "@/lib/utils"
 
@@ -29,11 +29,12 @@ function MapBounds({ bounds }: { bounds: L.LatLngBounds | null }) {
 
 interface MapProps {
   markers?: Array<{ lat: number; lng: number; label: string; popup?: string }>
+  routes?: Array<{ from: [number, number]; to: [number, number]; label?: string; shipments?: number }>
   className?: string
   height?: string
 }
 
-export function Map({ markers = [], className, height = "400px" }: MapProps) {
+export function Map({ markers = [], routes = [], className, height = "400px" }: MapProps) {
   const [mounted, setMounted] = useState(false)
   const boundsRef = useRef<L.LatLngBounds | null>(null)
 
@@ -83,6 +84,27 @@ export function Map({ markers = [], className, height = "400px" }: MapProps) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {boundsRef.current && <MapBounds bounds={boundsRef.current} />}
+        {routes.map((route, idx) => (
+          <Polyline
+            key={`route-${idx}`}
+            positions={[route.from, route.to]}
+            pathOptions={{
+              color: '#3b82f6',
+              weight: 2,
+              opacity: 0.6,
+              dashArray: '5, 10'
+            }}
+          >
+            {route.label && (
+              <Popup>
+                <div className="text-sm">
+                  <div className="font-semibold">{route.label}</div>
+                  {route.shipments && <div className="text-slate-600 mt-1">{route.shipments} shipments</div>}
+                </div>
+              </Popup>
+            )}
+          </Polyline>
+        ))}
         {markers.map((marker, idx) => (
           <Marker key={idx} position={[marker.lat, marker.lng]}>
             <Popup>

@@ -1,8 +1,8 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
-import { getShipments } from '@/app/actions'
+import { getShipments, DashboardFilters } from '@/app/actions'
 
 interface ShipmentContextType {
   data: {
@@ -11,13 +11,28 @@ interface ShipmentContextType {
     monthlyStats: any[];
     avgTransit: any;
     extremes: any;
-    median: any;
     onTime: any;
     monthlyOnTime: any[];
     transitBreakdown: any;
+    originModeTEU: any[];
+    linerBreakdown: any[];
+    departToLastDelivery: any;
+    monthlyDepartToLastDelivery: any[];
+    linerOnTimePerformance: any[];
+    routePerformance: any[];
+    delayDistribution: any[];
+    containerSizeImpact: any[];
+    clientPerformance: any[];
+    weekOfMonthPattern: any[];
+    shipmentStatusBreakdown: any[];
+    metadata: any;
+    clientGroups: any[];
   } | null
   loading: boolean
   error: any
+  filters: DashboardFilters
+  setFilters: (filters: DashboardFilters) => void
+  applyFilters: (customFilters?: DashboardFilters) => Promise<void>
   refresh: () => Promise<void>
 }
 
@@ -27,13 +42,19 @@ export function ShipmentProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<ShipmentContextType['data']>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<any>(null)
+  const [filters, setFiltersState] = useState<DashboardFilters>({
+    mode: null,
+    client: null,
+    dateFrom: null,
+    dateTo: null,
+    office: null,
+  })
   const { data: session, status } = useSession()
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async (currentFilters: DashboardFilters) => {
     try {
       setLoading(true)
-      const result = await getShipments()
-      // New format: structured object with all SP result sets
+      const result = await getShipments(currentFilters)
       setData(result)
       setError(null)
     } catch (err) {
@@ -43,23 +64,40 @@ export function ShipmentProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  // Wait for session to be ready before fetching data
+  const applyFilters = useCallback(async (customFilters?: DashboardFilters) => {
+    await fetchData(customFilters || filters)
+  }, [filters, fetchData])
+
+  const refresh = useCallback(async () => {
+    await fetchData(filters)
+  }, [filters, fetchData])
+
+  const setFilters = useCallback((newFilters: DashboardFilters) => {
+    setFiltersState(newFilters)
+  }, [])
+
+  // Initial data fetch on authentication
   useEffect(() => {
-    // Only fetch if session is authenticated, or if status is not loading
     if (status === 'authenticated') {
-      fetchData()
+      fetchData(filters)
     } else if (status === 'unauthenticated') {
-      // If not authenticated, set loading to false and empty data
       setLoading(false)
       setData(null)
     }
-    // If status is 'loading', keep loading state as true
   }, [status])
 
   return (
-    <ShipmentContext.Provider value={{ data, loading, error, refresh: fetchData }}>
+    <ShipmentContext.Provider value={{ 
+      data, 
+      loading, 
+      error, 
+      filters, 
+      setFilters, 
+      applyFilters,
+      refresh 
+    }}>
       {children}
     </ShipmentContext.Provider>
   )

@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useMemo, useState, useEffect, useRef } from 'react'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -11,17 +11,19 @@ import { Input } from "@/components/ui/input"
 import { ShipmentDrawer } from "@/components/ShipmentDrawer"
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import Image from "next/image"
+import { useShipments } from '@/components/ShipmentContext'
+import Snowfall from 'react-snowfall'
+import { FullScreenCardModal } from '@/components/FullScreenCardModal'
+import { Maximize2 } from 'lucide-react'
 
 const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: mod.Map })), {
   ssr: false,
   loading: () => <div className="h-[400px] flex items-center justify-center bg-slate-50 rounded-lg"><span className="text-slate-400 text-sm">Loading map...</span></div>
 })
-import { format, isWithinInterval, parse, startOfDay, endOfDay, subDays, startOfYear } from "date-fns"
-import { Calendar as CalendarIcon, FilterX, Ship, Box, Anchor, Layers, Container, MapPin, Search, Download, Clock, MessageSquare, Briefcase, LayoutDashboard, FileText, Users, BarChart3, PieChart as PieChartIcon, Settings, MoreVertical, Check, ArrowUpRight, ArrowDownRight, Printer, DollarSign, Leaf, TrendingUp, TrendingDown, Activity, Snowflake, LogOut } from "lucide-react"
+import { format, differenceInDays } from "date-fns"
+import { Ship, Box, Anchor, Layers, Container, MapPin, Clock, MoreVertical, ArrowUpRight, ArrowDownRight, DollarSign, Leaf, TrendingUp, TrendingDown, Activity, Users, Calendar as CalendarIcon, FilterX, Search, Download, Snowflake } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend, LineChart, Line } from "recharts"
 import { cn } from "@/lib/utils"
-import Snowfall from 'react-snowfall'
 
 // Import Logic
 import { cleanNum, getValidDate, getComputedMode, generateFinancials, generateEmissions, filterData, calculateTransitStats, calculateLinerStats } from "@/lib/dashboard-logic"
@@ -262,11 +264,22 @@ type DashboardProps = {
     avgTransit: any;
     monthlyAvgTransit?: any[];
     extremes: any;
-    median: any;
     onTime: any;
     monthlyOnTime: any[];
     transitBreakdown: any;
     originModeTEU?: any[];
+    linerBreakdown?: any[];
+    departToLastDelivery?: any;
+    monthlyDepartToLastDelivery?: any[];
+    linerOnTimePerformance?: any[];
+    routePerformance?: any[];
+    delayDistribution?: any[];
+    containerSizeImpact?: any[];
+    clientPerformance?: any[];
+    weekOfMonthPattern?: any[];
+    shipmentStatusBreakdown?: any[];
+    metadata?: any;
+    clientGroups?: any[];
   } | null
 }
 
@@ -281,49 +294,141 @@ export default function Dashboard({ data }: DashboardProps) {
     avgTransit, 
     monthlyAvgTransit = [],
     extremes, 
-    median,
     onTime, 
     monthlyOnTime,
     transitBreakdown,
-    originModeTEU = []
+    originModeTEU = [],
+    linerBreakdown = [],
+    departToLastDelivery = {},
+    monthlyDepartToLastDelivery = [],
+    linerOnTimePerformance = [],
+    routePerformance = [],
+    delayDistribution = [],
+    containerSizeImpact = [],
+    clientPerformance = [],
+    weekOfMonthPattern = [],
+    shipmentStatusBreakdown = [],
+    metadata = {},
+    clientGroups = []
   } = data
 
   const { data: session } = useSession()
+  const { filters, setFilters, loading, applyFilters } = useShipments()
   const username = session?.user?.email || session?.user?.name || 'User'
-  const [selectedMode, setSelectedMode] = useState<string>("ALL")
-  const [selectedClient, setSelectedClient] = useState<string>("ALL")
-  const [selectedOffice, setSelectedOffice] = useState<string>("ALL")
   const [trendMetric, setTrendMetric] = useState<"weight" | "teu" | "cbm" | "shipments">("weight")
   const [compareEnabled, setCompareEnabled] = useState<boolean>(true)
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: undefined,
-    to: undefined
-  })
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null)
-  const [selectedTab, setSelectedTab] = useState<"ALL" | "SEA" | "AIR" | "SEA-AIR">("ALL")
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [hoveredChart, setHoveredChart] = useState<string | null>(null)
-  const [selectedModeFilter, setSelectedModeFilter] = useState<string | null>(null)
   const [drilldowns, setDrilldowns] = useState<Record<string, boolean>>({})
   const [showSnow, setShowSnow] = useState(false)
+  const [fullScreenCard, setFullScreenCard] = useState<{ type: string; data: any } | null>(null)
+  const [hoveredPieSegment, setHoveredPieSegment] = useState<{ chart: string; index: number } | null>(null)
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: filters.dateFrom ? parseYYYYMMDD(filters.dateFrom) : undefined,
+    to: filters.dateTo ? parseYYYYMMDD(filters.dateTo) : undefined
+  })
+
+  // Helper to parse YYYYMMDD string to Date
+  function parseYYYYMMDD(dateStr: string): Date | undefined {
+    if (!dateStr || dateStr.length !== 8) return undefined
+    const year = parseInt(dateStr.substring(0, 4))
+    const month = parseInt(dateStr.substring(4, 6)) - 1
+    const day = parseInt(dateStr.substring(6, 8))
+    return new Date(year, month, day)
+  }
+
+  // Helper to format Date to YYYYMMDD
+  function formatYYYYMMDD(date: Date | undefined): string | null {
+    if (!date) return null
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}${month}${day}`
+  }
+
+  // Handle apply filters - updates filters and then applies them
+  const handleApplyFilters = async () => {
+    const updatedFilters = {
+      ...filters,
+      dateFrom: formatYYYYMMDD(dateRange.from),
+      dateTo: formatYYYYMMDD(dateRange.to)
+    }
+    setFilters(updatedFilters)
+    // Apply filters with the updated values directly
+    await applyFilters(updatedFilters)
+  }
+
+  const handleModeChange = (mode: string) => {
+    setFilters({
+      ...filters,
+      mode: mode === 'ALL' ? null : mode
+    })
+  }
+
+  const handleClientChange = (client: string) => {
+    setFilters({
+      ...filters,
+      client: client === 'ALL' ? null : client
+    })
+  }
+
+  const handleOfficeChange = (office: string) => {
+    setFilters({
+      ...filters,
+      office: office === 'ALL' ? null : office
+    })
+  }
+
+  const handleReset = () => {
+    const resetFilters = {
+      mode: null,
+      client: null,
+      dateFrom: null,
+      dateTo: null,
+      office: null
+    }
+    setFilters(resetFilters)
+    setDateRange({ from: undefined, to: undefined })
+    setSearchQuery("")
+  }
+
+  const handleExport = () => {
+    if (!rawShipments?.length) return
+    
+    const headers = ["JOBNO", "MODE", "PROVIDER", "CARRIER", "POL", "POD", "ETD", "ATD", "WEIGHT_KG", "TEU", "CBM"]
+    
+    const csvContent = [
+      headers.join(","),
+      ...rawShipments.map(row => [
+        row.JOBNO || "",
+        row.MODE || "",
+        `"${(row.CONNAME || "").replace(/"/g, '""')}"`,
+        `"${(row.LINER_NAME || "").replace(/"/g, '""')}"`,
+        row.POL || "",
+        row.POD || "",
+        row.ETD || "",
+        row.ATD || "",
+        row.CONT_GRWT || 0,
+        row.CONT_TEU || 0,
+        row.CONT_CBM || 0
+      ].join(","))
+    ].join("\n")
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    link.href = URL.createObjectURL(blob)
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+    link.download = `dashboard_export_${timestamp}.csv`
+    link.click()
+  }
+
   const toggleDrilldown = (key: string) => {
     setDrilldowns(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  const applyPreset = (preset: "30d" | "90d" | "ytd") => {
-    if (!maxDate) return
-    const to = endOfDay(maxDate)
-    if (preset === "ytd") {
-      setDateRange({ from: startOfYear(maxDate), to })
-      return
-    }
-    const days = preset === "30d" ? 30 : 90
-    setDateRange({ from: startOfDay(subDays(maxDate, days - 1)), to })
-  }
-
-
-  // --- 1. PARSE DATA & COMPUTE MODE ---
+  // --- 1. PARSE DATA (NO FILTERING - SP ALREADY FILTERED) ---
   const parsedData = useMemo<ShipmentRecord[]>(() => {
     // Safety check if rawShipments is missing
     if (!rawShipments || !Array.isArray(rawShipments)) return [];
@@ -348,16 +453,13 @@ export default function Dashboard({ data }: DashboardProps) {
     })
   }, [rawShipments])
 
-  // --- 2. WATERFALL LOGIC ---
+  // --- 2. DATE RANGE (FROM SP-FILTERED DATA) ---
   const { minDate, maxDate } = useMemo(() => {
     let min = new Date(8640000000000000);
     let max = new Date(-8640000000000000);
     let hasData = false;
 
     parsedData.forEach(row => {
-      if (selectedMode !== "ALL" && row._mode !== selectedMode) return
-      if (selectedOffice !== "ALL" && row._office !== selectedOffice) return
-      if (selectedClient !== "ALL" && row.CONNAME !== selectedClient) return
       if (row._date) {
         if (row._date < min) min = row._date
         if (row._date > max) max = row._date
@@ -367,81 +469,45 @@ export default function Dashboard({ data }: DashboardProps) {
     
     if (!hasData) return { minDate: new Date(), maxDate: new Date() }
     return { minDate: min, maxDate: max }
-  }, [parsedData, selectedMode, selectedOffice, selectedClient])
+  }, [parsedData])
 
-  const { allProviders, availableProviders, offices } = useMemo(() => {
-    const all = new Set<string>()
-    const available = new Set<string>()
+  const { allProviders, offices } = useMemo(() => {
+    const providersSet = new Set<string>()
     const officesSet = new Set<string>()
 
     parsedData.forEach(row => {
       const provider = row.CONNAME || "Unknown"
       const office = row._office || "Unknown"
-      all.add(provider)
+      providersSet.add(provider)
       officesSet.add(office)
-      
-      // Filter by Computed Mode
-      if (selectedMode !== "ALL" && row._mode !== selectedMode) return
-      if (selectedOffice !== "ALL" && row._office !== selectedOffice) return
-      
-      // Filter by Date
-      if (dateRange.from && dateRange.to && row._date) {
-         if (!isWithinInterval(row._date, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })) return
-      }
-      
-      available.add(provider)
     })
+    
     return { 
-      allProviders: Array.from(all).sort(), 
-      availableProviders: available,
+      allProviders: Array.from(providersSet).sort(),
       offices: Array.from(officesSet).sort()
     }
-  }, [parsedData, selectedMode, dateRange, selectedOffice])
+  }, [parsedData])
 
-  // Auto-select single provider if only one exists
-  useEffect(() => {
-    if (allProviders.length === 1 && selectedClient === "ALL") {
-      setSelectedClient(allProviders[0]);
-    }
-  }, [allProviders, selectedClient]);
-
-  // --- 3. FILTER DATA (with search) ---
+  // --- 3. APPLY SEARCH FILTER ONLY (SP ALREADY FILTERED BY MODE/CLIENT/OFFICE/DATE) ---
   const chartData = useMemo<ShipmentRecord[]>(() => {
+    if (!searchQuery) return parsedData
+    
     return parsedData.filter(row => {
-      // Filter by Computed Mode
-      if (selectedMode !== "ALL" && row._mode !== selectedMode) return false
-
-      // Filter by Office
-      if (selectedOffice !== "ALL" && row._office !== selectedOffice) return false
-      
-      if (dateRange.from && dateRange.to) {
-        if (!row._date) return false 
-        if (!isWithinInterval(row._date, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })) return false
-      }
-      
-      // FIX: Robust Provider Check with defensive trim
-      if (selectedClient !== "ALL" && row.CONNAME?.trim() !== selectedClient.trim()) return false
-      
-      // Search filter
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase()
-        const match = 
-          (row.JOBNO?.toString().toLowerCase().includes(q)) ||
-          (row.LINER_NAME?.toString().toLowerCase().includes(q)) ||
-          (row.CONNAME?.toString().toLowerCase().includes(q)) ||
-          (row.POL?.toString().toLowerCase().includes(q)) ||
-          (row.POD?.toString().toLowerCase().includes(q)) ||
-          (row.ORDERNO?.toString().toLowerCase().includes(q)) ||
-          (row.CONTMAWB?.toString().toLowerCase().includes(q)) ||
-          (row.CONNO?.toString().toLowerCase().includes(q)) ||
-          (row.BLNO?.toString().toLowerCase().includes(q)) ||
-          (row.BOOKNO?.toString().toLowerCase().includes(q))
-        if (!match) return false
-      }
-      
-      return true
+      const q = searchQuery.toLowerCase()
+      const match = 
+        (row.JOBNO?.toString().toLowerCase().includes(q)) ||
+        (row.LINER_NAME?.toString().toLowerCase().includes(q)) ||
+        (row.CONNAME?.toString().toLowerCase().includes(q)) ||
+        (row.POL?.toString().toLowerCase().includes(q)) ||
+        (row.POD?.toString().toLowerCase().includes(q)) ||
+        (row.ORDERNO?.toString().toLowerCase().includes(q)) ||
+        (row.CONTMAWB?.toString().toLowerCase().includes(q)) ||
+        (row.CONNO?.toString().toLowerCase().includes(q)) ||
+        (row.BLNO?.toString().toLowerCase().includes(q)) ||
+        (row.BOOKNO?.toString().toLowerCase().includes(q))
+      return match
     })
-  }, [parsedData, selectedMode, selectedClient, selectedOffice, dateRange, searchQuery])
+  }, [parsedData, searchQuery])
 
   // --- 4. CHART DATA GENERATORS ---
   const getTrend = (key: string, accessor: (r: any) => number) => {
@@ -454,40 +520,7 @@ export default function Dashboard({ data }: DashboardProps) {
     return Object.entries(map).map(([name, value]) => ({ name, value }))
   }
 
-  // --- 5. EXPORT FUNCTION ---
-  const handleExport = () => {
-    if (!chartData.length) return
-    
-    const headers = ["JOBNO", "MODE", "PROVIDER", "CARRIER", "POL", "POD", "ETD", "ATD", "WEIGHT_KG", "TEU", "CBM", "BOOKNO", "CONNO", "BLNO"]
-    
-    const csvContent = [
-      headers.join(","),
-      ...chartData.map(row => [
-        row.JOBNO || "",
-        row._mode || "",
-        `"${(row.CONNAME || "").replace(/"/g, '""')}"`,
-        `"${(row.LINER_NAME || "").replace(/"/g, '""')}"`,
-        row.POL || "",
-        row.POD || "",
-        row.ETD || "",
-        row.ATD || "",
-        cleanNum(row.CONT_GRWT),
-        cleanNum(row.CONT_TEU),
-        cleanNum(row.CONT_CBM),
-        row.BOOKNO || "",
-        row.CONNO || "",
-        row.BLNO || ""
-      ].join(","))
-    ].join("\n")
-    
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    link.href = URL.createObjectURL(blob)
-    link.download = `logistics_export_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`
-    link.click()
-  }
-
-  // --- 5. STATS ---
+  // --- 4. STATS ---
   const kpis = useMemo(() => {
     const uniqueJobs = new globalThis.Map<string, ShipmentRecord>()
     chartData.forEach((r, idx) => {
@@ -499,66 +532,38 @@ export default function Dashboard({ data }: DashboardProps) {
     const transitStats = calculateTransitStats(uniqueRows)
     const linerStats = calculateLinerStats(chartData)
 
-    // BACKEND BINDING: Use backend values when no filters are applied
-    // For single provider: selectedClient filter is ignored (same as "ALL") since DB already returns values for that user
-    // Otherwise calculate from filtered chartData
-    const isSingleProvider = allProviders.length === 1
-    // When single provider: ignore selectedClient filter (DB already filtered by user)
-    const effectiveClientFilter = isSingleProvider ? "ALL" : selectedClient
-    const hasFilters = dateRange.from || dateRange.to || selectedMode !== "ALL" || effectiveClientFilter !== "ALL" || selectedOffice !== "ALL"
+    // ALL FILTERING IS DONE SERVER-SIDE NOW - Always use backend values from SP
+    // Weight is in KG from SP, convert to tons
+    const totalWeight = (kpiTotals.CONT_GRWT || 0) / 1000
+    const totalShipments = kpiTotals.TOTAL_SHIPMENT || 0
+    const displayTransit = avgTransit.AvgTT_Pickup_Arrival || 0
+    const displayOnTime = onTime.OnTime_Percentage || 0
     
-    let totalWeight: number
-    let totalTEU: number
-    let totalCBM: number
-    let totalShipments: number
-    let displayTransit: number
-    let displayOnTime: number
-    let displayMedian: number
-    let displayFastest: number
-    let displaySlowest: number
-
-    if (!hasFilters) {
-      // Use backend calculated values (divide weight by 1000 for tons, assuming SP returns KG)
-      totalWeight = (kpiTotals.CONT_GRWT || 0) / 1000
-      totalShipments = kpiTotals.TOTAL_SHIPMENT || 0
-      displayTransit = avgTransit.AvgTT_Pickup_Arrival || 0
-      displayOnTime = onTime.OnTime_Percentage || 0
-      displayMedian = median.Median_TT || 0
-      displayFastest = extremes.Fastest_TT || 0
-      displaySlowest = extremes.Slowest_TT || 0
-      
-      // Calculate TEU and CBM from filtered data (not provided by SP)
-      totalTEU = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0)
-      totalCBM = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0)
-    } else {
-      // Calculate from filtered data when filters are applied
-      totalWeight = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_GRWT), 0) / 1000
-      totalTEU = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0)
-      totalCBM = uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0)
-      totalShipments = uniqueRows.length
-      displayTransit = transitStats.avg
-      displayOnTime = transitStats.onTimePct
-      displayMedian = transitStats.median
-      displayFastest = transitStats.min
-      displaySlowest = transitStats.max
-    }
-
-    // Calculate TEU and CBM from monthlyStats when no filters (backend aggregated)
+    // These are not in the main SP output, calculate from data
+    const displayMedian = transitStats.median
+    const displayFastest = extremes.Fastest_TT || transitStats.min || 0
+    const displaySlowest = extremes.Slowest_TT || transitStats.max || 0
+    
+    // Calculate TEU and CBM from monthlyStats (backend aggregated)
     let backendTEU = 0
     let backendCBM = 0
-    if (!hasFilters && monthlyStats && monthlyStats.length > 0) {
+    if (monthlyStats && monthlyStats.length > 0) {
       backendTEU = monthlyStats.reduce((sum: number, row: any) => sum + cleanNum(row.Total_TEU || row.TOTAL_TEU || 0), 0)
       backendCBM = monthlyStats.reduce((sum: number, row: any) => sum + cleanNum(row.Total_CBM || row.TOTAL_CBM || 0), 0)
     }
+    
+    // Fallback: calculate from data if not in monthlyStats
+    const totalTEU = backendTEU > 0 ? backendTEU : uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_TEU), 0)
+    const totalCBM = backendCBM > 0 ? backendCBM : uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + cleanNum(r.CONT_CBM), 0)
 
     return {
       shipments: totalShipments,
       weight: totalWeight, // In tons
-      teu: !hasFilters && backendTEU > 0 ? backendTEU : totalTEU,
-      cbm: !hasFilters && backendCBM > 0 ? backendCBM : totalCBM,
-      chargeableWeight: !hasFilters && kpiTotals ? (kpiTotals.ORD_CHBLWT || 0) / 1000 : 0, // In tons
+      teu: totalTEU,
+      cbm: totalCBM,
+      chargeableWeight: kpiTotals ? (kpiTotals.ORD_CHBLWT || 0) / 1000 : 0, // In tons
       
-      // Transit KPIs (Use backend values when no filters, otherwise calculated)
+      // Transit KPIs (from SP)
       avgTransit: displayTransit,
       minTransit: displayFastest,
       maxTransit: displaySlowest,
@@ -566,18 +571,18 @@ export default function Dashboard({ data }: DashboardProps) {
       stddevTransit: transitStats.stddev,
       transitShipmentCount: transitStats.transitShipmentCount,
       
-      // On-Time KPIs
+      // On-Time KPIs (from SP)
       onTimeShipments: transitStats.onTimeShipments,
       onTimeBase: transitStats.onTimeBase,
       onTimePct: displayOnTime,
       
-      // Transit Legs (Use backend breakdown when no filters)
+      // Transit Legs (from SP)
       // Backend provides: Avg_Pickup_Arrival, Avg_Departure_Delivery, Avg_ATD_ATA, Avg_Cargo_ATD, Avg_ATA_Delivery
-      legs: !hasFilters && transitBreakdown ? {
+      legs: transitBreakdown ? {
         pickupToArrival: cleanNum(transitBreakdown.Avg_Pickup_Arrival) || 0,
         depToArrival: cleanNum(transitBreakdown.Avg_ATD_ATA) || 0,
         depToDelivery: cleanNum(transitBreakdown.Avg_Departure_Delivery) || 0,
-        pickupToDelivery: transitStats.legs.pickupToDelivery || 0,
+        pickupToDelivery: cleanNum(transitBreakdown.Avg_Pickup_Delivery) || transitStats.legs.pickupToDelivery || 0,
         cargoToATD: cleanNum(transitBreakdown.Avg_Cargo_ATD) || 0,
         ataToDelivery: cleanNum(transitBreakdown.Avg_ATA_Delivery) || 0
       } : {
@@ -596,7 +601,7 @@ export default function Dashboard({ data }: DashboardProps) {
       profit: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._financials?.profit || 0), 0),
       co2: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._env?.co2 || 0), 0)
     }
-  }, [chartData, kpiTotals, monthlyStats, avgTransit, extremes, median, onTime, transitBreakdown, dateRange, selectedMode, selectedClient, selectedOffice, allProviders])
+  }, [chartData, kpiTotals, monthlyStats, avgTransit, extremes, onTime, transitBreakdown, allProviders])
 
   const metricConfig = {
     weight: { label: "Weight (Tons)", accessor: (row: any) => cleanNum(row.CONT_GRWT) / 1000 }, // Convert KG to tons
@@ -604,6 +609,17 @@ export default function Dashboard({ data }: DashboardProps) {
     cbm: { label: "CBM", accessor: (row: any) => cleanNum(row.CONT_CBM) },
     shipments: { label: "Shipments", accessor: () => 1 }
   } as const
+
+  // Calculate date range for filling missing months
+  const dataDateRange = useMemo(() => {
+    if (chartData.length === 0) return { min: null, max: null }
+    const dates = chartData.map(r => r._date).filter(Boolean) as Date[]
+    if (dates.length === 0) return { min: null, max: null }
+    return {
+      min: new Date(Math.min(...dates.map(d => d.getTime()))),
+      max: new Date(Math.max(...dates.map(d => d.getTime())))
+    }
+  }, [chartData])
 
   const monthlyTrend = useMemo(() => {
     // Use backend monthlyStats directly
@@ -636,9 +652,29 @@ export default function Dashboard({ data }: DashboardProps) {
         monthMap[monthKey] = value
       })
       
-      return Object.entries(monthMap)
-        .map(([date, val]) => ({ date, val: Math.round(val * 100) / 100 }))
-        .sort((a, b) => a.date.localeCompare(b.date))
+      // Fill missing months with zeros
+      const result: Array<{ date: string; val: number }> = []
+      if (dataDateRange.min && dataDateRange.max) {
+        const start = new Date(dataDateRange.min.getFullYear(), dataDateRange.min.getMonth(), 1)
+        const end = new Date(dataDateRange.max.getFullYear(), dataDateRange.max.getMonth(), 1)
+        const current = new Date(start)
+        
+        while (current <= end) {
+          const monthKey = format(current, 'yyyy-MM')
+          result.push({
+            date: monthKey,
+            val: Math.round((monthMap[monthKey] || 0) * 100) / 100
+          })
+          current.setMonth(current.getMonth() + 1)
+        }
+      } else {
+        // Fallback: just use what we have
+        return Object.entries(monthMap)
+          .map(([date, val]) => ({ date, val: Math.round(val * 100) / 100 }))
+          .sort((a, b) => a.date.localeCompare(b.date))
+      }
+      
+      return result
     }
     
     // Fallback to calculating from individual rows if monthly data not available
@@ -652,10 +688,31 @@ export default function Dashboard({ data }: DashboardProps) {
       const monthKey = format(row._date, 'yyyy-MM')
       stats[monthKey] = (stats[monthKey] || 0) + metricConfig[trendMetric].accessor(row)
     })
-    return Object.entries(stats)
-      .map(([date, val]) => ({ date, val: Math.round(val * 100) / 100 }))
-      .sort((a, b) => a.date.localeCompare(b.date))
-  }, [monthlyStats, chartData, trendMetric])
+    
+    // Fill missing months
+    const result: Array<{ date: string; val: number }> = []
+    if (dataDateRange.min && dataDateRange.max) {
+      const start = new Date(dataDateRange.min.getFullYear(), dataDateRange.min.getMonth(), 1)
+      const end = new Date(dataDateRange.max.getFullYear(), dataDateRange.max.getMonth(), 1)
+      const current = new Date(start)
+      
+      while (current <= end) {
+        const monthKey = format(current, 'yyyy-MM')
+        result.push({
+          date: monthKey,
+          val: Math.round((stats[monthKey] || 0) * 100) / 100
+        })
+        current.setMonth(current.getMonth() + 1)
+      }
+    } else {
+      // Fallback: just use what we have
+      return Object.entries(stats)
+        .map(([date, val]) => ({ date, val: Math.round(val * 100) / 100 }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+    }
+    
+    return result
+  }, [monthlyStats, chartData, trendMetric, dataDateRange])
 
   const monthlyTrendWithPrev = useMemo(() => {
     return monthlyTrend.map((entry, idx) => ({
@@ -899,6 +956,44 @@ export default function Dashboard({ data }: DashboardProps) {
     return markers
   }, [originStats, destinationStats, chartData])
 
+  // Calculate unique routes (POL → POD) for map lines
+  const mapRoutes = useMemo(() => {
+    const routeMap = new globalThis.Map<string, { pol: string; pod: string; shipments: number }>()
+    
+    chartData.forEach(row => {
+      const pol = row.POL?.toString().trim().toUpperCase()
+      const pod = row.POD?.toString().trim().toUpperCase()
+      if (!pol || !pod || pol === "UNKNOWN" || pod === "UNKNOWN" || pol === pod) return
+      
+      const routeKey = `${pol}→${pod}`
+      if (!routeMap.has(routeKey)) {
+        routeMap.set(routeKey, { pol, pod, shipments: 0 })
+      }
+      routeMap.get(routeKey)!.shipments++
+    })
+    
+    const routes: Array<{ from: [number, number]; to: [number, number]; label: string; shipments: number }> = []
+    
+    routeMap.forEach((route, key) => {
+      const polCoords = getPortCoords(route.pol)
+      const podCoords = getPortCoords(route.pod)
+      
+      if (polCoords && podCoords) {
+        routes.push({
+          from: polCoords,
+          to: podCoords,
+          label: `${route.pol} → ${route.pod}`,
+          shipments: route.shipments
+        })
+      }
+    })
+    
+    // Sort by shipment count and limit to top routes to avoid clutter
+    return routes
+      .sort((a, b) => b.shipments - a.shipments)
+      .slice(0, 15) // Limit to top 15 routes
+  }, [chartData])
+
   const COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#9333ea']
 
   const handleRowClick = (record: any) => {
@@ -1042,20 +1137,87 @@ export default function Dashboard({ data }: DashboardProps) {
     return { paid, pending, unpaid }
   }, [chartData])
 
+  // List of unique offices from POL codes
+  const officeOptions = ['NH1', 'BOM', 'MAA', 'BLR', 'CCU', 'KH1', 'DEL', 'JNPT', 'CHN', ...offices]
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .sort()
+
+  // AIR Mode Detection
+  const isAirMode = filters.mode === 'AIR'
+  const isSeaMode = filters.mode === 'SEA' || filters.mode === 'SEA-AIR' || filters.mode === null
+
+  // AIR-specific metrics
+  const airMetrics = useMemo(() => {
+    if (!isAirMode) return null
+    
+    const uniqueJobs = new globalThis.Map<string, ShipmentRecord>()
+    chartData.forEach((r, idx) => {
+      const key = r.JOBNO ? String(r.JOBNO) : `__${idx}`
+      if (!uniqueJobs.has(key)) uniqueJobs.set(key, r)
+    })
+    const uniqueRows = Array.from(uniqueJobs.values())
+    
+    // Count MAWBs (Master Air Waybills)
+    const mawbCount = uniqueRows.filter(r => r.CONTMAWB || r.MAWB).length
+    
+    // Airline performance (similar to liner performance)
+    const airlineMap = new globalThis.Map<string, { total: number; count: number; shipments: number }>()
+    uniqueRows.forEach((row) => {
+      const airline = row.LINER_NAME || row.LINER_CODE || 'Unknown'
+      const atd = getValidDate(row.ATD)
+      const ata = getValidDate(row.ATA)
+
+      if (!airlineMap.has(airline)) {
+        airlineMap.set(airline, { total: 0, count: 0, shipments: 0 })
+      }
+
+      const stats = airlineMap.get(airline)!
+      stats.shipments++
+
+      if (atd && ata && ata >= atd) {
+        const days = differenceInDays(ata, atd)
+        if (days >= 0 && days < 150) {
+          stats.total += days
+          stats.count++
+        }
+      }
+    })
+
+    const airlines = Array.from(airlineMap.entries())
+      .map(([airline, stats]) => ({
+        airline,
+        avgTransit: stats.count > 0 ? stats.total / stats.count : 0,
+        shipments: stats.shipments,
+        validTransitCount: stats.count
+      }))
+      .filter(a => a.validTransitCount > 0)
+      .sort((a, b) => a.avgTransit - b.avgTransit)
+
+    return {
+      mawbCount,
+      airlines,
+      bestAirline: airlines[0] || null,
+      worstAirline: airlines[airlines.length - 1] || null,
+      topAirlines: airlines.slice(0, 5),
+    }
+  }, [chartData, isAirMode])
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 font-sans text-slate-900 dark:text-slate-50">
       
-      {/* 1. TOP NAVBAR */}
+      {/* TOP NAVBAR */}
       <Navbar />
 
-      {/* 2. FILTERS BAR */}
+      {/* FILTERS BAR */}
       <div className="bg-white/95 dark:bg-zinc-950/95 backdrop-blur border-b border-slate-200 dark:border-zinc-800 sticky top-16 z-30">
         <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-3">
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Mode Filter */}
-            <Select value={selectedMode} onValueChange={(val) => {
-              setSelectedMode(val); setDateRange({ from: undefined, to: undefined }); setSelectedClient("ALL");
-            }}>
+            <Select 
+              value={filters.mode || 'ALL'} 
+              onValueChange={handleModeChange}
+              disabled={loading}
+            >
               <SelectTrigger className="h-9 text-sm w-[130px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800">
                 <SelectValue placeholder="Mode" />
               </SelectTrigger>
@@ -1068,13 +1230,17 @@ export default function Dashboard({ data }: DashboardProps) {
             </Select>
 
             {/* Office Filter */}
-            <Select value={selectedOffice} onValueChange={setSelectedOffice}>
+            <Select 
+              value={filters.office || 'ALL'} 
+              onValueChange={handleOfficeChange}
+              disabled={loading}
+            >
               <SelectTrigger className="h-9 text-sm w-[130px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800">
                 <SelectValue placeholder="Office" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Offices</SelectItem>
-                {offices.map(office => (
+                {officeOptions.map(office => (
                   <SelectItem key={office} value={office}>{office}</SelectItem>
                 ))}
               </SelectContent>
@@ -1085,6 +1251,7 @@ export default function Dashboard({ data }: DashboardProps) {
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
+                  disabled={loading}
                   className={cn(
                     "h-9 text-sm w-[240px] justify-start text-left font-normal border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800",
                     !dateRange.from && "text-slate-500 dark:text-slate-400"
@@ -1116,16 +1283,20 @@ export default function Dashboard({ data }: DashboardProps) {
               </PopoverContent>
             </Popover>
 
-            {/* Provider Filter - Only show if there is more than 1 provider */}
-            {allProviders.length > 1 && (
-              <Select value={selectedClient} onValueChange={setSelectedClient}>
+            {/* Client Filter - Only show if there are multiple clients */}
+            {clientGroups.length > 1 && (
+              <Select 
+                value={filters.client || 'ALL'} 
+                onValueChange={handleClientChange}
+                disabled={loading}
+              >
                 <SelectTrigger className="h-9 text-sm w-[180px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800">
-                  <SelectValue placeholder="Provider" />
+                  <SelectValue placeholder="Client" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">All Providers</SelectItem>
-                  {allProviders.map(provider => (
-                    <SelectItem key={provider} value={provider}>{provider}</SelectItem>
+                  <SelectItem value="ALL">All Clients</SelectItem>
+                  {clientGroups.map(group => (
+                    <SelectItem key={group.value} value={group.value}>{group.label || group.value}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1139,22 +1310,29 @@ export default function Dashboard({ data }: DashboardProps) {
                 className="pl-9 h-9 border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-zinc-950"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                disabled={loading}
               />
             </div>
 
             <div className="flex items-center gap-2 ml-auto">
+              {/* Apply Filters Button */}
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="h-9 text-sm bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600" 
+                onClick={handleApplyFilters}
+                disabled={loading}
+              >
+                Apply Filters
+              </Button>
+
               {/* Reset Button */}
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="h-9 text-sm border-red-200 bg-white dark:bg-zinc-900 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 hover:text-red-700 dark:text-red-400" 
-                onClick={() => {
-                  setSelectedMode("ALL")
-                  setSelectedOffice("ALL")
-                  setSelectedClient("ALL")
-                  setSearchQuery("")
-                  setDateRange({ from: undefined, to: undefined })
-                }}
+                className="h-9 text-sm border-red-200 dark:border-red-800 bg-white dark:bg-zinc-900 hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 hover:text-red-700 dark:text-red-400" 
+                onClick={handleReset}
+                disabled={loading}
               >
                 <FilterX className="w-4 h-4 mr-2 text-red-600 dark:text-red-400" /> Reset
               </Button>
@@ -1165,15 +1343,18 @@ export default function Dashboard({ data }: DashboardProps) {
                 size="sm" 
                 className="h-9 text-sm border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800" 
                 onClick={handleExport}
+                disabled={loading}
               >
                 <Download className="w-4 h-4 mr-2" /> Export
               </Button>
 
+              {/* Snow Toggle */}
               <Button
                 variant="outline"
                 size="icon"
                 className="h-9 w-9 rounded-full border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 p-0"
                 onClick={() => setShowSnow(!showSnow)}
+                disabled={loading}
               >
                 <Snowflake className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               </Button>
@@ -1205,8 +1386,16 @@ export default function Dashboard({ data }: DashboardProps) {
             
             {/* SECTION 1: DELIVERIES (METRICS) */}
             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Deliveries</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setFullScreenCard({ type: 'deliveries', data: { kpis, monthlyTrend } })}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1347,6 +1536,14 @@ export default function Dashboard({ data }: DashboardProps) {
                   <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Shipment Volume Analysis</CardTitle>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setFullScreenCard({ type: 'volume-analysis', data: { monthlyTrend, monthlyTrendWithPrev, trendMetric, metricConfig, compareEnabled } })}
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg">
                       {(["weight", "teu", "cbm"] as const).map(key => (
                         <button 
@@ -1501,7 +1698,14 @@ export default function Dashboard({ data }: DashboardProps) {
               <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Tonnage by Origin</CardTitle>
-                  <MoreVertical className="w-4 h-4 text-slate-400" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setFullScreenCard({ type: 'tonnage-origin', data: { originStats } })}
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
                 </CardHeader>
                 <CardContent className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1521,10 +1725,10 @@ export default function Dashboard({ data }: DashboardProps) {
                           backgroundColor: 'var(--color-card)',
                           borderRadius: '8px',
                           border: '1px solid var(--color-border)',
-                          color: '#ffffff'
+                          color: 'var(--color-card-foreground)'
                         }}
-                        labelStyle={{ color: '#ffffff' }}
-                        itemStyle={{ color: '#ffffff' }}
+                        labelStyle={{ color: 'var(--color-card-foreground)' }}
+                        itemStyle={{ color: 'var(--color-card-foreground)', fontWeight: 600 }}
                         cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
                       />
                       <Bar dataKey="val" radius={[0, 4, 4, 0]} barSize={20}>
@@ -1541,7 +1745,14 @@ export default function Dashboard({ data }: DashboardProps) {
               <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Top Lanes</CardTitle>
-                  <MoreVertical className="w-4 h-4 text-slate-400" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setFullScreenCard({ type: 'top-lanes', data: { laneStats } })}
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-800 mb-6" />
@@ -1686,7 +1897,15 @@ export default function Dashboard({ data }: DashboardProps) {
                      </defs>
                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10}} tickFormatter={(val) => val.split('-')[1]} />
-                     <Tooltip contentStyle={{ borderRadius: '8px' }} />
+                     <Tooltip 
+                       contentStyle={{
+                         backgroundColor: 'var(--color-card)',
+                         borderRadius: '8px',
+                         border: '1px solid var(--color-border)',
+                         color: 'var(--color-card-foreground)'
+                       }}
+                       itemStyle={{ color: 'var(--color-card-foreground)', fontWeight: 600 }}
+                     />
                      {/* Approximating CO2 trend based on volume trend for visual consistency until real CO2 data */}
                      <Area type="monotone" dataKey="val" name="Est. CO2 (Tons)" stroke="#10b981" fill="url(#co2Gradient)" />
                    </AreaChart>
@@ -1757,19 +1976,34 @@ export default function Dashboard({ data }: DashboardProps) {
                 </Card>
               )}
 
-              {/* TEU */}
-              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">TEU</div>
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
-                      <Container className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+              {/* TEU / MAWB (conditional on mode) */}
+              {isSeaMode ? (
+                <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">TEU</div>
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                        <Container className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.teu.toFixed(0)}</div>
-                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">units</div>
-                </CardContent>
-              </Card>
+                    <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.teu.toFixed(0)}</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">units</div>
+                  </CardContent>
+                </Card>
+              ) : isAirMode && airMetrics ? (
+                <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">MAWB Count</div>
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                        <PlaneIcon />
+                      </div>
+                    </div>
+                    <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{airMetrics.mawbCount}</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">air waybills</div>
+                  </CardContent>
+                </Card>
+              ) : null}
 
               {/* CBM */}
               <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -1818,24 +2052,6 @@ export default function Dashboard({ data }: DashboardProps) {
                 </CardContent>
               </Card>
               
-              {/* MEDIAN */}
-              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
-                <CardContent className="p-5">
-                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Median</div>
-                  <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.medianTransit > 0 ? kpis.medianTransit.toFixed(1) : 'N/A'}</div>
-                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
-                </CardContent>
-              </Card>
-              
-              {/* STD DEV */}
-              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
-                <CardContent className="p-5">
-                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Std Dev</div>
-                  <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.stddevTransit.toFixed(1)}</div>
-                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
-                </CardContent>
-              </Card>
-              
               {/* ON-TIME % */}
               <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
                 <CardContent className="p-5">
@@ -1844,6 +2060,28 @@ export default function Dashboard({ data }: DashboardProps) {
                   <div className="h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div className="h-full bg-slate-400 dark:bg-slate-500 transition-all" style={{ width: `${Math.min(Math.max(kpis.onTimePct, 0), 100)}%` }} />
                   </div>
+                </CardContent>
+              </Card>
+              
+              {/* TOTAL LATE SHIPMENTS */}
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-5">
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Late Shipments</div>
+                  <div className="text-2xl font-semibold text-amber-700 dark:text-amber-400 tabular-nums tracking-tight">
+                    {kpis.onTimeBase > 0 ? kpis.onTimeBase - kpis.onTimeShipments : 'N/A'}
+                  </div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                    of {kpis.onTimeBase} total
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* TRANSIT COUNT */}
+              <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <CardContent className="p-5">
+                  <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">With Transit Data</div>
+                  <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.transitShipmentCount}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">shipments</div>
                 </CardContent>
               </Card>
             </div>
@@ -1951,39 +2189,29 @@ export default function Dashboard({ data }: DashboardProps) {
             </div>
           </div>
 
-          {/* ADDITIONAL LEGS SECTION */}
+          {/* ADDITIONAL LEGS SECTION - Compact */}
           {(kpis.legs.cargoToATD > 0 || kpis.legs.ataToDelivery > 0) && (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400 tracking-wide">Additional Transit Legs</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {/* CARGO → ATD */}
                 {kpis.legs.cargoToATD > 0 && (
-                  <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cargo → ATD</div>
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
-                          <Activity className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
-                        </div>
-                      </div>
-                      <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.legs.cargoToATD.toFixed(1)}</div>
-                      <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
+                  <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <CardContent className="p-4">
+                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Cargo → ATD</div>
+                      <div className="text-xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.cargoToATD.toFixed(1)}</div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
                     </CardContent>
                   </Card>
                 )}
 
                 {/* ATA → DELIVERY */}
                 {kpis.legs.ataToDelivery > 0 && (
-                  <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">ATA → Delivery</div>
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
-                          <Anchor className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
-                        </div>
-                      </div>
-                      <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.legs.ataToDelivery.toFixed(1)}</div>
-                      <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
+                  <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <CardContent className="p-4">
+                      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ATA → Delivery</div>
+                      <div className="text-xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.ataToDelivery.toFixed(1)}</div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">days</div>
                     </CardContent>
                   </Card>
                 )}
@@ -1994,12 +2222,20 @@ export default function Dashboard({ data }: DashboardProps) {
 
         {/* SECTIONS 3 & 4: TRANSIT LEGS + ORIGIN/MODE TEU SIDE BY SIDE */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-          {/* SECTION 3: TRANSIT LEGS - BAR CHART */}
+            {/* SECTION 3: TRANSIT LEGS - BAR CHART */}
           <div className="space-y-3">
             <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Transit by Leg</h2>
             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Average Transit Days by Journey Leg</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setFullScreenCard({ type: 'transit-legs', data: { kpis } })}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
               </CardHeader>
               <CardContent className="p-6 min-h-0">
                 <div className="h-[320px] w-full">
@@ -2057,24 +2293,24 @@ export default function Dashboard({ data }: DashboardProps) {
                           borderRadius: '12px', 
                           border: '1px solid var(--color-border)',
                           boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                          color: '#ffffff'
+                          color: 'var(--color-card-foreground)'
                         }}
-                        labelStyle={{ color: '#ffffff' }}
-                        itemStyle={{color: '#ffffff', fontWeight: 600}}
+                        labelStyle={{ color: 'var(--color-card-foreground)' }}
+                        itemStyle={{color: 'var(--color-card-foreground)', fontWeight: 600}}
                         cursor={false}
                         formatter={(value: any, name: any, props: any) => {
                           const data = props.payload
-                          return [
-                            <div key="content" className="space-y-1">
-                              <div className="font-semibold tabular-nums text-white">{value.toFixed(1)} days</div>
-                              {data.mom !== 0 && (
-                                <div className={cn("text-xs tabular-nums flex items-center gap-1", data.mom > 0 ? "text-red-400" : "text-emerald-300")}>
-                                  {data.mom > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                                  MoM: {data.mom >= 0 ? '+' : ''}{data.mom.toFixed(1)}d ({data.momPct.toFixed(1)}%)
-                                </div>
-                              )}
-                            </div>
-                          ]
+                            return [
+                              <div key="content" className="space-y-1">
+                                <div className="font-semibold tabular-nums">{value.toFixed(1)} days</div>
+                                {data.mom !== 0 && (
+                                  <div className={cn("text-xs tabular-nums flex items-center gap-1", data.mom > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>
+                                    {data.mom > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                                    MoM: {data.mom >= 0 ? '+' : ''}{data.mom.toFixed(1)}d ({data.momPct.toFixed(1)}%)
+                                  </div>
+                                )}
+                              </div>
+                            ]
                         }}
                         labelFormatter={(label) => label}
                       />
@@ -2107,13 +2343,21 @@ export default function Dashboard({ data }: DashboardProps) {
             </Card>
           </div>
 
-          {/* SECTION 4: ORIGIN/MODE TEU BREAKDOWN - PIE CHART */}
-          {originModeTEU && originModeTEU.length > 0 && (
+          {/* SECTION 4: ORIGIN/MODE TEU BREAKDOWN - PIE CHART (SEA only) */}
+          {isSeaMode && originModeTEU && originModeTEU.length > 0 && (
             <div className="space-y-3">
               <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">TEU by Origin & Mode</h2>
               <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Total TEU Distribution</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setFullScreenCard({ type: 'teu-distribution', data: { originModeTEU } })}
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
                 </CardHeader>
                 <CardContent className="p-6 min-h-0">
                   <div className="h-[320px] w-full">
@@ -2136,7 +2380,21 @@ export default function Dashboard({ data }: DashboardProps) {
                         >
                           {originModeTEU.map((entry: any, index: number) => {
                             const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
-                            return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                            const isHovered = hoveredPieSegment?.chart === 'teu-distribution' && hoveredPieSegment?.index === index
+                            return (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={colors[index % colors.length]}
+                                style={{
+                                  cursor: 'pointer',
+                                  transform: isHovered ? 'scale(1.05) translate(2px, -2px)' : 'scale(1)',
+                                  transition: 'transform 0.2s ease-out',
+                                  filter: isHovered ? 'brightness(1.1)' : 'brightness(1)'
+                                }}
+                                onMouseEnter={() => setHoveredPieSegment({ chart: 'teu-distribution', index })}
+                                onMouseLeave={() => setHoveredPieSegment(null)}
+                              />
+                            )
                           })}
                         </Pie>
                         <Tooltip
@@ -2145,16 +2403,16 @@ export default function Dashboard({ data }: DashboardProps) {
                             borderRadius: '12px',
                             border: '1px solid var(--color-border)',
                             boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                            color: '#ffffff'
+                            color: 'var(--color-card-foreground)'
                           }}
-                          labelStyle={{ color: '#ffffff' }}
-                          itemStyle={{ color: '#ffffff' }}
+                          labelStyle={{ color: 'var(--color-card-foreground)' }}
+                          itemStyle={{ color: 'var(--color-card-foreground)', fontWeight: 600 }}
                           formatter={(value: any, name: any, props: any) => {
                             const data = props.payload
                             return [
                               <div key="content" className="space-y-1">
-                                <div className="font-semibold tabular-nums text-white">{value.toFixed(1)} TEU</div>
-                                <div className="text-xs text-slate-300 dark:text-slate-300">{data.origin} - {data.mode}</div>
+                                <div className="font-semibold tabular-nums">{value.toFixed(1)} TEU</div>
+                                <div className="text-xs text-slate-600 dark:text-slate-400">{data.origin} - {data.mode}</div>
                               </div>
                             ]
                           }}
@@ -2172,9 +2430,82 @@ export default function Dashboard({ data }: DashboardProps) {
               </Card>
             </div>
           )}
+
+          {/* AIR MODE: Airline Performance */}
+          {isAirMode && airMetrics && airMetrics.airlines.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Airline Performance</h2>
+              <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                    <PlaneIcon /> Top Airlines by Transit Time
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 min-h-0">
+                  <div className="h-[320px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={airMetrics.topAirlines}
+                        layout="vertical"
+                        margin={{ top: 20, right: 30, bottom: 20, left: 100 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                        <XAxis 
+                          type="number"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{fontSize: 12, fill: '#64748b'}}
+                          label={{ value: 'Average Transit Days', position: 'insideBottom', offset: -10, style: { fill: '#64748b', fontSize: 12, fontWeight: 600 } }}
+                        />
+                        <YAxis 
+                          type="category"
+                          dataKey="airline"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{fontSize: 12, fill: '#64748b'}}
+                          width={90}
+                        />
+                        <Tooltip 
+                          contentStyle={{
+                            backgroundColor: 'var(--color-card)', 
+                            borderRadius: '12px', 
+                            border: '1px solid var(--color-border)',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                            color: 'var(--color-card-foreground)'
+                          }}
+                          itemStyle={{color: 'var(--color-foreground)', fontWeight: 600}}
+                          cursor={false}
+                          formatter={(value: any, name: any, props: any) => {
+                            const data = props.payload
+                            return [
+                              <div key="content" className="space-y-1">
+                                <div className="font-semibold tabular-nums">{value.toFixed(1)} days avg</div>
+                                <div className="text-xs text-slate-600 dark:text-slate-400">{data.shipments} shipments</div>
+                              </div>,
+                              'Transit Time'
+                            ]
+                          }}
+                          labelFormatter={(label) => label}
+                        />
+                        <Bar dataKey="avgTransit" radius={[0, 8, 8, 0]} maxBarSize={40}>
+                          {airMetrics.topAirlines.map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={index === 0 ? '#10b981' : index === airMetrics.topAirlines.length - 1 ? '#ef4444' : '#3b82f6'} 
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
 
-        {/* SECTION 5: LINER PERFORMANCE */}
+        {/* SECTION 5: LINER/AIRLINE PERFORMANCE */}
+        {isSeaMode && (
         <div className="space-y-3">
           <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Liner Performance</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2215,6 +2546,14 @@ export default function Dashboard({ data }: DashboardProps) {
           <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Top Liners by Average Transit Time</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setFullScreenCard({ type: 'liner-performance', data: { kpis } })}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent className="p-6 min-h-0">
               <div className="h-[380px] w-full">
@@ -2276,14 +2615,498 @@ export default function Dashboard({ data }: DashboardProps) {
             </CardContent>
           </Card>
         </div>
+        )}
+
+        {/* ADVANCED ANALYTICS FROM SP */}
+        
+        {/* DELAY DISTRIBUTION */}
+        {delayDistribution && delayDistribution.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Delay Analysis</h2>
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Delay Distribution</CardTitle>
+                  <CardDescription className="text-xs text-slate-500 dark:text-slate-400">How severe are the delays?</CardDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setFullScreenCard({ type: 'delay-distribution', data: { delayDistribution } })}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="h-[320px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={delayDistribution} margin={{ top: 20, right: 30, bottom: 20, left: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                      <XAxis 
+                        dataKey="Delay_Category" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                        label={{ value: 'Shipment Count', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12 } }}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'var(--color-card)',
+                          borderRadius: '12px',
+                          border: '1px solid var(--color-border)',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          color: 'var(--color-card-foreground)'
+                        }}
+                        formatter={(value: any, name: any, props: any) => {
+                          const data = props.payload
+                          return [
+                            <div key="content" className="space-y-1">
+                              <div className="font-semibold">{value} shipments</div>
+                              <div className="text-xs text-slate-600 dark:text-slate-400">{data.Percentage}% of total</div>
+                            </div>,
+                            'Count'
+                          ]
+                        }}
+                      />
+                      <Bar dataKey="Shipment_Count" radius={[8, 8, 0, 0]} maxBarSize={60}>
+                        {delayDistribution.map((entry: any, index: number) => {
+                          const category = entry.Delay_Category || ''
+                          let fill = '#3b82f6' // default blue
+                          if (category.includes('Early')) fill = '#10b981' // green
+                          else if (category.includes('On Time')) fill = '#10b981' // green
+                          else if (category.includes('1-3 Days Late')) fill = '#f59e0b' // amber
+                          else if (category.includes('4-7 Days Late')) fill = '#f97316' // orange
+                          else if (category.includes('8-14 Days Late')) fill = '#ef4444' // red
+                          else if (category.includes('15+ Days Late')) fill = '#dc2626' // dark red
+                          return <Cell key={`cell-${index}`} fill={fill} />
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* LINER ON-TIME PERFORMANCE - Modernized */}
+        {linerOnTimePerformance && linerOnTimePerformance.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Carrier Reliability</h2>
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Liner On-Time Performance</CardTitle>
+                  <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Which carriers are reliable vs problematic</CardDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setFullScreenCard({ type: 'carrier-reliability', data: { linerOnTimePerformance } })}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {linerOnTimePerformance.slice(0, 9).map((liner: any, idx: number) => {
+                    const onTimePct = parseFloat(liner.OnTime_Percentage || 0)
+                    const performanceTier = onTimePct >= 80 ? 'excellent' : onTimePct >= 60 ? 'good' : 'needs-improvement'
+                    
+                    return (
+                      <Card key={`liner-${idx}`} className="border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate mb-1">{liner.LINER_NAME}</h4>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">{liner.Total_Shipments} shipments</div>
+                            </div>
+                            <div className={cn(
+                              "px-2 py-1 rounded text-xs font-semibold tabular-nums",
+                              performanceTier === 'excellent' ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400" :
+                              performanceTier === 'good' ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400" :
+                              "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400"
+                            )}>
+                              {onTimePct.toFixed(1)}%
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2 mb-3">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 dark:text-slate-400">On-Time</span>
+                              <span className="font-medium text-slate-900 dark:text-slate-100">{liner.OnTime_Shipments}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 dark:text-slate-400">Late</span>
+                              <span className="font-medium text-slate-900 dark:text-slate-100">{liner.Late_Shipments}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 dark:text-slate-400">Avg Delay</span>
+                              <span className="font-medium text-slate-900 dark:text-slate-100">{parseFloat(liner.Avg_Delay_Days || 0).toFixed(1)}d</span>
+                            </div>
+                          </div>
+                          
+                          <div className="h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div 
+                              className={cn(
+                                "h-full transition-all",
+                                performanceTier === 'excellent' ? "bg-emerald-500" : 
+                                performanceTier === 'good' ? "bg-amber-500" : "bg-red-500"
+                              )}
+                              style={{ width: `${onTimePct}%` }} 
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* ROUTE PERFORMANCE - Modernized */}
+        {routePerformance && routePerformance.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Route Analysis</h2>
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Route Performance (POL → POD)</CardTitle>
+                  <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Which trade lanes are problematic</CardDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setFullScreenCard({ type: 'route-performance', data: { routePerformance } })}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {routePerformance.slice(0, 9).map((route: any, idx: number) => {
+                    const onTimePct = parseFloat(route.OnTime_Percentage || 0)
+                    const performanceTier = onTimePct >= 80 ? 'excellent' : onTimePct >= 60 ? 'good' : 'needs-improvement'
+                    
+                    return (
+                      <Card key={`route-${idx}`} className="border border-slate-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">{route.Route}</h4>
+                              </div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">{route.Total_Shipments} shipments</div>
+                            </div>
+                            <div className={cn(
+                              "px-2 py-1 rounded text-xs font-semibold tabular-nums",
+                              performanceTier === 'excellent' ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400" :
+                              performanceTier === 'good' ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400" :
+                              "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400"
+                            )}>
+                              {onTimePct.toFixed(1)}%
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2 mb-3">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 dark:text-slate-400">On-Time</span>
+                              <span className="font-medium text-slate-900 dark:text-slate-100">{route.OnTime_Count}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 dark:text-slate-400">Avg Delay</span>
+                              <span className="font-medium text-slate-900 dark:text-slate-100">{parseFloat(route.Avg_Delay_Days || 0).toFixed(1)}d</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 dark:text-slate-400">Avg Transit</span>
+                              <span className="font-medium text-slate-900 dark:text-slate-100">{parseFloat(route.Avg_Transit_Days || 0).toFixed(1)}d</span>
+                            </div>
+                          </div>
+                          
+                          <div className="h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div 
+                              className={cn(
+                                "h-full transition-all",
+                                performanceTier === 'excellent' ? "bg-emerald-500" : 
+                                performanceTier === 'good' ? "bg-amber-500" : "bg-red-500"
+                              )}
+                              style={{ width: `${onTimePct}%` }} 
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* CONTAINER SIZE & WEEK PATTERN (SEA only) */}
+        {isSeaMode && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* CONTAINER SIZE IMPACT */}
+          {containerSizeImpact && containerSizeImpact.length > 0 && (
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Container Size Impact</CardTitle>
+                  <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Do larger containers get delayed more?</CardDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setFullScreenCard({ type: 'container-size', data: { containerSizeImpact } })}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={containerSizeImpact} margin={{ bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                      <XAxis 
+                        dataKey="Container_Size" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                        label={{ value: 'On-Time %', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12 } }}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'var(--color-card)',
+                          borderRadius: '12px',
+                          border: '1px solid var(--color-border)',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          color: 'var(--color-card-foreground)'
+                        }}
+                        formatter={(value: any, name: any, props: any) => {
+                          const data = props.payload
+                          return [
+                            <div key="content" className="space-y-1">
+                              <div className="font-semibold">{parseFloat(value).toFixed(1)}% on-time</div>
+                              <div className="text-xs text-slate-600 dark:text-slate-400">{data.Total_Shipments} shipments</div>
+                              <div className="text-xs text-slate-600 dark:text-slate-400">Avg delay: {parseFloat(data.Avg_Delay_Days || 0).toFixed(1)} days</div>
+                            </div>,
+                            'Performance'
+                          ]
+                        }}
+                      />
+                      <Bar dataKey="OnTime_Percentage" radius={[8, 8, 0, 0]} maxBarSize={60}>
+                        {containerSizeImpact.map((entry: any, index: number) => {
+                          const pct = parseFloat(entry.OnTime_Percentage || 0)
+                          const fill = pct >= 80 ? '#10b981' : pct >= 60 ? '#f59e0b' : '#ef4444'
+                          return <Cell key={`cell-${index}`} fill={fill} />
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* WEEK OF MONTH PATTERN */}
+          {weekOfMonthPattern && weekOfMonthPattern.length > 0 && (
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Week-of-Month Pattern</CardTitle>
+                  <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Are delays more common at month-end?</CardDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setFullScreenCard({ type: 'week-pattern', data: { weekOfMonthPattern } })}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={weekOfMonthPattern} margin={{ bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                      <XAxis 
+                        dataKey="Week_Of_Month" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fontSize: 11, fill: '#64748b'}}
+                        label={{ value: 'On-Time %', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12 } }}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'var(--color-card)',
+                          borderRadius: '12px',
+                          border: '1px solid var(--color-border)',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                          color: 'var(--color-card-foreground)'
+                        }}
+                        formatter={(value: any, name: any, props: any) => {
+                          const data = props.payload
+                          return [
+                            <div key="content" className="space-y-1">
+                              <div className="font-semibold">{parseFloat(value).toFixed(1)}% on-time</div>
+                              <div className="text-xs text-slate-600 dark:text-slate-400">{data.Total_Shipments} shipments</div>
+                            </div>,
+                            'Performance'
+                          ]
+                        }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="OnTime_Percentage" 
+                        stroke="#3b82f6" 
+                        strokeWidth={3}
+                        dot={{ r: 5, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
+                        activeDot={{ r: 7, strokeWidth: 2 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+        )}
+
+        {/* SHIPMENT STATUS BREAKDOWN */}
+        {shipmentStatusBreakdown && shipmentStatusBreakdown.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Shipment Status</h2>
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Current Status Breakdown</CardTitle>
+                  <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Where are all shipments in the pipeline</CardDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setFullScreenCard({ type: 'status-breakdown', data: { shipmentStatusBreakdown } })}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={shipmentStatusBreakdown}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ Status, Percentage }) => `${Status}: ${parseFloat(Percentage).toFixed(1)}%`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="Count"
+                        >
+                          {shipmentStatusBreakdown.map((entry: any, index: number) => {
+                            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316']
+                            const isHovered = hoveredPieSegment?.chart === 'status-breakdown' && hoveredPieSegment?.index === index
+                            return (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={colors[index % colors.length]}
+                                style={{
+                                  cursor: 'pointer',
+                                  transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+                                  transformOrigin: 'center',
+                                  transition: 'transform 0.2s ease-out',
+                                  filter: isHovered ? 'brightness(1.1)' : 'brightness(1)'
+                                }}
+                                onMouseEnter={() => setHoveredPieSegment({ chart: 'status-breakdown', index })}
+                                onMouseLeave={() => setHoveredPieSegment(null)}
+                              />
+                            )
+                          })}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--color-card)',
+                            borderRadius: '12px',
+                            border: '1px solid var(--color-border)',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                            color: 'var(--color-card-foreground)'
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-2">
+                    {shipmentStatusBreakdown.map((status: any, idx: number) => {
+                      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316']
+                      return (
+                        <div key={`status-${idx}`} className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors[idx % colors.length] }} />
+                              <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">{status.Status}</span>
+                            </div>
+                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{status.Count}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                            <span>{parseFloat(status.Percentage).toFixed(1)}% of total</span>
+                            <span>{parseFloat(status.Total_TEU || 0).toFixed(1)} TEU</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
                 {/* MODE INSIGHTS WIDE CARD */}
             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
-                  <PieChartIcon className="w-4 h-4" /> Mode insights
-                </CardTitle>
-                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Distribution, trends, and top lanes</CardDescription>
+                <div>
+                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                    <Layers className="w-4 h-4" /> Mode insights
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Distribution, trends, and top lanes</CardDescription>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setFullScreenCard({ type: 'mode-insights', data: { modeStats, modeMonthly, laneStats, statusStats } })}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -2301,9 +3124,24 @@ export default function Dashboard({ data }: DashboardProps) {
                           dataKey="value"
                           animationDuration={300}
                         >
-                          {modeStats.map((entry, index) => (
-                            <Cell key={`full-mode-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
+                          {modeStats.map((entry, index) => {
+                            const isHovered = hoveredPieSegment?.chart === 'mode-insights-pie' && hoveredPieSegment?.index === index
+                            return (
+                              <Cell 
+                                key={`full-mode-${index}`} 
+                                fill={COLORS[index % COLORS.length]}
+                                style={{
+                                  cursor: 'pointer',
+                                  transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+                                  transformOrigin: 'center',
+                                  transition: 'transform 0.2s ease-out',
+                                  filter: isHovered ? 'brightness(1.1)' : 'brightness(1)'
+                                }}
+                                onMouseEnter={() => setHoveredPieSegment({ chart: 'mode-insights-pie', index })}
+                                onMouseLeave={() => setHoveredPieSegment(null)}
+                              />
+                            )
+                          })}
                         </Pie>
                         <Tooltip 
                           contentStyle={{
@@ -2399,11 +3237,35 @@ export default function Dashboard({ data }: DashboardProps) {
                                     paddingAngle={5}
                                     dataKey="value"
                                 >
-                                    {statusStats.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
+                                    {statusStats.map((entry, index) => {
+                                      const isHovered = hoveredPieSegment?.chart === 'mode-insights-status' && hoveredPieSegment?.index === index
+                                      return (
+                                        <Cell 
+                                          key={`cell-${index}`} 
+                                          fill={COLORS[index % COLORS.length]}
+                                          style={{
+                                            cursor: 'pointer',
+                                            transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+                                            transformOrigin: 'center',
+                                            transition: 'transform 0.2s ease-out',
+                                            filter: isHovered ? 'brightness(1.1)' : 'brightness(1)'
+                                          }}
+                                          onMouseEnter={() => setHoveredPieSegment({ chart: 'mode-insights-status', index })}
+                                          onMouseLeave={() => setHoveredPieSegment(null)}
+                                        />
+                                      )
+                                    })}
                                 </Pie>
-                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                <Tooltip 
+                                  contentStyle={{
+                                    backgroundColor: 'var(--color-card)',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--color-border)',
+                                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                                    color: 'var(--color-card-foreground)'
+                                  }}
+                                  itemStyle={{ color: 'var(--color-card-foreground)' }}
+                                />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
@@ -2546,11 +3408,18 @@ export default function Dashboard({ data }: DashboardProps) {
              <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-900">
                 <CardHeader className="pb-0 pt-4 px-4 flex flex-row items-center justify-between">
                   <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2"><MapPin className="w-4 h-4" /> Shipment Routing</CardTitle>
-                  <Button variant="ghost" size="sm" className="h-6 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">Full Screen</Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setFullScreenCard({ type: 'map', data: { mapMarkers, mapRoutes } })}
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
                 </CardHeader>
                 <CardContent className="p-0 h-[300px]">
                    {mapMarkers.length > 0 ? (
-                      <Map markers={mapMarkers} height="300px" />
+                      <Map markers={mapMarkers} routes={mapRoutes} height="300px" />
                     ) : (
                       <div className="h-full flex items-center justify-center bg-slate-50 dark:bg-zinc-950 text-slate-400">No map data</div>
                     )}
@@ -2566,11 +3435,138 @@ export default function Dashboard({ data }: DashboardProps) {
         record={selectedRecord}
       />
 
+      {/* Full Screen Card Modal */}
+      {fullScreenCard && (
+        <FullScreenCardModal
+          open={!!fullScreenCard}
+          onOpenChange={(open) => !open && setFullScreenCard(null)}
+          title={getFullScreenTitle(fullScreenCard.type)}
+          description={getFullScreenDescription(fullScreenCard.type)}
+          cardType={fullScreenCard.type}
+          data={fullScreenCard.data}
+          chartComponent={renderFullScreenChart(fullScreenCard.type, fullScreenCard.data)}
+          detailsComponent={renderFullScreenDetails(fullScreenCard.type, fullScreenCard.data)}
+        />
+      )}
+
       {/* Footer */}
       <Footer />
     </div>
     
   )
+
+  // Helper functions for full-screen modal
+  function getFullScreenTitle(type: string): string {
+    const titles: Record<string, string> = {
+      'deliveries': 'Deliveries Overview',
+      'volume-analysis': 'Shipment Volume Analysis',
+      'tonnage-origin': 'Tonnage by Origin',
+      'top-lanes': 'Top Lanes',
+      'transit-legs': 'Transit Legs Breakdown',
+      'teu-distribution': 'TEU Distribution',
+      'liner-performance': 'Liner Performance',
+      'delay-distribution': 'Delay Distribution',
+      'carrier-reliability': 'Carrier Reliability',
+      'route-performance': 'Route Performance',
+      'container-size': 'Container Size Impact',
+      'week-pattern': 'Week-of-Month Pattern',
+      'status-breakdown': 'Shipment Status Breakdown',
+      'mode-insights': 'Mode Insights',
+      'map': 'Shipment Routing Map'
+    }
+    return titles[type] || 'Full Screen View'
+  }
+
+  function getFullScreenDescription(type: string): string {
+    const descriptions: Record<string, string> = {
+      'deliveries': 'Comprehensive delivery metrics and KPIs',
+      'volume-analysis': 'Detailed volume trends and analysis',
+      'tonnage-origin': 'Tonnage breakdown by origin port',
+      'top-lanes': 'Top shipping lanes by volume',
+      'transit-legs': 'Detailed transit leg analysis',
+      'teu-distribution': 'TEU distribution across origins and modes',
+      'liner-performance': 'Detailed liner performance metrics',
+      'delay-distribution': 'Delay severity distribution analysis',
+      'carrier-reliability': 'Carrier reliability and on-time performance',
+      'route-performance': 'Route performance and trade lane analysis',
+      'container-size': 'Impact of container size on delays',
+      'week-pattern': 'Weekly pattern analysis',
+      'status-breakdown': 'Current shipment status breakdown',
+      'mode-insights': 'Mode distribution and insights',
+      'map': 'Interactive shipment routing visualization'
+    }
+    return descriptions[type] || ''
+  }
+
+  function renderFullScreenChart(type: string, data: any): React.ReactNode {
+    switch (type) {
+      case 'volume-analysis':
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data.monthlyTrendWithPrev}>
+              <defs>
+                <linearGradient id="mainChartGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
+              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
+              <Tooltip 
+                contentStyle={{
+                  backgroundColor: 'var(--color-card)', 
+                  borderRadius: '12px', 
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-card-foreground)'
+                }} 
+                itemStyle={{color: 'var(--color-foreground)', fontWeight: 600}}
+              />
+              <Area type="monotone" dataKey="val" stroke="#10b981" strokeWidth={3} fill="url(#mainChartGradient)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        )
+      case 'map':
+        return <Map markers={data.mapMarkers} routes={data.mapRoutes} height="100%" />
+      default:
+        return <div className="text-slate-500 dark:text-slate-400">Chart view coming soon</div>
+    }
+  }
+
+  function renderFullScreenDetails(type: string, data: any): React.ReactNode {
+    switch (type) {
+      case 'carrier-reliability':
+        return (
+          <div className="space-y-3">
+            {data.linerOnTimePerformance?.map((liner: any, idx: number) => (
+              <div key={idx} className="p-4 rounded-lg border border-slate-200 dark:border-zinc-800">
+                <div className="font-semibold text-slate-900 dark:text-slate-50">{liner.LINER_NAME}</div>
+                <div className="grid grid-cols-4 gap-4 mt-2 text-sm">
+                  <div>
+                    <div className="text-slate-500 dark:text-slate-400">Total</div>
+                    <div className="font-semibold">{liner.Total_Shipments}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 dark:text-slate-400">On-Time</div>
+                    <div className="font-semibold text-emerald-600 dark:text-emerald-400">{liner.OnTime_Shipments}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 dark:text-slate-400">Late</div>
+                    <div className="font-semibold text-red-600 dark:text-red-400">{liner.Late_Shipments}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 dark:text-slate-400">On-Time %</div>
+                    <div className="font-semibold">{parseFloat(liner.OnTime_Percentage || 0).toFixed(1)}%</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      default:
+        return <div className="text-slate-500 dark:text-slate-400">Details view coming soon</div>
+    }
+  }
 }
 
 // --- SUB-COMPONENTS ---

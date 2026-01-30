@@ -4,7 +4,16 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { executeSP, executeQuery } from "@/lib/db"
 
-export async function getShipments() {
+// Filter Types
+export interface DashboardFilters {
+  mode?: string | null          // 'SEA', 'AIR', 'SEA-AIR', NULL = ALL
+  client?: string | null         // Specific CONCODE, NULL = ALL
+  dateFrom?: string | null       // YYYYMMDD format, NULL = use default
+  dateTo?: string | null         // YYYYMMDD format, NULL = use default
+  office?: string | null         // Comma-separated POL codes (e.g., 'NH1,BOM,MAA'), NULL = ALL
+}
+
+export async function getShipments(filters?: DashboardFilters) {
   const session = await getServerSession(authOptions)
 
   if (!session?.user) return null
@@ -15,6 +24,7 @@ export async function getShipments() {
   const username = rawName.trim()
 
   console.log(`--- FETCHING DATA FOR: '${username}' ---`)
+  console.log('FILTERS:', filters)
 
   // --- DEMO MODE: Return mock data instead of querying database ---
   const { role } = session.user as any
@@ -26,16 +36,27 @@ export async function getShipments() {
     // Return in new format for demo mode
     return {
       rawShipments: mockData,
-      kpiTotals: { TOTAL_SHIPMENT: mockData.length, CONT_GRWT: mockData.reduce((sum: number, r: any) => sum + (r.CONT_GRWT || 0), 0) },
+      kpiTotals: { TOTAL_SHIPMENT: mockData.length, CONT_GRWT: mockData.reduce((sum: number, r: any) => sum + (r.CONT_GRWT || 0), 0), ORD_CHBLWT: 0 },
       monthlyStats: [],
       avgTransit: { AvgTT_Pickup_Arrival: 0 },
       monthlyAvgTransit: [],
-      originModeTEU: [],
       extremes: { Fastest_TT: 0, Slowest_TT: 0 },
-      median: { Median_TT: 0 },
       onTime: { OnTime_Percentage: 0 },
       monthlyOnTime: [],
-      transitBreakdown: {}
+      transitBreakdown: {},
+      originModeTEU: [],
+      linerBreakdown: [],
+      departToLastDelivery: {},
+      monthlyDepartToLastDelivery: [],
+      linerOnTimePerformance: [],
+      routePerformance: [],
+      delayDistribution: [],
+      containerSizeImpact: [],
+      clientPerformance: [],
+      weekOfMonthPattern: [],
+      shipmentStatusBreakdown: [],
+      metadata: {},
+      clientGroups: []
     }
   }
 
@@ -53,56 +74,91 @@ export async function getShipments() {
     const dbPassword = authResult[0].CMP_PASSWORD
     console.log(`--- CREDENTIALS VERIFIED. CALLING SP... ---`)
 
-    // 3. EXECUTE DASHBOARD SP
-    const spQuery = `EXEC USP_CLIENT_DASHBOARD_PAGELOAD @p0, @p1`
-    const resultSets = await executeSP(spQuery, [username, dbPassword])
+    // 3. PREPARE FILTER PARAMETERS
+    const filterMode = filters?.mode || null
+    const filterClient = filters?.client || null
+    const filterDateFrom = filters?.dateFrom || null
+    const filterDateTo = filters?.dateTo || null
+    const filterOffice = filters?.office || null
+
+    // 4. EXECUTE DASHBOARD SP WITH FILTERS
+    const spQuery = `EXEC USP_CLIENT_DASHBOARD_PAGELOAD @p0, @p1, @p2, @p3, @p4, @p5, @p6`
+    const resultSets = await executeSP(spQuery, [
+      username,
+      dbPassword,
+      filterMode,
+      filterClient,
+      filterDateFrom,
+      filterDateTo,
+      filterOffice
+    ])
 
     if (!resultSets || !Array.isArray(resultSets)) return null
 
-    // 4. MAP RESULT SETS (Updated to SP: 28-01-2026)
-    // Index 0: CMPID, PKID, CONCODE, GRPCODE (metadata - ignore)
-    // Index 1: TEXTFIELD, VALUEFIELD (consignee groups - ignore)
-    // Index 2: RAW SHIPMENT LIST (from #TMP_SPResults)
+    // 5. MAP RESULT SETS (Updated to SP: 30-01-2026 - FILTERED VERSION)
+    // Index 0: CMPID, PKID, CONCODE, GRPCODE (metadata)
+    // Index 1: TEXTFIELD, VALUEFIELD (consignee groups)
+    // Index 2: RAW SHIPMENT LIST (from #TMP_SPResults - FILTERED)
     // Index 3: TOTAL_SHIPMENT, CONT_GRWT, ORD_CHBLWT
     // Index 4: Month, Total_TEU, Total_CBM, Total_Weight_KG
-    // Index 5: Avg Transit Breakdown (Avg_Pickup_Arrival, Avg_Departure_Delivery, Avg_Cargo_ATD, Avg_ATD_ATA, Avg_ATA_Delivery)
+    // Index 5: Avg Transit Breakdown (6 columns)
     // Index 6: Fastest_TT, Slowest_TT
     // Index 7: OnTime_Percentage
     // Index 8: Month, OnTime_Percentage
     // Index 9: Month-wise AvgTT_Pickup_Arrival
-    // Index 10: ORIGIN, MODE, Total_TEU (for pie chart)
+    // Index 10: ORIGIN, MODE, Total_TEU
     // Index 11: LINER_NAME, AvgTransitTime_Liner
-    // Index 12: AvgTT_Departure_LastDelivery (single)
+    // Index 12: AvgTT_Departure_LastDelivery
     // Index 13: Month-wise AvgTT_Departure_LastDelivery
-    // Index 14: Median_TT
+    // Index 14: Liner-wise On-Time Performance
+    // Index 15: Route Performance (POL → POD)
+    // Index 16: Delay Distribution (Bucketed)
+    // Index 17: Container Size Impact
+    // Index 18: Client-wise Performance
+    // Index 19: Week-of-Month Pattern
+    // Index 20: Shipment Status Breakdown
 
     const transitBreakdown = resultSets[5]?.[0] || {}
     const payload = {
+      // Core Data
       rawShipments: resultSets[2] || [],
       kpiTotals: resultSets[3]?.[0] || { TOTAL_SHIPMENT: 0, CONT_GRWT: 0, ORD_CHBLWT: 0 },
       monthlyStats: resultSets[4] || [],
 
-      // Keep the same frontend shape: Dashboard expects avgTransit.AvgTT_Pickup_Arrival
-      // New SP now outputs this value inside the breakdown table as Avg_Pickup_Arrival.
+      // Transit Metrics
       avgTransit: { AvgTT_Pickup_Arrival: transitBreakdown.Avg_Pickup_Arrival || 0 },
       monthlyAvgTransit: resultSets[9] || [],
-
       extremes: resultSets[6]?.[0] || { Fastest_TT: 0, Slowest_TT: 0 },
-      onTime: resultSets[7]?.[0] || { OnTime_Percentage: 0 },
-      monthlyOnTime: resultSets[8] || [],
-      originModeTEU: resultSets[10] || [],
       transitBreakdown,
 
-      // Keep existing key name expected by Dashboard
-      median: resultSets[14]?.[0] || { Median_TT: 0 },
+      // On-Time Metrics
+      onTime: resultSets[7]?.[0] || { OnTime_Percentage: 0 },
+      monthlyOnTime: resultSets[8] || [],
 
-      // Extra SP outputs (not required by current Dashboard, but available)
+      // Breakdown Charts
+      originModeTEU: resultSets[10] || [],
       linerBreakdown: resultSets[11] || [],
+      
+      // Delivery Metrics
       departToLastDelivery: resultSets[12]?.[0] || {},
       monthlyDepartToLastDelivery: resultSets[13] || [],
+
+      // NEW: Advanced Analytics (from new SP)
+      linerOnTimePerformance: resultSets[14] || [],
+      routePerformance: resultSets[15] || [],
+      delayDistribution: resultSets[16] || [],
+      containerSizeImpact: resultSets[17] || [],
+      clientPerformance: resultSets[18] || [],
+      weekOfMonthPattern: resultSets[19] || [],
+      shipmentStatusBreakdown: resultSets[20] || [],
+
+      // Metadata
+      metadata: resultSets[0]?.[0] || {},
+      clientGroups: resultSets[1] || [],
     }
 
     console.log(`--- DATA LOADED: ${payload.rawShipments.length} Rows, Total Weight: ${payload.kpiTotals.CONT_GRWT} ---`)
+    console.log(`--- FILTERS APPLIED: Mode=${filterMode}, Client=${filterClient}, Dates=${filterDateFrom}-${filterDateTo}, Office=${filterOffice} ---`)
     
     return payload
 
