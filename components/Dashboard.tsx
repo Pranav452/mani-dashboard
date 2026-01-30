@@ -1414,28 +1414,8 @@ export default function Dashboard({ data }: DashboardProps) {
             
             {/* SECTION 1: DELIVERIES (METRICS) */}
             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
-              <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Deliveries</CardTitle>
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-[10px] leading-tight p-2">
-                        <p className="text-[10px]">Key delivery metrics: Total Weight (tons), Transit Performance (average days from departure to arrival), and Total Shipments (unique job files).</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setFullScreenCard({ type: 'deliveries', data: { kpis, monthlyTrend } })}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Deliveries</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1445,7 +1425,7 @@ export default function Dashboard({ data }: DashboardProps) {
                      <div className="flex items-center justify-between mb-3">
                        <MetricLabel 
                          label="Total Weight" 
-                         tooltip="Total weight of all shipments in tons. Calculated from CONT_GRWT field (in kilograms) divided by 1000. Represents the gross weight used for freight calculations."
+                         tooltip="Total weight of all shipments in tons."
                          className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                        />
                        <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
@@ -1575,7 +1555,7 @@ export default function Dashboard({ data }: DashboardProps) {
                      <div className="flex items-center justify-between mb-3">
                        <MetricLabel 
                          label="Total Shipments" 
-                         tooltip="Total count of unique shipment files/jobs in the selected period. Calculated from distinct JOBNO values."
+                         tooltip="Total count of unique shipment files/jobs in the selected period."
                          className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                        />
                        <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
@@ -1929,7 +1909,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800 min-w-0">
                   <MetricLabel 
                     label="Exceptions" 
-                    tooltip="Count of shipments with exceptions or issues. Includes late shipments, missing data, or other anomalies."
+                    tooltip="Count of shipments with exceptions or issues."
                     className="text-[10px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1 truncate"
                   />
                   <div className="flex items-end justify-between gap-1 min-w-0">
@@ -1946,7 +1926,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800 min-w-0">
                   <MetricLabel 
                     label="Total Weight" 
-                    tooltip="Sum of all cargo weights in tons from CONT_GRWT field."
+                    tooltip="Total cargo weight in tons."
                     className="text-[10px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1 truncate"
                   />
                   <div className="flex flex-col gap-0.5 min-w-0">
@@ -1965,7 +1945,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800 min-w-0">
                   <MetricLabel 
                     label="CO2 Emissions" 
-                    tooltip="Estimated CO2 emissions in tons based on shipment weight and distance. Calculated using standard emission factors per transport mode."
+                    tooltip="Estimated CO2 emissions in tons based on shipment weight and distance."
                     className="text-[10px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1 truncate"
                   />
                   <div className="flex flex-col gap-0.5 min-w-0">
@@ -2084,7 +2064,7 @@ export default function Dashboard({ data }: DashboardProps) {
                   <div className="flex items-center justify-between mb-4">
                     <MetricLabel 
                       label="Total Shipments" 
-                      tooltip="Total count of unique shipment files/jobs in the selected period. Each shipment represents one job number (JOBNO)."
+                      tooltip="Total count of unique shipment files/jobs."
                       className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                     />
                     <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
@@ -2102,7 +2082,7 @@ export default function Dashboard({ data }: DashboardProps) {
                   <div className="flex items-center justify-between mb-4">
                     <MetricLabel 
                       label="Total Weight" 
-                      tooltip="Sum of all cargo weights in tons. Calculated from CONT_GRWT (Container Gross Weight) field. Formula: Sum of weights ÷ 1000 (if stored in kg) or direct sum if already in tons."
+                      tooltip="Total cargo weight in tons."
                       className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                     />
                     <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
@@ -2141,7 +2121,7 @@ export default function Dashboard({ data }: DashboardProps) {
                     <div className="flex items-center justify-between mb-4">
                       <MetricLabel 
                         label="TEU" 
-                        tooltip="Total Twenty-foot Equivalent Units. Standard unit for measuring container capacity. One TEU equals one 20-foot container. Calculated from CONT_TEU field."
+                        tooltip="Total Twenty-foot Equivalent Units - standard unit for measuring container capacity."
                         className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                       />
                       <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
@@ -2158,7 +2138,7 @@ export default function Dashboard({ data }: DashboardProps) {
                     <div className="flex items-center justify-between mb-4">
                       <MetricLabel 
                         label="MAWB Count" 
-                        tooltip="Total count of Master Air Waybills. MAWB is the primary document for air freight shipments issued by the airline. Counted from unique CONTMAWB or MAWB values."
+                        tooltip="Total count of Master Air Waybills for air freight shipments."
                         className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                       />
                       <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
@@ -2177,7 +2157,7 @@ export default function Dashboard({ data }: DashboardProps) {
                   <div className="flex items-center justify-between mb-4">
                     <MetricLabel 
                       label="CBM" 
-                      tooltip="Total Cubic Meters - volume measurement for cargo. Calculated from CONT_CBM field. Used for volumetric weight calculations in freight pricing."
+                      tooltip="Total Cubic Meters - volume measurement for cargo."
                       className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                     />
                     <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
@@ -2200,7 +2180,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 <CardContent className="p-5">
                   <MetricLabel 
                     label="Average Transit Time" 
-                    tooltip="Mean transit time calculated from ATD (Actual Time of Departure) to ATA (Actual Time of Arrival) for all shipments with valid transit data. Formula: Sum of transit days ÷ Count of shipments."
+                    tooltip="Average transit time from departure to arrival for all shipments."
                     className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3"
                   />
                   <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.avgTransit.toFixed(1)}</div>
@@ -2239,7 +2219,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 <CardContent className="p-5">
                   <MetricLabel 
                     label="On-Time Percentage" 
-                    tooltip="Percentage of shipments where ATA (Actual Time of Arrival) is on or before ETA (Estimated Time of Arrival). Formula: (On-time shipments ÷ Total shipments with ATA/ETA) × 100."
+                    tooltip="Percentage of shipments that arrived on or before the estimated arrival time."
                     className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3"
                   />
                   <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight mb-2">{kpis.onTimePct.toFixed(1)}%</div>
@@ -2254,7 +2234,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 <CardContent className="p-5">
                   <MetricLabel 
                     label="Late Shipments" 
-                    tooltip="Count of shipments where ATA is after ETA. Calculated as: Total shipments with ATA/ETA minus On-time shipments."
+                    tooltip="Count of shipments that arrived after the estimated arrival time."
                     className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3"
                   />
                   <div className="text-2xl font-semibold text-amber-700 dark:text-amber-400 tabular-nums tracking-tight">
@@ -2271,7 +2251,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 <CardContent className="p-5">
                   <MetricLabel 
                     label="Shipments with Transit Data" 
-                    tooltip="Total count of shipments that have both ATD and ATA dates, and where ATA is on or after ATD. Only these shipments are included in transit time calculations."
+                    tooltip="Total count of shipments with valid transit data."
                     className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3"
                   />
                   <div className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.transitShipmentCount}</div>
@@ -2291,7 +2271,7 @@ export default function Dashboard({ data }: DashboardProps) {
                   <div className="flex items-center justify-between mb-4">
                     <MetricLabel 
                       label="Pickup → Arrival" 
-                      tooltip="Average transit time from Cargo Receipt date to ATA (Actual Time of Arrival). Calculated as: Sum of (ATA - Cargo Receipt) ÷ Count of shipments with both dates."
+                      tooltip="Average transit time from cargo receipt to arrival."
                       className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                     />
                     <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
@@ -2319,7 +2299,7 @@ export default function Dashboard({ data }: DashboardProps) {
                   <div className="flex items-center justify-between mb-4">
                     <MetricLabel 
                       label="Pickup → Delivery" 
-                      tooltip="Average transit time from Cargo Receipt date to Delivery date. Calculated as: Sum of (Delivery - Cargo Receipt) ÷ Count of shipments with both dates."
+                      tooltip="Average transit time from cargo receipt to delivery."
                       className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                     />
                     <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
@@ -2347,7 +2327,7 @@ export default function Dashboard({ data }: DashboardProps) {
                   <div className="flex items-center justify-between mb-4">
                     <MetricLabel 
                       label="Departure → Arrival" 
-                      tooltip="Average transit time from ATD (Actual Time of Departure) to ATA (Actual Time of Arrival). This is the core transit metric. Calculated as: Sum of (ATA - ATD) ÷ Count of shipments with both dates."
+                      tooltip="Average transit time from departure to arrival."
                       className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                     />
                     <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
@@ -2375,7 +2355,7 @@ export default function Dashboard({ data }: DashboardProps) {
                   <div className="flex items-center justify-between mb-4">
                     <MetricLabel 
                       label="Departure → Delivery" 
-                      tooltip="Average transit time from ATD (Actual Time of Departure) to Delivery date. Calculated as: Sum of (Delivery - ATD) ÷ Count of shipments with both dates."
+                      tooltip="Average transit time from departure to delivery."
                       className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                     />
                     <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
@@ -2410,7 +2390,7 @@ export default function Dashboard({ data }: DashboardProps) {
                     <CardContent className="p-4">
                       <MetricLabel 
                         label="Cargo → ATD" 
-                        tooltip="Average time from Cargo Receipt date to ATD (Actual Time of Departure). Calculated as: Sum of (ATD - Cargo Receipt) ÷ Count of shipments with both dates."
+                        tooltip="Average time from cargo receipt to departure."
                         className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2"
                       />
                       <div className="text-xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.cargoToATD.toFixed(1)}</div>
@@ -2425,7 +2405,7 @@ export default function Dashboard({ data }: DashboardProps) {
                     <CardContent className="p-4">
                       <MetricLabel 
                         label="ATA → Delivery" 
-                        tooltip="Average time from ATA (Actual Time of Arrival) to Delivery date. Calculated as: Sum of (Delivery - ATA) ÷ Count of shipments with both dates."
+                        tooltip="Average time from arrival to delivery."
                         className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2"
                       />
                       <div className="text-xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums">{kpis.legs.ataToDelivery.toFixed(1)}</div>
@@ -2768,7 +2748,7 @@ export default function Dashboard({ data }: DashboardProps) {
               <CardContent className="p-4">
                 <MetricLabel 
                   label="Best Liner (Min Avg TT)" 
-                  tooltip="Liner with the lowest average transit time from ATD to ATA. Calculated as: Sum of transit days ÷ Count of shipments per liner."
+                  tooltip="Liner with the lowest average transit time."
                   className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate"
                 />
                 {kpis.liner.bestLiner ? (
@@ -2788,7 +2768,7 @@ export default function Dashboard({ data }: DashboardProps) {
               <CardContent className="p-4">
                 <MetricLabel 
                   label="Worst Liner (Max Avg TT)" 
-                  tooltip="Liner with the highest average transit time from ATD to ATA. Calculated as: Sum of transit days ÷ Count of shipments per liner."
+                  tooltip="Liner with the highest average transit time."
                   className="text-[10px] uppercase text-slate-500 dark:text-slate-400 font-semibold mb-1 truncate"
                 />
                 {kpis.liner.worstLiner ? (
@@ -2807,27 +2787,7 @@ export default function Dashboard({ data }: DashboardProps) {
           {/* LINER BAR CHART */}
           <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Top Liners by Average Transit Time</CardTitle>
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs text-[10px] leading-tight p-2">
-                      <p className="text-[10px]">Average transit time per liner/carrier calculated from ATD to ATA. Only liners with valid transit data are shown. Sorted by fastest to slowest.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setFullScreenCard({ type: 'liner-performance', data: { kpis } })}
-              >
-                <Maximize2 className="h-4 w-4" />
-              </Button>
+              <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Top Liners by Average Transit Time</CardTitle>
             </CardHeader>
             <CardContent className="p-6 min-h-0">
               <div className="h-[380px] w-full">
@@ -3039,7 +2999,7 @@ export default function Dashboard({ data }: DashboardProps) {
                             <div className="flex items-center justify-between text-xs">
                               <MetricLabel 
                                 label="Avg Delay" 
-                                tooltip="Average delay in days when ATA is after ETA. Calculated as: Sum of (ATA - ETA) for late shipments ÷ Count of late shipments."
+                                tooltip="Average delay in days for late shipments."
                                 className="text-slate-500 dark:text-slate-400"
                               />
                               <span className="font-medium text-slate-900 dark:text-slate-100">{parseFloat(liner.Avg_Delay_Days || 0).toFixed(1)}d</span>
@@ -3338,33 +3298,11 @@ export default function Dashboard({ data }: DashboardProps) {
 
                 {/* MODE INSIGHTS WIDE CARD */}
             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
-              <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div>
-                    <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
-                      <Layers className="w-4 h-4" /> Mode Insights
-                    </CardTitle>
-                    <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Distribution, trends, and top lanes</CardDescription>
-                  </div>
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-[10px] leading-tight p-2">
-                        <p className="text-[10px]">Comprehensive view of shipping mode distribution (SEA, AIR, ROAD), monthly trends, top lanes by weight, and container status breakdown.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setFullScreenCard({ type: 'mode-insights', data: { modeStats, modeMonthly, laneStats, statusStats } })}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                  <Layers className="w-4 h-4" /> Mode Insights
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Distribution, trends, and top lanes</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -3768,6 +3706,8 @@ export default function Dashboard({ data }: DashboardProps) {
   }
 
   function renderFullScreenChart(type: string, data: any): React.ReactNode {
+    const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316']
+    
     switch (type) {
       case 'volume-analysis':
         return (
@@ -3795,10 +3735,253 @@ export default function Dashboard({ data }: DashboardProps) {
             </AreaChart>
           </ResponsiveContainer>
         )
+      case 'tonnage-origin':
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data.originStats} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+              <XAxis type="number" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
+              <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} width={100} />
+              <RechartsTooltip 
+                contentStyle={{
+                  backgroundColor: 'var(--color-card)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-card-foreground)'
+                }}
+                labelStyle={{ color: 'var(--color-card-foreground)' }}
+                itemStyle={{ color: 'var(--color-card-foreground)', fontWeight: 600 }}
+                cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
+              />
+              <Bar dataKey="val" radius={[0, 4, 4, 0]} barSize={30}>
+                {data.originStats.map((entry: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )
+      case 'top-lanes':
+        return (
+          <div className="space-y-3">
+            {data.laneStats?.slice(0, 20).map((lane: any, idx: number) => (
+              <div key={idx} className="p-4 rounded-lg border border-slate-200 dark:border-zinc-800">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${idx === 0 ? "bg-emerald-500" : idx === 1 ? "bg-slate-800 dark:bg-slate-600" : idx === 2 ? "bg-yellow-400" : "bg-slate-300 dark:bg-zinc-700"}`} />
+                    <span className="font-semibold text-slate-900 dark:text-slate-50">{lane.name}</span>
+                  </div>
+                  <span className="font-bold text-slate-900 dark:text-slate-50">{lane.weight.toFixed(1)}t</span>
+                </div>
+                <div className="h-2 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500" style={{ width: `${Math.min((lane.weight / (data.laneStats[0]?.weight || 1)) * 100, 100)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      case 'transit-legs':
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={[
+              { leg: 'Pickup → Arrival', days: data.kpis?.legs?.pickupToArrival || 0 },
+              { leg: 'Pickup → Delivery', days: data.kpis?.legs?.pickupToDelivery || 0 },
+              { leg: 'Departure → Arrival', days: data.kpis?.legs?.depToArrival || 0 },
+              { leg: 'Departure → Delivery', days: data.kpis?.legs?.depToDelivery || 0 },
+            ]}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+              <XAxis dataKey="leg" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} angle={-45} textAnchor="end" height={80} />
+              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} label={{ value: 'Transit Days', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12, fontWeight: 600 } }} />
+              <RechartsTooltip 
+                contentStyle={{
+                  backgroundColor: 'var(--color-card)', 
+                  borderRadius: '12px', 
+                  border: '1px solid var(--color-border)',
+                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                  color: 'var(--color-card-foreground)'
+                }}
+                labelStyle={{ color: 'var(--color-card-foreground)' }}
+                itemStyle={{color: 'var(--color-card-foreground)', fontWeight: 600}}
+              />
+              <Bar dataKey="days" radius={[8, 8, 0, 0]} maxBarSize={80}>
+                {[{ color: '#3b82f6' }, { color: '#8b5cf6' }, { color: '#10b981' }, { color: '#f59e0b' }].map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )
+      case 'teu-distribution':
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data.originModeTEU?.map((item: any) => ({
+                  name: `${item.ORIGIN} - ${item.MODE}`,
+                  value: item.Total_TEU || 0,
+                }))}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                outerRadius={150}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {data.originModeTEU?.map((entry: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <RechartsTooltip
+                contentStyle={{
+                  backgroundColor: 'var(--color-card)',
+                  borderRadius: '12px',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                  color: 'var(--color-card-foreground)'
+                }}
+                labelStyle={{ color: 'var(--color-card-foreground)' }}
+                itemStyle={{ color: 'var(--color-card-foreground)', fontWeight: 600 }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        )
+      case 'delay-distribution':
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data.delayDistribution}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+              <XAxis dataKey="Delay_Category" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
+              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} label={{ value: 'Shipment Count', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12 } }} />
+              <RechartsTooltip 
+                contentStyle={{
+                  backgroundColor: 'var(--color-card)',
+                  borderRadius: '12px',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                  color: 'var(--color-card-foreground)'
+                }}
+                formatter={(value: any) => [value, 'Shipments']}
+              />
+              <Bar dataKey="Shipment_Count" radius={[8, 8, 0, 0]} maxBarSize={60}>
+                {data.delayDistribution?.map((entry: any, index: number) => {
+                  const category = entry.Delay_Category || ''
+                  const fill = category.includes('Early') || category.includes('On Time') ? '#10b981' : 
+                              category.includes('1-3') ? '#f59e0b' : 
+                              category.includes('4-7') ? '#f97316' : '#ef4444'
+                  return <Cell key={`cell-${index}`} fill={fill} />
+                })}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )
+      case 'container-size':
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data.containerSizeImpact}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+              <XAxis dataKey="Container_Size" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
+              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} label={{ value: 'On-Time %', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12 } }} />
+              <RechartsTooltip 
+                contentStyle={{
+                  backgroundColor: 'var(--color-card)',
+                  borderRadius: '12px',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                  color: 'var(--color-card-foreground)'
+                }}
+                formatter={(value: any, name: any, props: any) => {
+                  const data = props.payload
+                  return [
+                    <div key="content" className="space-y-1">
+                      <div className="font-semibold">{parseFloat(value).toFixed(1)}% on-time</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400">{data.Total_Shipments} shipments</div>
+                    </div>,
+                    'Performance'
+                  ]
+                }}
+              />
+              <Bar dataKey="OnTime_Percentage" radius={[8, 8, 0, 0]} maxBarSize={60}>
+                {data.containerSizeImpact?.map((entry: any, index: number) => {
+                  const pct = parseFloat(entry.OnTime_Percentage || 0)
+                  const fill = pct >= 80 ? '#10b981' : pct >= 60 ? '#f59e0b' : '#ef4444'
+                  return <Cell key={`cell-${index}`} fill={fill} />
+                })}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )
+      case 'week-pattern':
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data.weekOfMonthPattern}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+              <XAxis dataKey="Week_of_Month" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
+              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} label={{ value: 'On-Time %', angle: -90, position: 'insideLeft', style: { fill: '#64748b', fontSize: 12 } }} />
+              <RechartsTooltip 
+                contentStyle={{
+                  backgroundColor: 'var(--color-card)',
+                  borderRadius: '12px',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                  color: 'var(--color-card-foreground)'
+                }}
+                formatter={(value: any, name: any, props: any) => {
+                  const data = props.payload
+                  return [
+                    <div key="content" className="space-y-1">
+                      <div className="font-semibold">{parseFloat(value).toFixed(1)}% on-time</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400">{data.Total_Shipments} shipments</div>
+                    </div>,
+                    'Performance'
+                  ]
+                }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="OnTime_Percentage" 
+                stroke="#3b82f6" 
+                strokeWidth={3}
+                dot={{ r: 5, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
+                activeDot={{ r: 7, strokeWidth: 2 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )
+      case 'status-breakdown':
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data.shipmentStatusBreakdown}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ Status, Percentage }) => `${Status}: ${parseFloat(Percentage).toFixed(1)}%`}
+                outerRadius={150}
+                fill="#8884d8"
+                dataKey="Count"
+              >
+                {data.shipmentStatusBreakdown?.map((entry: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <RechartsTooltip
+                contentStyle={{
+                  backgroundColor: 'var(--color-card)',
+                  borderRadius: '12px',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                  color: 'var(--color-card-foreground)'
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        )
       case 'map':
         return <Map markers={data.mapMarkers} routes={data.mapRoutes} height="100%" />
       default:
-        return <div className="text-slate-500 dark:text-slate-400">Chart view coming soon</div>
+        return <div className="text-slate-500 dark:text-slate-400">Chart view not available</div>
     }
   }
 
