@@ -14,6 +14,8 @@ import dynamic from "next/dynamic"
 import { useShipments } from '@/components/ShipmentContext'
 import Snowfall from 'react-snowfall'
 import { FullScreenCardModal } from '@/components/FullScreenCardModal'
+import { SlowestShipmentsView } from '@/components/SlowestShipmentsView'
+import { SlowestShipmentsTable } from '@/components/SlowestShipmentsTable'
 import { Maximize2 } from 'lucide-react'
 
 const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: mod.Map })), {
@@ -306,6 +308,7 @@ type DashboardProps = {
     clientPerformance?: any[];
     weekOfMonthPattern?: any[];
     shipmentStatusBreakdown?: any[];
+    slowestShipments?: any[];
     metadata?: any;
     clientGroups?: any[];
   } | null
@@ -336,6 +339,7 @@ export default function Dashboard({ data }: DashboardProps) {
     clientPerformance = [],
     weekOfMonthPattern = [],
     shipmentStatusBreakdown = [],
+    slowestShipments = [],
     metadata = {},
     clientGroups = []
   } = data
@@ -2204,11 +2208,24 @@ export default function Dashboard({ data }: DashboardProps) {
               {/* SLOWEST */}
               <Card className="border border-slate-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 shadow-sm hover:shadow-md transition-shadow duration-300">
                 <CardContent className="p-5">
-                  <MetricLabel 
-                    label="Slowest Transit" 
-                    tooltip="Maximum transit time (longest duration) from ATD to ATA across all shipments with valid transit data."
-                    className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3"
-                  />
+                  <div className="flex items-start justify-between mb-3">
+                    <MetricLabel 
+                      label="Slowest Transit" 
+                      tooltip="Maximum transit time (longest duration) from ATD to ATA across all shipments with valid transit data."
+                      className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 -mt-1"
+                      onClick={() => setFullScreenCard({ 
+                        type: 'slowest-shipments', 
+                        data: { slowestShipments } 
+                      })}
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                   <div className="text-2xl font-semibold text-red-700 dark:text-red-400 tabular-nums tracking-tight">{kpis.maxTransit > 0 ? kpis.maxTransit : 'N/A'}</div>
                   <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">days</div>
                 </CardContent>
@@ -3680,7 +3697,8 @@ export default function Dashboard({ data }: DashboardProps) {
       'week-pattern': 'Week-of-Month Pattern',
       'status-breakdown': 'Shipment Status Breakdown',
       'mode-insights': 'Mode Insights',
-      'map': 'Shipment Routing Map'
+      'map': 'Shipment Routing Map',
+      'slowest-shipments': 'Slowest Shipments Details'
     }
     return titles[type] || 'Full Screen View'
   }
@@ -3700,7 +3718,8 @@ export default function Dashboard({ data }: DashboardProps) {
       'week-pattern': 'Weekly pattern analysis',
       'status-breakdown': 'Current shipment status breakdown',
       'mode-insights': 'Mode distribution and insights',
-      'map': 'Interactive shipment routing visualization'
+      'map': 'Interactive shipment routing visualization',
+      'slowest-shipments': 'Containers and orders with longest transit times, grouped by container number'
     }
     return descriptions[type] || ''
   }
@@ -3980,6 +3999,8 @@ export default function Dashboard({ data }: DashboardProps) {
         )
       case 'map':
         return <Map markers={data.mapMarkers} routes={data.mapRoutes} height="100%" />
+      case 'slowest-shipments':
+        return <SlowestShipmentsView data={data.slowestShipments} />
       default:
         return <div className="text-slate-500 dark:text-slate-400">Chart view not available</div>
     }
@@ -4015,6 +4036,8 @@ export default function Dashboard({ data }: DashboardProps) {
             ))}
           </div>
         )
+      case 'slowest-shipments':
+        return <SlowestShipmentsTable data={data.slowestShipments} />
       default:
         return <div className="text-slate-500 dark:text-slate-400">Details view coming soon</div>
     }

@@ -117,6 +117,7 @@ export async function getShipments(filters?: DashboardFilters) {
     // Index 18: Client-wise Performance
     // Index 19: Week-of-Month Pattern
     // Index 20: Shipment Status Breakdown
+    // Index 21: Slowest Shipment Details
 
     const transitBreakdown = resultSets[5]?.[0] || {}
     const payload = {
@@ -151,6 +152,7 @@ export async function getShipments(filters?: DashboardFilters) {
       clientPerformance: resultSets[18] || [],
       weekOfMonthPattern: resultSets[19] || [],
       shipmentStatusBreakdown: resultSets[20] || [],
+      slowestShipments: resultSets[21] || [],
 
       // Metadata
       metadata: resultSets[0]?.[0] || {},
