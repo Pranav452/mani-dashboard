@@ -16,6 +16,8 @@ import Snowfall from 'react-snowfall'
 import { FullScreenCardModal } from '@/components/FullScreenCardModal'
 import { SlowestShipmentsView } from '@/components/SlowestShipmentsView'
 import { SlowestShipmentsTable } from '@/components/SlowestShipmentsTable'
+import { ContainerStatusView } from '@/components/ContainerStatusView'
+import { ContainerStatusTable } from '@/components/ContainerStatusTable'
 import { Maximize2 } from 'lucide-react'
 
 const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: mod.Map })), {
@@ -2071,8 +2073,22 @@ export default function Dashboard({ data }: DashboardProps) {
                       tooltip="Total count of unique shipment files/jobs."
                       className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                     />
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
-                      <Ship className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
+                        <Ship className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setFullScreenCard({
+                          type: 'container-status',
+                          data: { slowestShipments }
+                        })}
+                        aria-label="View container delivery status"
+                      >
+                        <Maximize2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
                   <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.shipments.toLocaleString()}</div>
@@ -3698,7 +3714,8 @@ export default function Dashboard({ data }: DashboardProps) {
       'status-breakdown': 'Shipment Status Breakdown',
       'mode-insights': 'Mode Insights',
       'map': 'Shipment Routing Map',
-      'slowest-shipments': 'Slowest Shipments Details'
+      'slowest-shipments': 'Slowest Shipments Details',
+      'container-status': 'Container Delivery Status'
     }
     return titles[type] || 'Full Screen View'
   }
@@ -3719,7 +3736,8 @@ export default function Dashboard({ data }: DashboardProps) {
       'status-breakdown': 'Current shipment status breakdown',
       'mode-insights': 'Mode distribution and insights',
       'map': 'Interactive shipment routing visualization',
-      'slowest-shipments': 'Containers and orders with longest transit times, grouped by container number'
+      'slowest-shipments': 'Containers and orders with longest transit times, grouped by container number',
+      'container-status': 'Track container performance with color-coded status indicators for planned vs actual transit days'
     }
     return descriptions[type] || ''
   }
@@ -4001,6 +4019,8 @@ export default function Dashboard({ data }: DashboardProps) {
         return <Map markers={data.mapMarkers} routes={data.mapRoutes} height="100%" />
       case 'slowest-shipments':
         return <SlowestShipmentsView data={data.slowestShipments} />
+      case 'container-status':
+        return <ContainerStatusView data={data.slowestShipments} />
       default:
         return <div className="text-slate-500 dark:text-slate-400">Chart view not available</div>
     }
@@ -4038,6 +4058,8 @@ export default function Dashboard({ data }: DashboardProps) {
         )
       case 'slowest-shipments':
         return <SlowestShipmentsTable data={data.slowestShipments} />
+      case 'container-status':
+        return <ContainerStatusTable data={data.slowestShipments} />
       default:
         return <div className="text-slate-500 dark:text-slate-400">Details view coming soon</div>
     }
