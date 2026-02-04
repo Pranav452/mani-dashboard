@@ -170,6 +170,66 @@ export async function getShipments(filters?: DashboardFilters) {
   }
 }
 
+// --- Action for Invoice Data ---
+export async function getInvoices(filters?: DashboardFilters) {
+  const session = await getServerSession(authOptions)
+
+  if (!session?.user) return null
+
+  const rawName = (session.user as any).name || ''
+  const username = rawName.trim()
+
+  console.log(`--- FETCHING INVOICE DATA FOR: '${username}' ---`)
+
+  const { role } = session.user as any
+  if (role === "DEMO") {
+    console.log("DEMO MODE ACTIVE: Returning empty invoice array...")
+    return []
+  }
+
+  try {
+    const authQuery = `SELECT CMP_PASSWORD FROM CMP_DTLS WHERE LTRIM(RTRIM(CMP_USERNAME)) = @p0`
+    const authResult = await executeQuery(authQuery, [username])
+    
+    if (!authResult || authResult.length === 0) {
+      console.error(`User ${username} not found in CMP_DTLS`)
+      return null
+    }
+
+    const dbPassword = authResult[0].CMP_PASSWORD
+    console.log(`--- CREDENTIALS VERIFIED. CALLING INVOICE SP... ---`)
+
+    const filterMode = filters?.mode || null
+    const filterClient = filters?.client || null
+    const filterDateFrom = filters?.dateFrom || null
+    const filterDateTo = filters?.dateTo || null
+    const filterOffice = filters?.office || null
+
+    const spQuery = `EXEC USP_CLIENT_DASHBOARD_PAGELOAD @p0, @p1, @p2, @p3, @p4, @p5, @p6`
+    const resultSets = await executeSP(spQuery, [
+      username,
+      dbPassword,
+      filterMode,
+      filterClient,
+      filterDateFrom,
+      filterDateTo,
+      filterOffice
+    ])
+
+    if (!resultSets || !Array.isArray(resultSets)) return []
+
+    const invoiceData = resultSets[22] || []
+    
+    console.log(`--- INVOICE DATA LOADED: ${invoiceData.length} invoices ---`)
+    
+    return invoiceData
+
+  } catch (err) {
+    console.error("Error in getInvoices:", err)
+    return []
+  }
+}
+
 // --- Action for the Dropdown ---
 export async function getClientGroups() {
   const session = await getServerSession(authOptions)

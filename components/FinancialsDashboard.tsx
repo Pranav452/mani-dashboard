@@ -1,19 +1,22 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { PremiumPageShell } from "@/components/PremiumPageShell"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Sparkles, ArrowUpRight, ArrowDownRight, Download, Eye, FilterX, Calendar as CalendarIcon } from "lucide-react"
-import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns"
-import { getComputedMode, generateFinancials, getValidDate } from "@/lib/dashboard-logic"
+import { format, isWithinInterval, startOfDay, endOfDay, parse } from "date-fns"
+import { getComputedMode, generateFinancials, getValidDate, parseDateValue } from "@/lib/dashboard-logic"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { getInvoices } from "@/app/actions"
 
 export default function FinancialsDashboard({ data }: { data: any[] }) {
+  const [invoiceData, setInvoiceData] = useState<any[]>([])
+  const [loadingInvoices, setLoadingInvoices] = useState(true)
   // --- STATE FOR FILTERS ---
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
@@ -22,49 +25,58 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
   const [filterMode, setFilterMode] = useState<string>("ALL")
   const [searchQuery, setSearchQuery] = useState("")
 
+  // --- FETCH INVOICE DATA ---
+  useEffect(() => {
+    const fetchInvoices = async () => {
+      setLoadingInvoices(true)
+      try {
+        const invoices = await getInvoices()
+        setInvoiceData(invoices || [])
+      } catch (error) {
+        console.error("Failed to fetch invoices:", error)
+        setInvoiceData([])
+      } finally {
+        setLoadingInvoices(false)
+      }
+    }
+    fetchInvoices()
+  }, [])
+
   // --- DATA PROCESSING ---
-  const { kpis, filteredData } = useMemo(() => {
-    // 1. Enrich & Filter Data
-    const enrichedData = data.map(row => {
-      const mode = getComputedMode(row);
-      const fin = generateFinancials(row);
-      const date = getValidDate(row);
-      return { ...row, _mode: mode, _financials: fin, _date: date };
-    }).filter(row => {
-        if (filterMode !== "ALL" && row._mode !== filterMode) return false;
-        if (dateRange.from && dateRange.to && row._date) {
-            if (!isWithinInterval(row._date, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })) return false;
-        }
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase();
-            return (
-                row.JOBNO?.toString().toLowerCase().includes(q) ||
-                row.CONNAME?.toString().toLowerCase().includes(q)
-            );
-        }
-        return true;
+  const { kpis, filteredInvoices } = useMemo(() => {
+    if (loadingInvoices) {
+      return {
+        kpis: { totalBilling: 0 },
+        filteredInvoices: []
+      };
+    }
+
+    // Filter invoice data based on filters
+    const filtered = invoiceData.filter(row => {
+      if (filterMode !== "ALL" && row.MODE !== filterMode) return false;
+      
+      if (dateRange.from && dateRange.to) {
+        const invDate = parseDateValue(row.INVDT);
+        if (!invDate || !isWithinInterval(invDate, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })) return false;
+      }
+      
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return (
+          row.INVNO?.toString().toLowerCase().includes(q) ||
+          row.CLIENTNAME?.toString().toLowerCase().includes(q)
+        );
+      }
+      return true;
     });
 
-    // 2. KPIs
-    let pendingRevenue = 0;
-    let completedRevenue = 0;
-
-    enrichedData.forEach(r => {
-        const rev = r._financials?.revenue || 0;
-        if (r.DOCRECD) {
-            completedRevenue += rev;
-        } else {
-            pendingRevenue += rev;
-        }
-    });
-
-    const revenue = enrichedData.reduce((sum, r) => sum + (r._financials?.revenue || 0), 0);
+    const totalBilling = filtered.reduce((sum, r) => sum + (parseFloat(r.AMTEURO) || 0), 0);
 
     return {
-      kpis: { revenue, pendingRevenue, completedRevenue },
-      filteredData: enrichedData
+      kpis: { totalBilling },
+      filteredInvoices: filtered
     };
-  }, [data, filterMode, dateRange, searchQuery]);
+  }, [invoiceData, filterMode, dateRange, searchQuery, loadingInvoices]);
 
   // --- FILTERS COMPONENT ---
   const filters = (
@@ -137,14 +149,18 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
       <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 lg:col-span-2">
         <HeroStat
           label="Total Billing Volume"
-          value={kpis.revenue > 0 ? `$${(kpis.revenue / 1000000).toFixed(2)}M` : "$0.00M"}
-          trend={kpis.revenue > 0 ? `${((kpis.completedRevenue / kpis.revenue) * 100).toFixed(0)}% settled` : "N/A"}
+          value={kpis.totalBilling > 0 ? `€${(kpis.totalBilling / 1000).toFixed(2)}K` : "€0.00"}
+          trend={`${filteredInvoices.length} invoices`}
           positive
         />
-        {/* Only keeping Total Billing Volume as per requirement */}
       </div>
     </div>
   )
+
+  const handleViewInvoice = (invno: string) => {
+    const url = `http://180.179.207.163/erp-ng/#/popup/AccountFra-Invoice-View-Print/${invno}?Printeuro=Y&CMPID=1885`;
+    window.open(url, '_blank');
+  };
 
   const sections = [
     {
@@ -156,31 +172,48 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                 <div className="grid grid-cols-6 gap-4 p-4 bg-slate-50 dark:bg-zinc-950 border-b border-slate-200 dark:border-zinc-800 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     <div className="col-span-1">Invoice No</div>
                     <div className="col-span-1">Date</div>
-                    <div className="col-span-2">Job Reference</div>
-                    <div className="col-span-1 text-right">Amount</div>
-                    <div className="col-span-1 text-center">Action</div>
+                    <div className="col-span-2">Client Name</div>
+                    <div className="col-span-1 text-center">Mode</div>
+                    <div className="col-span-1 text-right">Amount (EUR)</div>
                 </div>
                 <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-                    {/* Placeholder for Invoice Data - currently using shipment data to mock the layout */}
-                    {filteredData.slice(0, 10).map((row, idx) => (
-                        <div key={idx} className="grid grid-cols-6 gap-4 p-4 items-center text-sm hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
-                            <div className="font-mono text-slate-900 dark:text-slate-100">INV-{row.JOBNO}</div>
-                            <div className="text-slate-500">{row._date ? format(row._date, 'dd MMM yyyy') : 'N/A'}</div>
-                            <div className="col-span-2 text-slate-900 dark:text-slate-100 truncate">{row.CONNAME}</div>
-                            <div className="text-right font-semibold text-slate-900 dark:text-slate-100">
-                                {row._financials.revenue > 0 ? `$${row._financials.revenue.toLocaleString()}` : 'Pending'}
-                            </div>
-                            <div className="flex justify-center gap-2">
-                                <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500 hover:text-blue-600" onClick={() => alert(`View Invoice INV-${row.JOBNO}`)}>
-                                    <Eye className="w-4 h-4" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500 hover:text-emerald-600">
-                                    <Download className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    ))}
-                    {filteredData.length === 0 && (
+                    {loadingInvoices ? (
+                        <div className="p-8 text-center text-slate-500">Loading invoices...</div>
+                    ) : filteredInvoices.length > 0 ? (
+                        filteredInvoices.map((row, idx) => {
+                            const invDate = parseDateValue(row.INVDT);
+                            return (
+                                <div key={row.PKID || idx} className="grid grid-cols-6 gap-4 p-4 items-center text-sm hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                    <div className="font-mono text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                        {row.INVNO}
+                                        <Button 
+                                            size="icon" 
+                                            variant="ghost" 
+                                            className="h-6 w-6 text-slate-500 hover:text-blue-600" 
+                                            onClick={() => handleViewInvoice(row.INVNO)}
+                                            title="View Invoice"
+                                        >
+                                            <Eye className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </div>
+                                    <div className="text-slate-500">
+                                        {invDate ? format(invDate, 'dd MMM yyyy') : row.INVDT || 'N/A'}
+                                    </div>
+                                    <div className="col-span-2 text-slate-900 dark:text-slate-100 truncate">
+                                        {row.CLIENTNAME || 'N/A'}
+                                    </div>
+                                    <div className="text-center">
+                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                            {row.MODE || 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div className="text-right font-semibold text-slate-900 dark:text-slate-100">
+                                        €{parseFloat(row.AMTEURO || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    ) : (
                         <div className="p-8 text-center text-slate-500">No invoices found for the selected period.</div>
                     )}
                 </div>
