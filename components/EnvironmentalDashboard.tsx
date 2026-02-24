@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { PremiumPageShell } from "@/components/PremiumPageShell"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,9 @@ const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: 
 })
 
 export default function EnvironmentalDashboard({ data }: { data: any[] }) {
+  const { data: session } = useSession()
+  const clientName = session?.user?.email || session?.user?.name || 'Client'
+
   // --- STATE FOR FILTERS ---
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
@@ -286,8 +290,8 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
         {/* Radar Chart (Reintroduced as it adds "wow" factor) */}
         <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50 flex items-center gap-2">
-            <Activity className="w-4 h-4" /> Happy Chic Eco-Radar
+        <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+            <Activity className="w-4 h-4" /> {clientName} Eco-Radar
             </CardTitle>
             <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Sustainability across dimensions</CardDescription>
         </CardHeader>
@@ -299,14 +303,14 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
             }}
             className="h-[280px]"
             >
-            <RadarChart
+                <RadarChart
                 data={[
                 { metric: "CO2", current: Math.min(100, (kpis.co2 / 50000) * 100), target: 60 },
                 { metric: "Distance", current: 75, target: 70 },
                 { metric: "Fuel", current: 65, target: 50 },
                 { metric: "Efficiency", current: 82, target: 90 },
                 { metric: "Offset", current: 45, target: 80 },
-                { metric: "Chic Score", current: Math.round((modeStats.find(m => m.name === 'SEA')?.value || 0) / Math.max(kpis.shipments, 1) * 100), target: 75 },
+                { metric: "Green Score", current: Math.round((modeStats.find(m => m.name === 'SEA')?.value || 0) / Math.max(kpis.shipments, 1) * 100), target: 75 },
                 ]}
             >
                 <PolarGrid stroke="#e2e8f0" className="dark:stroke-zinc-800" />
@@ -437,7 +441,7 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
         <Card className="border border-emerald-100 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm">
             <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
-                    <Leaf className="w-4 h-4" /> Happy Chic Forest Initiative
+                    <Leaf className="w-4 h-4" /> {clientName} Forest Initiative
                 </CardTitle>
             </CardHeader>
             <CardContent>
