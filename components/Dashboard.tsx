@@ -25,7 +25,7 @@ const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: 
   loading: () => <div className="h-[400px] flex items-center justify-center bg-slate-50 rounded-lg"><span className="text-slate-400 text-sm">Loading map...</span></div>
 })
 import { format, differenceInDays } from "date-fns"
-import { Ship, Box, Anchor, Layers, Container, MapPin, Clock, MoreVertical, ArrowUpRight, ArrowDownRight, DollarSign, Leaf, TrendingUp, TrendingDown, Activity, Users, Calendar as CalendarIcon, FilterX, Search, Download, Snowflake, Info } from "lucide-react"
+import { Ship, Box, Anchor, Layers, Container, MapPin, Clock, MoreVertical, ArrowUpRight, ArrowDownRight, DollarSign, Leaf, TrendingUp, TrendingDown, Activity, Users, Calendar as CalendarIcon, FilterX, Search, Download, Snowflake, Info, Plane } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend, LineChart, Line } from "recharts"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -1235,6 +1235,77 @@ export default function Dashboard({ data }: DashboardProps) {
       topAirlines: airlines.slice(0, 5),
     }
   }, [chartData, isAirMode])
+
+  // Air Lane Stats (POL → POD routes for air shipments)
+  const airLaneStats = useMemo(() => {
+    if (!isAirMode) return []
+    const laneMap = new globalThis.Map<string, { shipments: number; chblwt: number }>()
+    chartData.forEach(row => {
+      const lane = `${row.POL || '?'} → ${row.POD || '?'}`
+      const existing = laneMap.get(lane) || { shipments: 0, chblwt: 0 }
+      laneMap.set(lane, {
+        shipments: existing.shipments + 1,
+        chblwt: existing.chblwt + (parseFloat(row.ORD_CHBLWT || 0) / 1000)
+      })
+    })
+    return Array.from(laneMap.entries())
+      .map(([name, stats]) => ({ name, ...stats }))
+      .sort((a, b) => b.shipments - a.shipments)
+      .slice(0, 8)
+  }, [chartData, isAirMode])
+
+  // Air HAWB with Order Numbers data
+  const airHawbData = useMemo(() => {
+    if (!isAirMode) return []
+    const uniqueJobs = new globalThis.Map<string, any>()
+    chartData.forEach((row, idx) => {
+      const key = row.JOBNO ? String(row.JOBNO) : `__${idx}`
+      if (!uniqueJobs.has(key)) {
+        const atd = getValidDate(row.ATD)
+        const ata = getValidDate(row.ATA)
+        uniqueJobs.set(key, {
+          jobno: row.JOBNO || '-',
+          hawb: row.CONTMAWB || '-',
+          orderno: row.ORDERNO || '-',
+          conname: row.CONNAME || '-',
+          airline: row.LINER_NAME && row.LINER_NAME !== '0' ? row.LINER_NAME : (row.LINER_CODE || '-'),
+          pol: row.POL || '-',
+          pod: row.POD || '-',
+          transitDays: (atd && ata && ata >= atd) ? differenceInDays(ata, atd) : null,
+          co2: parseFloat(row.CO2 || 0),
+        })
+      }
+    })
+    return Array.from(uniqueJobs.values()).slice(0, 25)
+  }, [chartData, isAirMode])
+
+  // Air CO2 Monthly
+  const airCO2Monthly = useMemo(() => {
+    if (!isAirMode) return []
+    const monthMap = new globalThis.Map<string, number>()
+    chartData.forEach(row => {
+      const month = String(row.DOCDT || '').substring(0, 6)
+      if (!month || month.length < 6) return
+      const co2 = parseFloat(row.CO2 || 0)
+      monthMap.set(month, (monthMap.get(month) || 0) + co2)
+    })
+    return Array.from(monthMap.entries())
+      .map(([month, co2]) => ({ month, co2: Math.round(co2 * 100) / 100 }))
+      .sort((a, b) => a.month.localeCompare(b.month))
+  }, [chartData, isAirMode])
+
+  // Airline bar stats for chart (all airlines sorted by shipment count)
+  const airlineBarStats = useMemo(() => {
+    if (!isAirMode || !airMetrics) return []
+    return (airMetrics.airlines || [])
+      .sort((a, b) => b.shipments - a.shipments)
+      .slice(0, 7)
+      .map(a => ({
+        name: a.airline === 'Unknown' ? 'Not Specified' : a.airline,
+        value: a.shipments,
+        avgTransit: Math.round(a.avgTransit * 10) / 10
+      }))
+  }, [airMetrics, isAirMode])
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 font-sans text-slate-900 dark:text-slate-50">
@@ -3329,7 +3400,8 @@ export default function Dashboard({ data }: DashboardProps) {
           </div>
         )}
 
-                {/* MODE INSIGHTS WIDE CARD */}
+                {/* MODE INSIGHTS WIDE CARD — hidden in AIR mode */}
+            {!isAirMode && (
             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
@@ -3499,16 +3571,110 @@ export default function Dashboard({ data }: DashboardProps) {
                 </div>
               </CardContent>
             </Card>
+            )}
 
-            {/* CARRIER DISTRIBUTION */}
-            <Card 
-              className={cn(
-                "shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden transition-all bg-white dark:bg-zinc-900",
-                hoveredChart === 'carriers' && "shadow-lg border-slate-300 dark:border-zinc-700"
-              )}
-              onMouseEnter={() => setHoveredChart('carriers')}
-              onMouseLeave={() => setHoveredChart(null)}
-            >
+            {/* TOP AIRLINES (AIR mode) / TOP CARRIERS (SEA mode) */}
+            {isAirMode ? (
+              /* ── AIR MODE: TOP AIRLINES ── */
+              <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                      <Plane className="w-4 h-4 text-sky-500" /> Top Airlines
+                    </CardTitle>
+                    <span className="text-[10px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 px-2 py-0.5 rounded-full font-medium">LIVE DATA</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400 dark:text-slate-500">By shipment count · Air mode</span>
+                    <MoreVertical className="w-4 h-4 text-slate-400" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {airlineBarStats.length > 0 ? (
+                    <>
+                      <div className="h-[260px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={airlineBarStats} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                            <XAxis type="number" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#64748b'}} />
+                            <YAxis
+                              dataKey="name"
+                              type="category"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{fontSize: 11, fill: '#64748b'}}
+                              width={120}
+                            />
+                            <RechartsTooltip
+                              contentStyle={{
+                                backgroundColor: 'var(--color-card)',
+                                borderRadius: '8px',
+                                border: '1px solid var(--color-border)',
+                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                color: 'var(--color-card-foreground)'
+                              }}
+                              cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                            />
+                            <Bar dataKey="value" name="Shipments" radius={[0, 4, 4, 0]} animationDuration={300}>
+                              {airlineBarStats.map((entry, index) => (
+                                <Cell
+                                  key={`airline-cell-${index}`}
+                                  fill={['#0ea5e9','#38bdf8','#7dd3fc','#bae6fd','#93c5fd','#60a5fa','#3b82f6'][index % 7]}
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        {airlineBarStats.map((airline, idx) => (
+                          <div key={airline.name} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
+                            <div className="w-8 h-8 rounded-full bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center flex-shrink-0">
+                              <Plane className="w-3.5 h-3.5 text-sky-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{airline.name}</span>
+                                <span className="text-xs text-slate-500 dark:text-slate-400 ml-2 flex-shrink-0">{airline.value} shipments</span>
+                              </div>
+                              {airline.avgTransit > 0 && (
+                                <div className="text-xs text-slate-400 dark:text-slate-500">Avg transit: {airline.avgTransit} days</div>
+                              )}
+                              <div className="mt-1 h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{
+                                    width: `${(airline.value / (airlineBarStats[0]?.value || 1)) * 100}%`,
+                                    backgroundColor: ['#0ea5e9','#38bdf8','#7dd3fc','#bae6fd','#93c5fd','#60a5fa','#3b82f6'][idx % 7]
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-[280px] flex items-center justify-center">
+                      <div className="text-center text-slate-400 dark:text-slate-500">
+                        <Plane className="w-10 h-10 mx-auto mb-3 opacity-25" />
+                        <p className="text-sm font-medium">No airline data available</p>
+                        <p className="text-xs mt-1">Airline names are sourced from the LINER_NAME field</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              /* ── SEA / ALL MODE: TOP CARRIERS ── */
+              <Card
+                className={cn(
+                  "shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden transition-all bg-white dark:bg-zinc-900",
+                  hoveredChart === 'carriers' && "shadow-lg border-slate-300 dark:border-zinc-700"
+                )}
+                onMouseEnter={() => setHoveredChart('carriers')}
+                onMouseLeave={() => setHoveredChart(null)}
+              >
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
@@ -3532,65 +3698,431 @@ export default function Dashboard({ data }: DashboardProps) {
                     <MoreVertical className="w-4 h-4 text-slate-400" />
                   </div>
                 </CardHeader>
-              <CardContent>
-                <div className="h-[280px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={carrierStats} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
-                      <XAxis type="number" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#64748b'}} />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{fontSize: 11, fill: '#64748b'}}
-                        width={100}
-                      />
-                      <RechartsTooltip 
-                        contentStyle={{
-                          backgroundColor: 'var(--color-card)',
-                          borderRadius: '8px',
-                          border: '1px solid var(--color-border)',
-                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                          color: 'var(--color-card-foreground)'
-                        }}
-                        cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
-                      />
-                      <Bar dataKey="value" radius={[0, 4, 4, 0]} animationDuration={300}>
-                        {carrierStats.map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={COLORS[index % COLORS.length]}
-                            style={{ 
-                              cursor: 'pointer',
-                              transition: 'all 0.2s'
-                            }}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                {drilldowns['carriers'] && (
-                  <div className="mt-4 rounded-lg border border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 p-4">
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-50 mb-2">Carrier detail</div>
-                    <div className="grid grid-cols-2 gap-3">
-                      {carrierStats.slice(0, 6).map((carrier, idx) => (
-                        <div key={carrier.name} className="p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{carrier.name}</span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">{carrier.value} loads</span>
+                <CardContent>
+                  <div className="h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={carrierStats} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                        <XAxis type="number" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#64748b'}} />
+                        <YAxis
+                          dataKey="name"
+                          type="category"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{fontSize: 11, fill: '#64748b'}}
+                          width={100}
+                        />
+                        <RechartsTooltip
+                          contentStyle={{
+                            backgroundColor: 'var(--color-card)',
+                            borderRadius: '8px',
+                            border: '1px solid var(--color-border)',
+                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                            color: 'var(--color-card-foreground)'
+                          }}
+                          cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }}
+                        />
+                        <Bar dataKey="value" radius={[0, 4, 4, 0]} animationDuration={300}>
+                          {carrierStats.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={COLORS[index % COLORS.length]}
+                              style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {drilldowns['carriers'] && (
+                    <div className="mt-4 rounded-lg border border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 p-4">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-50 mb-2">Carrier detail</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        {carrierStats.slice(0, 6).map((carrier, idx) => (
+                          <div key={carrier.name} className="p-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{carrier.name}</span>
+                              <span className="text-xs text-slate-500 dark:text-slate-400">{carrier.value} loads</span>
+                            </div>
+                            <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                              <div className="h-full" style={{ width: `${(carrier.value / (carrierStats[0]?.value || 1)) * 100}%`, backgroundColor: COLORS[idx % COLORS.length] }} />
+                            </div>
                           </div>
-                          <div className="mt-2 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                            <div className="h-full" style={{ width: `${(carrier.value / (carrierStats[0]?.value || 1)) * 100}%`, backgroundColor: COLORS[idx % COLORS.length] }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ════════════════════════════════════════════════════════
+                AIR MODE — ADDITIONAL DASHBOARD SECTIONS
+                All sections below only render when AIR filter is active
+                ════════════════════════════════════════════════════════ */}
+            {isAirMode && (
+              <>
+                {/* AIR ROUTING OVERVIEW — LIVE DATA */}
+                <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-sky-500" /> Airline Routing Overview
+                      </CardTitle>
+                      <span className="text-[10px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 px-2 py-0.5 rounded-full font-medium">LIVE DATA</span>
+                    </div>
+                    <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                      Top air freight lanes by shipment count (Origin POL → Destination POD) · from LINER_NAME, POL, POD fields
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {airLaneStats.length > 0 ? (
+                      <div className="h-[280px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={airLaneStats} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                            <XAxis type="number" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#64748b'}} />
+                            <YAxis
+                              dataKey="name"
+                              type="category"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{fontSize: 10, fill: '#64748b'}}
+                              width={130}
+                            />
+                            <RechartsTooltip
+                              contentStyle={{
+                                backgroundColor: 'var(--color-card)',
+                                borderRadius: '8px',
+                                border: '1px solid var(--color-border)',
+                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                color: 'var(--color-card-foreground)'
+                              }}
+                              cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                              formatter={(value: any, name: string) => [value, name === 'shipments' ? 'Shipments' : 'Chg Wt (T)']}
+                            />
+                            <Bar dataKey="shipments" name="Shipments" radius={[0, 4, 4, 0]} animationDuration={300}>
+                              {airLaneStats.map((_, index) => (
+                                <Cell
+                                  key={`lane-cell-${index}`}
+                                  fill={['#0ea5e9','#38bdf8','#7dd3fc','#bae6fd','#93c5fd','#60a5fa','#3b82f6','#2563eb'][index % 8]}
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="h-[200px] flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm">
+                        <div className="text-center">
+                          <MapPin className="w-8 h-8 mx-auto mb-2 opacity-25" />
+                          <p>No routing data available for air shipments</p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* HAWB WITH ORDER NUMBERS — LIVE DATA */}
+                <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                        <Box className="w-4 h-4 text-sky-500" /> HAWB with Order Numbers
+                      </CardTitle>
+                      <span className="text-[10px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 px-2 py-0.5 rounded-full font-medium">LIVE DATA</span>
+                    </div>
+                    <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                      House Air Waybills with corresponding purchase orders · from CONTMAWB, ORDERNO, LINER_NAME fields
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {airHawbData.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950">
+                              <th className="text-left py-2.5 px-4 text-slate-500 dark:text-slate-400 font-medium">HAWB No.</th>
+                              <th className="text-left py-2.5 px-3 text-slate-500 dark:text-slate-400 font-medium">Order No.</th>
+                              <th className="text-left py-2.5 px-3 text-slate-500 dark:text-slate-400 font-medium">Client</th>
+                              <th className="text-left py-2.5 px-3 text-slate-500 dark:text-slate-400 font-medium">Airline</th>
+                              <th className="text-left py-2.5 px-3 text-slate-500 dark:text-slate-400 font-medium">Route</th>
+                              <th className="text-right py-2.5 px-4 text-slate-500 dark:text-slate-400 font-medium">Transit</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-zinc-900">
+                            {airHawbData.map((row, idx) => (
+                              <tr key={`hawb-${idx}`} className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                <td className="py-2.5 px-4 font-mono font-semibold text-sky-600 dark:text-sky-400">{row.hawb}</td>
+                                <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400">{row.orderno}</td>
+                                <td className="py-2.5 px-3 max-w-[120px] truncate text-slate-700 dark:text-slate-300">{row.conname}</td>
+                                <td className="py-2.5 px-3">
+                                  <div className="flex items-center gap-1.5">
+                                    <Plane className="w-3 h-3 text-sky-400 flex-shrink-0" />
+                                    <span className="truncate text-slate-700 dark:text-slate-300 max-w-[90px]">{row.airline}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">{row.pol} → {row.pod}</td>
+                                <td className="py-2.5 px-4 text-right font-medium text-slate-900 dark:text-slate-100">
+                                  {row.transitDays != null ? (
+                                    <span className={cn(
+                                      "px-1.5 py-0.5 rounded text-[10px] font-semibold",
+                                      row.transitDays <= 3 ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400" :
+                                      row.transitDays <= 7 ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" :
+                                      "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                                    )}>
+                                      {row.transitDays}d
+                                    </span>
+                                  ) : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {airHawbData.length === 25 && (
+                          <div className="text-center py-2 text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-zinc-900">
+                            Showing first 25 records · Apply date filter to narrow results
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="h-[140px] flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm">
+                        <div className="text-center">
+                          <Box className="w-8 h-8 mx-auto mb-2 opacity-25" />
+                          <p>No HAWB data available</p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* CO2 FOR AIR FREIGHT — LIVE DATA */}
+                <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                        <Leaf className="w-4 h-4 text-emerald-500" /> CO₂ Emissions · Air Freight
+                      </CardTitle>
+                      <span className="text-[10px] bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 px-2 py-0.5 rounded-full font-medium">LIVE DATA</span>
+                    </div>
+                    <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                      Monthly carbon footprint for air shipments · from CO2 field in SP result
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {airCO2Monthly.some(m => m.co2 > 0) ? (
+                      <>
+                        <div className="h-[220px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={airCO2Monthly}>
+                              <defs>
+                                <linearGradient id="co2GradientAir" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                              <XAxis
+                                dataKey="month"
+                                axisLine={false}
+                                tickLine={false}
+                                tick={{fontSize: 11, fill: '#64748b'}}
+                                tickFormatter={(val) => { try { return format(new Date(val.substring(0,4) + '-' + val.substring(4,6) + '-01'), 'MMM yy') } catch { return val } }}
+                              />
+                              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#64748b'}} />
+                              <RechartsTooltip
+                                contentStyle={{
+                                  backgroundColor: 'var(--color-card)',
+                                  borderRadius: '8px',
+                                  border: '1px solid var(--color-border)',
+                                  boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                  color: 'var(--color-card-foreground)'
+                                }}
+                                formatter={(value: any) => [value, 'CO₂']}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="co2"
+                                name="CO₂"
+                                stroke="#10b981"
+                                strokeWidth={2}
+                                fill="url(#co2GradientAir)"
+                                dot={{ r: 3, fill: '#10b981' }}
+                                activeDot={{ r: 5, strokeWidth: 2 }}
+                                animationDuration={300}
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800/30">
+                          <div className="flex items-center gap-2">
+                            <Leaf className="w-4 h-4 text-emerald-500" />
+                            <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Total CO₂ (period)</span>
+                          </div>
+                          <span className="text-sm font-bold text-emerald-800 dark:text-emerald-300">
+                            {airCO2Monthly.reduce((s, m) => s + m.co2, 0).toFixed(2)}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="h-[200px] flex items-center justify-center">
+                        <div className="text-center text-slate-400 dark:text-slate-500">
+                          <Leaf className="w-10 h-10 mx-auto mb-3 opacity-25" />
+                          <p className="text-sm font-medium">No CO₂ data in current filter</p>
+                          <p className="text-xs mt-1 text-slate-400">CO₂ field returns empty for this date/client range</p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* MOCK: DIMENSIONAL WEIGHT ANALYSIS — NEW SP REQUIRED */}
+                <Card className="shadow-none border border-dashed border-amber-300 dark:border-amber-700/50 rounded-xl overflow-hidden bg-amber-50/40 dark:bg-amber-950/10">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                        <Box className="w-4 h-4 text-amber-500" /> Dimensional Weight Analysis
+                      </CardTitle>
+                      <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-500 px-2 py-0.5 rounded-full font-semibold border border-amber-200 dark:border-amber-700">MOCK · SP REQUIRED</span>
+                    </div>
+                    <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                      Actual weight vs chargeable (volumetric) weight per shipment · Requires: <code className="font-mono text-amber-600 dark:text-amber-400">USP_AIR_DIMENSIONAL_WEIGHT</code>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={[
+                          { airline: 'Emirates', actual: 820, chargeable: 1240 },
+                          { airline: 'Lufthansa', actual: 640, chargeable: 890 },
+                          { airline: 'Qatar Airways', actual: 550, chargeable: 720 },
+                          { airline: 'Air India', actual: 480, chargeable: 480 },
+                          { airline: 'IndiGo', actual: 310, chargeable: 420 },
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#fde68a" className="dark:stroke-amber-900/30" />
+                          <XAxis dataKey="airline" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#92400e'}} />
+                          <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#92400e'}} />
+                          <RechartsTooltip
+                            contentStyle={{ backgroundColor: 'var(--color-card)', borderRadius: '8px', border: '1px solid var(--color-border)', color: 'var(--color-card-foreground)' }}
+                          />
+                          <Legend wrapperStyle={{fontSize: 11}} />
+                          <Bar dataKey="actual" name="Actual Wt (kg)" fill="#fbbf24" radius={[3,3,0,0]} />
+                          <Bar dataKey="chargeable" name="Chargeable Wt (kg)" fill="#f59e0b" radius={[3,3,0,0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-3 p-3 rounded-lg bg-amber-100/60 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 text-xs text-amber-800 dark:text-amber-400">
+                      <strong>SP to build:</strong> <code className="font-mono">USP_AIR_DIMENSIONAL_WEIGHT</code> — Returns per-AWB actual gross weight (ORD_GRWT) vs chargeable weight (ORD_CHBLWT) with volumetric factor, grouped by airline.
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* MOCK: AIR FREIGHT COST PER KG — NEW SP REQUIRED */}
+                <Card className="shadow-none border border-dashed border-amber-300 dark:border-amber-700/50 rounded-xl overflow-hidden bg-amber-50/40 dark:bg-amber-950/10">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-amber-500" /> Air Freight Cost per KG
+                      </CardTitle>
+                      <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-500 px-2 py-0.5 rounded-full font-semibold border border-amber-200 dark:border-amber-700">MOCK · SP REQUIRED</span>
+                    </div>
+                    <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                      Invoice cost per chargeable KG broken down by airline and route · Requires: <code className="font-mono text-amber-600 dark:text-amber-400">USP_AIR_FREIGHT_COST</code>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {[
+                        { airline: 'Emirates', route: 'NH1 → CDG', costPerKg: 4.82, shipments: 12 },
+                        { airline: 'Lufthansa Cargo', route: 'BOM → FRA', costPerKg: 4.15, shipments: 8 },
+                        { airline: 'Qatar Airways', route: 'MAA → DOH', costPerKg: 3.90, shipments: 15 },
+                        { airline: 'Air India', route: 'DEL → LHR', costPerKg: 3.45, shipments: 6 },
+                        { airline: 'IndiGo Cargo', route: 'BLR → DXB', costPerKg: 2.98, shipments: 4 },
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-3 p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-amber-200/60 dark:border-amber-800/30">
+                          <div className="w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                            <Plane className="w-3.5 h-3.5 text-amber-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{item.airline}</span>
+                              <span className="text-sm font-bold text-amber-600 dark:text-amber-400 ml-2">€{item.costPerKg}/kg</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
+                              <span>{item.route}</span>
+                              <span>{item.shipments} shipments</span>
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    <div className="mt-3 p-3 rounded-lg bg-amber-100/60 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 text-xs text-amber-800 dark:text-amber-400">
+                      <strong>SP to build:</strong> <code className="font-mono">USP_AIR_FREIGHT_COST</code> — Join CONSOLE_INVOICE + CONSOLE_INVCHRG + #TMP_SPRESULTS (AIR mode) to compute total freight charges / ORD_CHBLWT per AWB, grouped by airline and route.
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* MOCK: AIRLINE TRANSIT PERFORMANCE — PARTIALLY FROM CURRENT SP */}
+                <Card className="shadow-none border border-dashed border-violet-300 dark:border-violet-700/50 rounded-xl overflow-hidden bg-violet-50/30 dark:bg-violet-950/10">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-violet-500" /> Airline On-Time Performance
+                      </CardTitle>
+                      <span className="text-[10px] bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 px-2 py-0.5 rounded-full font-semibold border border-violet-200 dark:border-violet-700">MOCK · ENHANCE SP</span>
+                    </div>
+                    <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                      ATA vs ETA on-time rate per airline · Enhance current SP: filter LINER_NAME for AIR mode in result set Index 14 (linerOnTimePerformance)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {[
+                        { airline: 'Qatar Airways', onTime: 92, total: 15, avgDelay: -0.5 },
+                        { airline: 'Emirates', onTime: 88, total: 12, avgDelay: 0.3 },
+                        { airline: 'Lufthansa Cargo', onTime: 83, total: 8, avgDelay: 0.8 },
+                        { airline: 'Air India', onTime: 75, total: 6, avgDelay: 1.2 },
+                        { airline: 'IndiGo Cargo', onTime: 70, total: 4, avgDelay: 1.5 },
+                      ].map((item, idx) => (
+                        <div key={idx} className="p-3 rounded-lg bg-white dark:bg-zinc-900 border border-violet-200/60 dark:border-violet-800/30">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Plane className="w-3.5 h-3.5 text-violet-400" />
+                              <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.airline}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-slate-400">{item.total} flights</span>
+                              <span className={cn(
+                                "text-sm font-bold",
+                                item.onTime >= 90 ? "text-emerald-600 dark:text-emerald-400" :
+                                item.onTime >= 80 ? "text-amber-600 dark:text-amber-400" :
+                                "text-red-600 dark:text-red-400"
+                              )}>{item.onTime}%</span>
+                            </div>
+                          </div>
+                          <div className="h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div
+                              className={cn("h-full rounded-full transition-all",
+                                item.onTime >= 90 ? "bg-emerald-500" :
+                                item.onTime >= 80 ? "bg-amber-500" : "bg-red-500"
+                              )}
+                              style={{ width: `${item.onTime}%` }}
+                            />
+                          </div>
+                          <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                            Avg delay: {item.avgDelay > 0 ? `+${item.avgDelay}d` : `${item.avgDelay}d`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 p-3 rounded-lg bg-violet-100/60 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/30 text-xs text-violet-800 dark:text-violet-400">
+                      <strong>Enhancement needed:</strong> Result set Index 14 (<code className="font-mono">linerOnTimePerformance</code>) already computes per-liner on-time %. In the SP, add a <code className="font-mono">MODE</code> filter so that when <code className="font-mono">@FILTER_MODE='AIR'</code> the query only includes AIR shipments and labels them as airlines.
+                    </div>
+                  </CardContent>
+                </Card>
+
+              </>
+            )}
 
             {/* CLIENT PERFORMANCE */}
             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-900">
