@@ -53,20 +53,24 @@ export function FullScreenCardModal({
         </DialogHeader>
         
         <div className="flex-1 overflow-hidden">
-          <Tabs defaultValue="chart" className="h-full flex flex-col">
-            <TabsList className="mx-6 mt-4">
-              <TabsTrigger value="chart">Chart</TabsTrigger>
-              <TabsTrigger value="details">Details</TabsTrigger>
-            </TabsList>
+          <Tabs defaultValue={chartComponent ? "chart" : "details"} className="h-full flex flex-col">
+            {(chartComponent && detailsComponent) && (
+              <TabsList className="mx-6 mt-4">
+                <TabsTrigger value="chart">Chart</TabsTrigger>
+                <TabsTrigger value="details">Details</TabsTrigger>
+              </TabsList>
+            )}
             
             <div className="flex-1 overflow-auto px-6 py-4">
-              <TabsContent value="chart" className="mt-4 h-full">
-                <div className="h-[calc(95vh-200px)]">
-                  {chartComponent || <div className="text-slate-500 dark:text-slate-400">Chart view not available</div>}
-                </div>
-              </TabsContent>
+              {chartComponent && (
+                <TabsContent value="chart" className={cn(chartComponent && detailsComponent ? "mt-4 h-full" : "h-full m-0")}>
+                  <div className="h-[calc(95vh-200px)]">
+                    {chartComponent}
+                  </div>
+                </TabsContent>
+              )}
               
-              <TabsContent value="details" className="mt-4">
+              <TabsContent value="details" className={cn(chartComponent && detailsComponent ? "mt-4" : "m-0 h-full")}>
                 {detailsComponent || <div className="text-slate-500 dark:text-slate-400">Details view not available</div>}
               </TabsContent>
             </div>

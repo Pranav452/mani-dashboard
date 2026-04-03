@@ -18,6 +18,8 @@ import { SlowestShipmentsView } from '@/components/SlowestShipmentsView'
 import { SlowestShipmentsTable } from '@/components/SlowestShipmentsTable'
 import { ContainerStatusView } from '@/components/ContainerStatusView'
 import { ContainerStatusTable } from '@/components/ContainerStatusTable'
+import { HawbTrackingTable } from '@/components/HawbTrackingTable'
+import { AirLanesTable } from '@/components/AirLanesTable'
 import { Maximize2 } from 'lucide-react'
 
 const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: mod.Map })), {
@@ -25,7 +27,7 @@ const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: 
   loading: () => <div className="h-[400px] flex items-center justify-center bg-slate-50 rounded-lg"><span className="text-slate-400 text-sm">Loading map...</span></div>
 })
 import { format, differenceInDays } from "date-fns"
-import { Ship, Box, Anchor, Layers, Container, MapPin, Clock, MoreVertical, ArrowUpRight, ArrowDownRight, DollarSign, Leaf, TrendingUp, TrendingDown, Activity, Users, Calendar as CalendarIcon, FilterX, Search, Download, Snowflake, Info } from "lucide-react"
+import { Ship, Box, Anchor, Layers, Container, MapPin, Clock, MoreVertical, ArrowUpRight, ArrowDownRight, DollarSign, Leaf, TrendingUp, TrendingDown, Activity, Users, Calendar as CalendarIcon, FilterX, Search, Download, Snowflake, Info, Plane, PlaneTakeoff, PlaneLanding, Wind } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend, LineChart, Line } from "recharts"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -311,6 +313,7 @@ type DashboardProps = {
     weekOfMonthPattern?: any[];
     shipmentStatusBreakdown?: any[];
     slowestShipments?: any[];
+    airlinePerformance?: any[];
     metadata?: any;
     clientGroups?: any[];
   } | null
@@ -342,6 +345,7 @@ export default function Dashboard({ data }: DashboardProps) {
     weekOfMonthPattern = [],
     shipmentStatusBreakdown = [],
     slowestShipments = [],
+    airlinePerformance = [],
     metadata = {},
     clientGroups = []
   } = data
@@ -359,10 +363,14 @@ export default function Dashboard({ data }: DashboardProps) {
   const [showSnow, setShowSnow] = useState(false)
   const [fullScreenCard, setFullScreenCard] = useState<{ type: string; data: any } | null>(null)
   const [hoveredPieSegment, setHoveredPieSegment] = useState<{ chart: string; index: number } | null>(null)
+  const [hawbStatusFilter, setHawbStatusFilter] = useState<string>("ALL")
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: filters.dateFrom ? parseYYYYMMDD(filters.dateFrom) : undefined,
     to: filters.dateTo ? parseYYYYMMDD(filters.dateTo) : undefined
   })
+  
+  // State to track the mode that has ACTUALLY been applied via the button
+  const [appliedMode, setAppliedMode] = useState<string | null>(filters.mode || null)
 
   // Helper to parse YYYYMMDD string to Date
   function parseYYYYMMDD(dateStr: string): Date | undefined {
@@ -390,6 +398,7 @@ export default function Dashboard({ data }: DashboardProps) {
       dateTo: formatYYYYMMDD(dateRange.to)
     }
     setFilters(updatedFilters)
+    setAppliedMode(updatedFilters.mode || null) // Sync the applied mode
     // Apply filters with the updated values directly
     await applyFilters(updatedFilters)
   }
@@ -1176,14 +1185,57 @@ export default function Dashboard({ data }: DashboardProps) {
     .filter((v, i, a) => a.indexOf(v) === i)
     .sort()
 
-  // AIR Mode Detection
-  const isAirMode = filters.mode === 'AIR'
-  const isSeaMode = filters.mode === 'SEA' || filters.mode === 'SEA-AIR' || filters.mode === null
+  // --- DYNAMIC THEMING & TERMINOLOGY BASED ON APPLIED FILTERS ---
+  const isAirMode = appliedMode === 'AIR'
+  const isSeaMode = appliedMode === 'SEA' || appliedMode === 'SEA-AIR' || appliedMode === null
+
+  // Dynamic text variables
+  const termShipment = isAirMode ? "Air Waybill" : "Shipment"
+  const termShipments = isAirMode ? "Air Waybills" : "Shipments"
+  const termCarrier = isAirMode ? "Airline" : "Liner"
+  const termCarriers = isAirMode ? "Airlines" : "Liners"
+  const termRouting = isAirMode ? "Flight Routing" : "Shipment Routing"
+  const termFiles = isAirMode ? "AWBs" : "files"
+
+  // Dynamic Icon variables
+  const IconTransport = isAirMode ? Plane : Ship
+  const IconDeparture = isAirMode ? PlaneTakeoff : Ship
+  const IconArrival = isAirMode ? PlaneLanding : Anchor
+  const themeColor = isAirMode ? "text-sky-500" : "text-blue-600"
+  const bgThemeColor = isAirMode ? "bg-sky-100 dark:bg-sky-900/30" : "bg-blue-100 dark:bg-blue-900/30"
+  const carrierTerm = isAirMode ? "Airline" : "Liner"
+  const routingTerm = isAirMode ? "Flight Routes" : "Top Lanes"
+  const shipmentTerm = isAirMode ? "Air Waybills" : "Shipments"
 
   // AIR-specific metrics
   const airMetrics = useMemo(() => {
     if (!isAirMode) return null
     
+    // Use the backend provided airline performance if available
+    if (airlinePerformance && airlinePerformance.length > 0) {
+      const airlines = airlinePerformance.map((a: any) => ({
+        airline: a.Airline_Name || a.AIRLINENAME || 'Unknown Airline',
+        airlineCode: a.Airline_Code || a.AIRLINECD || '',
+        avgTransit: a.Avg_Transit_Days ? parseFloat(a.Avg_Transit_Days) : 0,
+        shipments: a.Total_MAWBs || a.Total_Shipments || 0,
+        weight: a.Total_Weight_KG ? parseFloat(a.Total_Weight_KG) : 0,
+        cbm: a.Total_CBM ? parseFloat(a.Total_CBM) : 0,
+        validTransitCount: a.Avg_Transit_Days ? 1 : 0
+      })).filter((a: any) => a.validTransitCount > 0)
+         .sort((a: any, b: any) => a.avgTransit - b.avgTransit)
+
+      const totalMawbs = airlinePerformance.reduce((sum: number, a: any) => sum + (a.Total_MAWBs || 0), 0)
+
+      return {
+        mawbCount: totalMawbs,
+        airlines,
+        bestAirline: airlines[0] || null,
+        worstAirline: airlines[airlines.length - 1] || null,
+        topAirlines: airlines.slice(0, 10), // Take top 10 instead of 5
+      }
+    }
+
+    // Fallback to client-side calculation if backend data not available
     const uniqueJobs = new globalThis.Map<string, ShipmentRecord>()
     chartData.forEach((r, idx) => {
       const key = r.JOBNO ? String(r.JOBNO) : `__${idx}`
@@ -1234,7 +1286,7 @@ export default function Dashboard({ data }: DashboardProps) {
       worstAirline: airlines[airlines.length - 1] || null,
       topAirlines: airlines.slice(0, 5),
     }
-  }, [chartData, isAirMode])
+  }, [chartData, isAirMode, airlinePerformance])
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 font-sans text-slate-900 dark:text-slate-50">
@@ -1560,17 +1612,17 @@ export default function Dashboard({ data }: DashboardProps) {
                    <CardContent className="p-6">
                      <div className="flex items-center justify-between mb-3">
                        <MetricLabel 
-                         label="Total Shipments" 
-                         tooltip="Total count of unique shipment files/jobs in the selected period."
+                         label={`Total ${termShipments}`} 
+                         tooltip={`Total count of unique ${termShipments.toLowerCase()}/jobs in the selected period.`}
                          className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                        />
                        <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                         <Ship className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                         <IconTransport className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                        </div>
                      </div>
                      <div className="flex items-end justify-between mb-4">
                        <div className="text-3xl font-bold text-slate-900 dark:text-slate-50">{kpis.shipments.toLocaleString()}</div>
-                       <div className="text-sm font-normal text-slate-500 dark:text-slate-400 mb-1">files</div>
+                       <div className="text-sm font-normal text-slate-500 dark:text-slate-400 mb-1">{termFiles}</div>
                      </div>
                      <div className="h-[50px]">
                         <ResponsiveContainer width="100%" height="100%">
@@ -1595,7 +1647,7 @@ export default function Dashboard({ data }: DashboardProps) {
             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden flex-1 min-h-0 bg-white dark:bg-zinc-900">
               <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
                 <div className="flex items-center gap-2">
-                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Shipment Volume Analysis</CardTitle>
+                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">{`${isAirMode ? 'Air Freight' : 'Shipment'} Volume Analysis`}</CardTitle>
                   <TooltipProvider delayDuration={200}>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -1975,7 +2027,7 @@ export default function Dashboard({ data }: DashboardProps) {
             <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 flex-1">
               <CardHeader className="pb-3 px-6">
                 <div className="flex items-center gap-2">
-                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">Recent Shipments</CardTitle>
+                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50">{`Recent ${termShipments}`}</CardTitle>
                   <TooltipProvider delayDuration={200}>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -2069,13 +2121,13 @@ export default function Dashboard({ data }: DashboardProps) {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <MetricLabel 
-                      label="Total Shipments" 
-                      tooltip="Total count of unique shipment files/jobs."
+                      label={`Total ${termShipments}`} 
+                      tooltip={`Total count of unique ${termShipments.toLowerCase()}/jobs.`}
                       className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider"
                     />
                     <div className="flex items-center gap-2">
                       <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center">
-                        <Ship className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                        <IconTransport className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                       </div>
                       <Button
                         variant="ghost"
@@ -2092,7 +2144,7 @@ export default function Dashboard({ data }: DashboardProps) {
                     </div>
                   </div>
                   <div className="text-3xl font-semibold text-slate-900 dark:text-slate-50 tabular-nums tracking-tight">{kpis.shipments.toLocaleString()}</div>
-                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">files</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-2">{termFiles}</div>
                 </CardContent>
               </Card>
 
@@ -2770,6 +2822,8 @@ export default function Dashboard({ data }: DashboardProps) {
             </div>
           )}
         </div>
+
+        {/* Removed old air freight specific dashboard */}
 
         {/* SECTION 5: LINER/AIRLINE PERFORMANCE */}
         {isSeaMode && (
@@ -3649,7 +3703,7 @@ export default function Dashboard({ data }: DashboardProps) {
             {/* MAP SECTION - Renamed to Shipment Routing */}
              <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-zinc-900">
                 <CardHeader className="pb-0 pt-4 px-4 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2"><MapPin className="w-4 h-4" /> Shipment Routing</CardTitle>
+                  <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2"><MapPin className="w-4 h-4" /> {termRouting}</CardTitle>
                   <Button 
                     variant="ghost" 
                     size="icon"
@@ -3667,6 +3721,249 @@ export default function Dashboard({ data }: DashboardProps) {
                     )}
                 </CardContent>
              </Card>
+
+        {/* ================= 5 AIR FREIGHT SPECIFIC FEATURES ================= */}
+        {isAirMode && (
+          <div className="space-y-6 mt-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex items-center gap-4">
+              <div className="h-px w-16 bg-sky-300 dark:bg-sky-700" />
+              <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight flex items-center gap-2">
+                <Plane className="w-6 h-6 text-sky-500" /> Air Freight Executive Summary
+              </h2>
+              <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+            </div>
+
+            {/* ROW 1: Airlines Used & Transit Times */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* 1. AIRLINES USED */}
+              <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 transition-all hover:shadow-md">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                    <PlaneTakeoff className="w-4 h-4 text-sky-500" /> 1. Airlines Used (By Volume)
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500">Top carriers handling your air freight</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                    <ResponsiveContainer width="100%" height={Math.max(250, (airMetrics?.topAirlines?.length || 0) * 35)}>
+                      <BarChart data={airMetrics?.topAirlines ||[]} layout="vertical" margin={{ left: 50, right: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800/50" />
+                        <XAxis type="number" hide />
+                        <YAxis dataKey="airline" type="category" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b', fontWeight: 500}} width={100} />
+                        <RechartsTooltip 
+                          cursor={{ fill: 'rgba(14, 165, 233, 0.05)' }}
+                          contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--color-card)', color: 'var(--color-card-foreground)' }}
+                          itemStyle={{color: 'var(--color-foreground)', fontWeight: 600}}
+                        />
+                        <Bar dataKey="shipments" name="Air Waybills" fill="#0ea5e9" radius={[0, 4, 4, 0]} barSize={24} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 2. TRANSIT TIMES */}
+              <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 transition-all hover:shadow-md flex flex-col">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                    <Clock className="w-4 h-4 text-sky-500" /> 2. Airline Transit Times
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500">Average days from departure to arrival per airline</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col justify-center">
+                  <div className="space-y-5 mt-2">
+                    {airMetrics?.topAirlines.slice(0,5).map((airline, idx) => (
+                      <div key={idx} className="flex items-center justify-between group">
+                        <div className="flex-1 min-w-0 pr-4">
+                          <div className="flex justify-between mb-1.5">
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{airline.airline}</span>
+                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100 tabular-nums">{airline.avgTransit.toFixed(1)} <span className="text-xs font-normal text-slate-500">days</span></span>
+                          </div>
+                          <div className="h-2.5 bg-slate-100 dark:bg-zinc-800/80 rounded-full overflow-hidden shadow-inner">
+                            <div 
+                              className="h-full bg-sky-500 rounded-full transition-all duration-1000 ease-out" 
+                              style={{ width: `${Math.min((airline.avgTransit / (airMetrics.worstAirline?.avgTransit || 1)) * 100, 100)}%` }} 
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* ROW 2: Flight Routings & CO2 */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* 3. FLIGHT ROUTINGS */}
+              <Card className="col-span-1 lg:col-span-2 shadow-sm border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 transition-all hover:shadow-md">
+                <CardHeader className="pb-2 flex flex-row items-start justify-between">
+                  <div>
+                    <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                      <MapPin className="w-4 h-4 text-sky-500" /> 3. Air Line Routings
+                    </CardTitle>
+                    <CardDescription className="text-xs text-slate-500 mt-1">Most frequent origin to destination flight paths</CardDescription>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 -mt-1"
+                    onClick={() => setFullScreenCard({ type: 'air-routings', data: { laneStats } })}
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {laneStats.slice(0, 6).map((lane, idx) => {
+                      const parts = lane.name.split(' → ');
+                      const origin = parts[0] || 'Unknown';
+                      const dest = parts[1] || 'Unknown';
+                      return (
+                        <div key={idx} className="flex items-center p-3 border border-slate-100 dark:border-zinc-800/80 rounded-xl bg-slate-50/50 dark:bg-zinc-950/30 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                          <div className="flex-1 text-center">
+                            <div className="text-lg font-bold text-slate-800 dark:text-slate-200">{origin}</div>
+                            <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-0.5">Origin</div>
+                          </div>
+                          <div className="px-3 flex flex-col items-center justify-center text-sky-400 opacity-80">
+                            <Plane className="w-4 h-4 mb-1.5" />
+                            <div className="h-px w-10 bg-sky-200 dark:bg-sky-800" />
+                          </div>
+                          <div className="flex-1 text-center">
+                            <div className="text-lg font-bold text-slate-800 dark:text-slate-200">{dest}</div>
+                            <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-0.5">Dest</div>
+                          </div>
+                          <div className="ml-4 pl-4 border-l border-slate-200 dark:border-zinc-800 text-right flex flex-col justify-center">
+                            <div className="text-sm font-bold text-sky-600 dark:text-sky-400 tabular-nums">{lane.shipments}</div>
+                            <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-0.5">Flights</div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 5. CO2 EMISSIONS */}
+              <Card className="col-span-1 shadow-sm border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 relative overflow-hidden transition-all hover:shadow-md">
+                <div className="absolute -right-6 -top-6 opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
+                  <Leaf className="w-48 h-48" />
+                </div>
+                <CardHeader className="pb-2 relative z-10">
+                  <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                    <Leaf className="w-4 h-4 text-emerald-500" /> 5. Air Freight CO2
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500">Estimated carbon footprint</CardDescription>
+                </CardHeader>
+                <CardContent className="relative z-10 flex flex-col items-center justify-center h-[200px]">
+                  <div className="text-5xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight tabular-nums drop-shadow-sm">
+                    {formatCompactNumber(kpis.co2)}
+                  </div>
+                  <div className="text-sm font-semibold text-slate-500 dark:text-slate-400 mt-1 mb-5 uppercase tracking-widest">Metric Tons</div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-emerald-100 dark:border-emerald-800/30 shadow-sm">
+                    <TrendingUp className="w-3.5 h-3.5" /> Based on {kpis.shipments} {termFiles}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* ROW 3: HAWB Tracking */}
+            <div className="grid grid-cols-1 gap-6">
+              {/* 4. HAWB & ORDER TRACKING */}
+              <Card className="shadow-sm border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 overflow-hidden transition-all hover:shadow-md">
+                <CardHeader className="pb-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/30 dark:bg-zinc-950/30 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                      <Layers className="w-4 h-4 text-sky-500" /> 4. HAWB No. & Order No. Tracking
+                    </CardTitle>
+                    <CardDescription className="text-xs text-slate-500 mt-1">Granular view of House Air Waybills and associated order numbers</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2 -mt-2">
+                    <Select value={hawbStatusFilter} onValueChange={setHawbStatusFilter}>
+                      <SelectTrigger className="w-[140px] h-8 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
+                        <SelectValue placeholder="Filter by Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL">All Statuses</SelectItem>
+                        {Array.from(new Set(chartData.filter(r => r._mode === 'AIR').map(r => r.SHPTSTATUS || 'In Transit'))).sort().map(status => (
+                          <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8"
+                      onClick={() => setFullScreenCard({ type: 'hawb-tracking', data: { chartData } })}
+                    >
+                      <Maximize2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="max-h-[350px] overflow-auto custom-scrollbar">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-slate-50 dark:bg-zinc-900/80 sticky top-0 z-10 shadow-sm">
+                        <tr>
+                          <th className="px-6 py-3.5 font-semibold text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">HAWB No.</th>
+                          <th className="px-6 py-3.5 font-semibold text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Order No.</th>
+                          <th className="px-6 py-3.5 font-semibold text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Origin → Dest</th>
+                          <th className="px-6 py-3.5 font-semibold text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">Weight (Tons)</th>
+                          <th className="px-6 py-3.5 font-semibold text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider text-right">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80">
+                        {chartData.filter(r => r._mode === 'AIR' && (hawbStatusFilter === 'ALL' || (r.SHPTSTATUS || 'In Transit') === hawbStatusFilter)).slice(0, 50).map((row, idx) => {
+                          const hawbRaw = String(row.CONTMAWB || row.MAWB || 'Pending');
+                          let hawbDisplay = hawbRaw;
+                          if (hawbRaw !== 'Pending') {
+                            if (hawbRaw.includes(',')) {
+                              const parts = hawbRaw.split(',').map(p => p.trim());
+                              hawbDisplay = Array.from(new Set(parts)).join(', ');
+                            } else if (hawbRaw.length % 2 === 0) {
+                              const half = hawbRaw.length / 2;
+                              if (hawbRaw.substring(0, half) === hawbRaw.substring(half)) {
+                                hawbDisplay = hawbRaw.substring(0, half);
+                              }
+                            }
+                          }
+                          return (
+                          <tr key={idx} className="hover:bg-sky-50/50 dark:hover:bg-zinc-800/40 transition-colors group">
+                            <td className="px-6 py-3 font-medium text-sky-600 dark:text-sky-400 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors">{hawbDisplay}</td>
+                            <td className="px-6 py-3 text-slate-700 dark:text-slate-300 font-medium">{row.ORDERNO || 'N/A'}</td>
+                            <td className="px-6 py-3 text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">{row.POL}</span>
+                              <Plane className="w-3 h-3 text-slate-300 dark:text-slate-600" />
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">{row.POD}</span>
+                            </td>
+                            <td className="px-6 py-3 text-slate-700 dark:text-slate-300 tabular-nums">{(cleanNum(row.CONT_GRWT)/1000).toFixed(2)}</td>
+                            <td className="px-6 py-3 text-right">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-zinc-700 shadow-sm">
+                                {row.SHPTSTATUS || 'In Transit'}
+                              </span>
+                            </td>
+                          </tr>
+                        )})}
+                        {chartData.filter(r => r._mode === 'AIR' && (hawbStatusFilter === 'ALL' || (r.SHPTSTATUS || 'In Transit') === hawbStatusFilter)).length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="px-6 py-10 text-center text-slate-500 bg-slate-50/50 dark:bg-zinc-900/30">
+                              <div className="flex flex-col items-center justify-center space-y-2">
+                                <Plane className="w-8 h-8 text-slate-300 dark:text-slate-700" />
+                                <p className="font-medium text-slate-600 dark:text-slate-400">No Air Waybill data available for the selected filters.</p>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
 
           </main>
 
@@ -3715,7 +4012,10 @@ export default function Dashboard({ data }: DashboardProps) {
       'mode-insights': 'Mode Insights',
       'map': 'Shipment Routing Map',
       'slowest-shipments': 'Slowest Shipments Details',
-      'container-status': 'Container Delivery Status'
+      'container-status': 'Container Delivery Status',
+      'air-routings': 'Air Line Routings',
+      'hawb-tracking': 'HAWB & Order Tracking',
+      'airline-performance': 'Airline Performance Details'
     }
     return titles[type] || 'Full Screen View'
   }
@@ -3737,7 +4037,10 @@ export default function Dashboard({ data }: DashboardProps) {
       'mode-insights': 'Mode distribution and insights',
       'map': 'Interactive shipment routing visualization',
       'slowest-shipments': 'Containers and orders with longest transit times, grouped by container number',
-      'container-status': 'Track container performance with color-coded status indicators for planned vs actual transit days'
+      'container-status': 'Track container performance with color-coded status indicators for planned vs actual transit days',
+      'air-routings': 'Detailed view of all flight paths and volumes',
+      'hawb-tracking': 'Comprehensive list of all House Air Waybills and tracking statuses',
+      'airline-performance': 'Detailed performance metrics for all airlines'
     }
     return descriptions[type] || ''
   }
@@ -4021,6 +4324,12 @@ export default function Dashboard({ data }: DashboardProps) {
         return <SlowestShipmentsView data={data.slowestShipments} />
       case 'container-status':
         return <ContainerStatusView data={data.slowestShipments} />
+      case 'air-routings':
+        return null
+      case 'hawb-tracking':
+        return null
+      case 'airline-performance':
+        return null
       default:
         return <div className="text-slate-500 dark:text-slate-400">Chart view not available</div>
     }
@@ -4060,6 +4369,36 @@ export default function Dashboard({ data }: DashboardProps) {
         return <SlowestShipmentsTable data={data.slowestShipments} />
       case 'container-status':
         return <ContainerStatusTable data={data.slowestShipments} />
+      case 'air-routings':
+        return <AirLanesTable data={data} />
+      case 'hawb-tracking':
+        return <HawbTrackingTable data={data.chartData} />
+      case 'airline-performance':
+        return <div className="space-y-3">
+          {data.airlinePerformance?.map((airline: any, idx: number) => (
+            <div key={idx} className="p-4 rounded-lg border border-slate-200 dark:border-zinc-800">
+              <div className="font-semibold text-slate-900 dark:text-slate-50">{airline.Airline_Name} ({airline.Airline_Code})</div>
+              <div className="grid grid-cols-4 gap-4 mt-2 text-sm">
+                <div>
+                  <div className="text-slate-500 dark:text-slate-400">Total Shipments</div>
+                  <div className="font-semibold">{airline.Total_Shipments}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500 dark:text-slate-400">Total MAWBs</div>
+                  <div className="font-semibold text-sky-600 dark:text-sky-400">{airline.Total_MAWBs}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500 dark:text-slate-400">Total Weight (Tons)</div>
+                  <div className="font-semibold">{(airline.Total_Weight_KG / 1000).toFixed(2)}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500 dark:text-slate-400">Avg Transit</div>
+                  <div className="font-semibold">{parseFloat(airline.Avg_Transit_Days || 0).toFixed(1)} days</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       default:
         return <div className="text-slate-500 dark:text-slate-400">Details view coming soon</div>
     }
