@@ -1,3 +1,4 @@
+import net from 'node:net'
 import sql from 'mssql'
 
 // Helper to parse "Server,Port" format from .env
@@ -11,6 +12,13 @@ const getServerAndPort = (serverString: string | undefined) => {
 }
 
 const { server, port } = getServerAndPort(process.env.DB_SERVER)
+
+// Node (newer releases) rejects using an IP as TLS SNI. Tedious uses `server` as SNI when it is an IP unless
+// `options.serverName` is set. With `trustServerCertificate: true`, a placeholder hostname is enough for the handshake.
+const connectByIp = net.isIP(server) !== 0
+const tlsServerName = connectByIp
+  ? (process.env.DB_TLS_SERVER_NAME?.trim() || 'localhost')
+  : undefined
 
 const sqlConfig: sql.config = {
   user: process.env.DB_USER,
@@ -27,6 +35,7 @@ const sqlConfig: sql.config = {
     encrypt: true, 
     trustServerCertificate: true, 
     enableArithAbort: true,
+    ...(tlsServerName ? { serverName: tlsServerName } : {}),
 
     // --- CRITICAL FIX FOR VERCEL ---
     // This forces Node.js to accept older TLS 1.0/1.1 protocols
