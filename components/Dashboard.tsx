@@ -820,7 +820,7 @@ export default function Dashboard({ data }: DashboardProps) {
     const stats: Record<string, number> = {}
     chartData.forEach(row => {
       const origin = row.POL || "Unknown"
-      stats[origin] = (stats[origin] || 0) + cleanNum(row.CONT_GRWT)
+      stats[origin] = (stats[origin] || 0) + cleanNum(row.CONT_GRWT) / 1000
     })
     return Object.entries(stats)
       .map(([name, val]) => ({ name, val: Math.round(val) }))
@@ -2058,7 +2058,7 @@ export default function Dashboard({ data }: DashboardProps) {
                            </div>
                         </div>
                         <div className="text-right">
-                           <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{cleanNum(row.CONT_GRWT).toFixed(1)}t</div>
+                           <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{(cleanNum(row.CONT_GRWT) / 1000).toFixed(1)}t</div>
                            <div className="text-xs text-slate-500">{row.POL}</div>
                         </div>
                      </div>
