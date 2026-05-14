@@ -24,6 +24,8 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
   })
   const [filterMode, setFilterMode] = useState<string>("ALL")
   const [searchQuery, setSearchQuery] = useState("")
+  const [invPage, setInvPage] = useState(0)
+  const INV_PAGE_SIZE = 15
 
   // --- FETCH INVOICE DATA ---
   useEffect(() => {
@@ -77,6 +79,12 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
       filteredInvoices: filtered
     };
   }, [invoiceData, filterMode, dateRange, searchQuery, loadingInvoices]);
+
+  // Reset to page 0 whenever filters change
+  useEffect(() => { setInvPage(0) }, [filterMode, dateRange, searchQuery])
+
+  const invTotalPages = Math.ceil(filteredInvoices.length / INV_PAGE_SIZE)
+  const pagedInvoices = filteredInvoices.slice(invPage * INV_PAGE_SIZE, (invPage + 1) * INV_PAGE_SIZE)
 
   // --- FILTERS COMPONENT ---
   const filters = (
@@ -179,8 +187,8 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                 <div className="divide-y divide-slate-100 dark:divide-zinc-800">
                     {loadingInvoices ? (
                         <div className="p-8 text-center text-slate-500">Loading invoices...</div>
-                    ) : filteredInvoices.length > 0 ? (
-                        filteredInvoices.map((row, idx) => {
+                    ) : pagedInvoices.length > 0 ? (
+                        pagedInvoices.map((row, idx) => {
                             const invDate = parseDateValue(row.INVDT);
                             return (
                                 <div key={row.PKID || idx} className="grid grid-cols-6 gap-4 p-4 items-center text-sm hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
@@ -218,6 +226,36 @@ export default function FinancialsDashboard({ data }: { data: any[] }) {
                     )}
                 </div>
             </div>
+            {invTotalPages > 1 && (
+              <div className="flex items-center justify-between px-2 py-3 mt-2">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Showing {invPage * INV_PAGE_SIZE + 1}–{Math.min((invPage + 1) * INV_PAGE_SIZE, filteredInvoices.length)} of {filteredInvoices.length} invoices
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3 text-xs"
+                    disabled={invPage === 0}
+                    onClick={() => setInvPage(p => p - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    Page {invPage + 1} of {invTotalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3 text-xs"
+                    disabled={invPage >= invTotalPages - 1}
+                    onClick={() => setInvPage(p => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
         </div>
       )
     }
