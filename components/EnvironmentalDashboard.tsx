@@ -1,12 +1,15 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { PremiumPageShell } from "@/components/PremiumPageShell"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Leaf, Activity, DollarSign, Trees, Ship, Plane, MapPin, BarChart3 } from "lucide-react"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import { RadialBarChart, RadialBar, PolarGrid, BarChart, Bar, CartesianGrid, XAxis, YAxis, Area, AreaChart } from "recharts"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 interface EnvironmentalDashboardProps {
   co2Summary: any[]
@@ -16,6 +19,8 @@ interface EnvironmentalDashboardProps {
   clientCO2: any[]
   statusCO2: any[]
   topCO2Shipments: any[]
+  rawShipments: any[]
+  applyFilters: (filters: any) => Promise<void>
 }
 
 export default function EnvironmentalDashboard({
@@ -26,9 +31,16 @@ export default function EnvironmentalDashboard({
   clientCO2,
   statusCO2,
   topCO2Shipments,
+  rawShipments,
+  applyFilters,
 }: EnvironmentalDashboardProps) {
   const { data: session } = useSession()
   const clientName = (session?.user as any)?.name || 'Client'
+
+  const [filterMode, setFilterMode] = useState<string>('')
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('')
+  const [filterDateTo, setFilterDateTo] = useState<string>('')
+  const [listPage, setListPage] = useState(0)
 
   const {
     totalCO2Tonnes,
@@ -375,13 +387,132 @@ export default function EnvironmentalDashboard({
     </Card>
   )
 
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-3">
+      <Select value={filterMode} onValueChange={setFilterMode}>
+        <SelectTrigger className="h-9 text-sm w-[140px]">
+          <SelectValue placeholder="All Modes" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">All Modes</SelectItem>
+          <SelectItem value="SEA">Sea</SelectItem>
+          <SelectItem value="AIR">Air</SelectItem>
+          <SelectItem value="SEA-AIR">Sea-Air</SelectItem>
+        </SelectContent>
+      </Select>
+      <Input
+        type="date"
+        className="h-9 text-sm w-[150px]"
+        value={filterDateFrom}
+        onChange={e => setFilterDateFrom(e.target.value)}
+        placeholder="Date from"
+      />
+      <Input
+        type="date"
+        className="h-9 text-sm w-[150px]"
+        value={filterDateTo}
+        onChange={e => setFilterDateTo(e.target.value)}
+        placeholder="Date to"
+      />
+      <Button
+        size="sm"
+        className="h-9"
+        onClick={() => {
+          applyFilters({
+            mode: filterMode || null,
+            dateFrom: filterDateFrom ? filterDateFrom.replace(/-/g, '') : null,
+            dateTo: filterDateTo ? filterDateTo.replace(/-/g, '') : null,
+          })
+        }}
+      >
+        Apply Filters
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-9"
+        onClick={() => {
+          setFilterMode('')
+          setFilterDateFrom('')
+          setFilterDateTo('')
+          applyFilters({ mode: null, dateFrom: null, dateTo: null })
+        }}
+      >
+        Reset
+      </Button>
+    </div>
+  )
+
+  const co2Shipments = rawShipments.filter(r => (r.CO2_ORDER || 0) > 0).sort((a, b) => (b.CO2_ORDER || 0) - (a.CO2_ORDER || 0))
+  const pageSize = 20
+  const totalPages = Math.ceil(co2Shipments.length / pageSize)
+  const pagedShipments = co2Shipments.slice(listPage * pageSize, (listPage + 1) * pageSize)
+
+  const listSection = (
+    <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
+      <CardContent className="p-0">
+        {co2Shipments.length > 0 ? (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-zinc-800">
+                    <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Job No</th>
+                    <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Client</th>
+                    <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Mode</th>
+                    <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">POL</th>
+                    <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">POD</th>
+                    <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Order No</th>
+                    <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Weight (kg)</th>
+                    <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">CO₂ (kg)</th>
+                    <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">CO₂ (t)</th>
+                    <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">ATD</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedShipments.map((r, i) => (
+                    <tr key={i} className="border-b border-slate-100 dark:border-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800/50">
+                      <td className="py-2 px-2 font-mono text-xs text-slate-700 dark:text-slate-300">{r.JOBNO}</td>
+                      <td className="py-2 px-2 text-slate-700 dark:text-slate-300">{r.CONNAME}</td>
+                      <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{r.MODE}</td>
+                      <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{r.POL}</td>
+                      <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{r.POD}</td>
+                      <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{r.ORDERNO}</td>
+                      <td className="py-2 px-2 text-right text-slate-600 dark:text-slate-400">{Number(r.ORD_GRWT || 0).toLocaleString()}</td>
+                      <td className="py-2 px-2 text-right font-semibold text-red-600 dark:text-red-400">{Number(r.CO2_ORDER || 0).toFixed(1)}</td>
+                      <td className="py-2 px-2 text-right text-slate-700 dark:text-slate-300">{(Number(r.CO2_ORDER || 0) / 1000).toFixed(3)}</td>
+                      <td className="py-2 px-2 text-right text-slate-500 dark:text-slate-400">{r.ATD || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-zinc-800">
+                <span className="text-xs text-slate-500">Page {listPage + 1} of {totalPages}</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={listPage === 0} onClick={() => setListPage(p => p - 1)}>Prev</Button>
+                  <Button variant="outline" size="sm" disabled={listPage >= totalPages - 1} onClick={() => setListPage(p => p + 1)}>Next</Button>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="h-[200px] flex items-center justify-center text-slate-400 text-sm">No CO₂ shipment data available</div>
+        )}
+      </CardContent>
+    </Card>
+  )
+
   const sections = [
+    { title: "Filters", subtitle: "Re-fetch data with filters applied at source", content: filterBar },
     { title: "Environmental KPIs", subtitle: "Key sustainability indicators from shipment data", content: kpiSection },
     { title: "Mode Breakdown", subtitle: "CO₂ emissions by transport mode", content: modeSection },
     { title: "Analysis", subtitle: "CO₂ by mode and monthly trend", content: chartsSection },
     { title: "Client Footprint", subtitle: "CO₂ emissions per client", content: clientSection },
     { title: "Route Emissions", subtitle: "Trade lane carbon footprint", content: routeSection },
     { title: "High-Emission Shipments", subtitle: "Flagged for review", content: topShipmentsSection },
+    { title: `CO₂ Shipment Detail (${co2Shipments.length} shipments)`, subtitle: "Individual shipment CO₂ breakdown sorted by highest emitter", content: listSection },
   ]
 
   return (
@@ -391,6 +522,7 @@ export default function EnvironmentalDashboard({
       sections={sections}
       active="customers"
       columns={1}
+      filters={null}
     />
   )
 }

@@ -6,7 +6,7 @@ import { DashboardSkeleton } from '@/components/DashboardSkeleton'
 import { useShipments } from '@/components/ShipmentContext'
 
 export default function EnvironmentalPage() {
-  const { data, loading } = useShipments()
+  const { data, loading, applyFilters } = useShipments()
 
   if (loading) return <DashboardSkeleton />
 
@@ -20,6 +20,8 @@ export default function EnvironmentalPage() {
         clientCO2={data?.clientCO2 || []}
         statusCO2={data?.statusCO2 || []}
         topCO2Shipments={data?.topCO2Shipments || []}
+        rawShipments={data?.rawShipments || []}
+        applyFilters={applyFilters}
       />
     </Suspense>
   )

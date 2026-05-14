@@ -316,6 +316,8 @@ type DashboardProps = {
     airlinePerformance?: any[];
     metadata?: any;
     clientGroups?: any[];
+    co2Summary?: any[];
+    monthlyCO2?: any[];
   } | null
 }
 
@@ -347,7 +349,9 @@ export default function Dashboard({ data }: DashboardProps) {
     slowestShipments = [],
     airlinePerformance = [],
     metadata = {},
-    clientGroups = []
+    clientGroups = [],
+    co2Summary = [],
+    monthlyCO2 = [],
   } = data
 
   const { data: session } = useSession()
@@ -642,7 +646,7 @@ export default function Dashboard({ data }: DashboardProps) {
       
       revenue: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._financials?.revenue || 0), 0),
       profit: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._financials?.profit || 0), 0),
-      co2: uniqueRows.reduce((sum: number, r: ShipmentRecord) => sum + (r._env?.co2 || 0), 0)
+      co2: co2Summary.reduce((sum: number, r: any) => sum + (r.Total_CO2_Tonnes || 0), 0)
     }
   }, [chartData, kpiTotals, monthlyStats, avgTransit, extremes, onTime, transitBreakdown, allProviders])
 
@@ -2003,7 +2007,7 @@ export default function Dashboard({ data }: DashboardProps) {
                 <div className="p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-slate-100 dark:border-zinc-800 min-w-0">
                   <MetricLabel 
                     label="CO2 Emissions" 
-                    tooltip="Estimated CO2 emissions in tons based on shipment weight and distance."
+                    tooltip="Total CO₂ emissions in tonnes from live shipment data."
                     className="text-[10px] uppercase text-slate-400 dark:text-slate-500 font-semibold mb-1 truncate"
                   />
                   <div className="flex flex-col gap-0.5 min-w-0">
@@ -2071,30 +2075,42 @@ export default function Dashboard({ data }: DashboardProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-[200px]">
-                 <ResponsiveContainer width="100%" height="100%">
-                   <AreaChart data={monthlyTrend}>
-                     <defs>
-                       <linearGradient id="co2Gradient" x1="0" y1="0" x2="0" y2="1">
-                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                         <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                       </linearGradient>
-                     </defs>
-                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
-                     <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10}} tickFormatter={(val) => val.split('-')[1]} />
-                     <RechartsTooltip 
-                       contentStyle={{
-                         backgroundColor: 'var(--color-card)',
-                         borderRadius: '8px',
-                         border: '1px solid var(--color-border)',
-                         color: 'var(--color-card-foreground)'
-                       }}
-                       itemStyle={{ color: 'var(--color-card-foreground)', fontWeight: 600 }}
-                     />
-                     {/* Approximating CO2 trend based on volume trend for visual consistency until real CO2 data */}
-                     <Area type="monotone" dataKey="val" name="Est. CO2 (Tons)" stroke="#10b981" fill="url(#co2Gradient)" />
-                   </AreaChart>
-                 </ResponsiveContainer>
-                 <div className="text-center text-xs text-slate-500 -mt-3">Total estimated emissions based on shipment weight & distance</div>
+                 {(() => {
+                   const co2MonthMap: Record<string, number> = {}
+                   monthlyCO2.forEach((r: any) => {
+                     const key = String(r.Month || '').length === 6
+                       ? `${String(r.Month).slice(0, 4)}-${String(r.Month).slice(4)}`
+                       : String(r.Month || '')
+                     co2MonthMap[key] = (co2MonthMap[key] || 0) + (r.Total_CO2_Tonnes || 0)
+                   })
+                   const co2ChartData = Object.entries(co2MonthMap).sort(([a], [b]) => a.localeCompare(b)).map(([date, val]) => ({ date, val }))
+
+                   if (co2ChartData.length === 0) {
+                     return <div className="flex items-center justify-center h-full text-slate-400 text-sm">No CO₂ data available</div>
+                   }
+
+                   return (
+                     <ResponsiveContainer width="100%" height="100%">
+                       <AreaChart data={co2ChartData}>
+                         <defs>
+                           <linearGradient id="co2Gradient" x1="0" y1="0" x2="0" y2="1">
+                             <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                             <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                           </linearGradient>
+                         </defs>
+                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                         <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 10}} tickFormatter={(val) => val.split('-')[1]} />
+                         <RechartsTooltip
+                           contentStyle={{ backgroundColor: 'var(--color-card)', borderRadius: '8px', border: '1px solid var(--color-border)', color: 'var(--color-card-foreground)' }}
+                           itemStyle={{ color: 'var(--color-card-foreground)', fontWeight: 600 }}
+                           formatter={(v: any) => [`${Number(v).toFixed(1)} t`, 'CO₂']}
+                         />
+                         <Area type="monotone" dataKey="val" name="CO₂ (Tonnes)" stroke="#10b981" fill="url(#co2Gradient)" />
+                       </AreaChart>
+                     </ResponsiveContainer>
+                   )
+                 })()}
+                 <div className="text-center text-xs text-slate-500 -mt-3">Total CO₂ emissions (tonnes) from live shipment data</div>
               </CardContent>
             </Card>
 
@@ -3855,11 +3871,11 @@ export default function Dashboard({ data }: DashboardProps) {
                   <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
                     <Leaf className="w-4 h-4 text-emerald-500" /> 5. Air Freight CO2
                   </CardTitle>
-                  <CardDescription className="text-xs text-slate-500">Estimated carbon footprint</CardDescription>
+                  <CardDescription className="text-xs text-slate-500">Live carbon footprint from SP data</CardDescription>
                 </CardHeader>
                 <CardContent className="relative z-10 flex flex-col items-center justify-center h-[200px]">
                   <div className="text-5xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight tabular-nums drop-shadow-sm">
-                    {formatCompactNumber(kpis.co2)}
+                    {formatCompactNumber(co2Summary.find((r: any) => r.MODE === 'AIR')?.Total_CO2_Tonnes || kpis.co2)}
                   </div>
                   <div className="text-sm font-semibold text-slate-500 dark:text-slate-400 mt-1 mb-5 uppercase tracking-widest">Metric Tons</div>
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-emerald-100 dark:border-emerald-800/30 shadow-sm">
