@@ -846,7 +846,7 @@ export default function Dashboard({ data }: DashboardProps) {
       const client = row.CONNAME || "Unknown"
       if (!stats[client]) stats[client] = { shipments: 0, tons: 0 }
       stats[client].shipments += 1
-      stats[client].tons += cleanNum(row.CONT_GRWT)
+      stats[client].tons += cleanNum(row.CONT_GRWT) / 1000
     })
     return Object.entries(stats)
       .map(([name, info]) => ({ name, shipments: info.shipments, tons: Math.round(info.tons * 10) / 10 }))
