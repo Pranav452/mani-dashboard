@@ -481,7 +481,7 @@ export default function EnvironmentalDashboard({
                       <td className="py-2 px-2 text-right text-slate-600 dark:text-slate-400">{Number(r.ORD_GRWT || 0).toLocaleString()}</td>
                       <td className="py-2 px-2 text-right font-semibold text-red-600 dark:text-red-400">{Number(r.CO2_ORDER || 0).toFixed(1)}</td>
                       <td className="py-2 px-2 text-right text-slate-700 dark:text-slate-300">{(Number(r.CO2_ORDER || 0) / 1000).toFixed(3)}</td>
-                      <td className="py-2 px-2 text-right text-slate-500 dark:text-slate-400">{r.ATD || '—'}</td>
+                      <td className="py-2 px-2 text-right text-slate-500 dark:text-slate-400">{r.ATD ? new Date(r.ATD).toLocaleDateString('en-GB') : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
