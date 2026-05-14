@@ -37,7 +37,7 @@ export default function EnvironmentalDashboard({
   const { data: session } = useSession()
   const clientName = (session?.user as any)?.name || 'Client'
 
-  const [filterMode, setFilterMode] = useState<string>('')
+  const [filterMode, setFilterMode] = useState<string>('ALL')
   const [filterDateFrom, setFilterDateFrom] = useState<string>('')
   const [filterDateTo, setFilterDateTo] = useState<string>('')
   const [listPage, setListPage] = useState(0)
@@ -394,7 +394,7 @@ export default function EnvironmentalDashboard({
           <SelectValue placeholder="All Modes" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Modes</SelectItem>
+          <SelectItem value="ALL">All Modes</SelectItem>
           <SelectItem value="SEA">Sea</SelectItem>
           <SelectItem value="AIR">Air</SelectItem>
           <SelectItem value="SEA-AIR">Sea-Air</SelectItem>
@@ -419,7 +419,7 @@ export default function EnvironmentalDashboard({
         className="h-9"
         onClick={() => {
           applyFilters({
-            mode: filterMode || null,
+            mode: (filterMode && filterMode !== 'ALL') ? filterMode : null,
             dateFrom: filterDateFrom ? filterDateFrom.replace(/-/g, '') : null,
             dateTo: filterDateTo ? filterDateTo.replace(/-/g, '') : null,
           })
@@ -432,7 +432,7 @@ export default function EnvironmentalDashboard({
         size="sm"
         className="h-9"
         onClick={() => {
-          setFilterMode('')
+          setFilterMode('ALL')
           setFilterDateFrom('')
           setFilterDateTo('')
           applyFilters({ mode: null, dateFrom: null, dateTo: null })
