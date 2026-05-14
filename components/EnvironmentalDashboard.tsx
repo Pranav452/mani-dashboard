@@ -356,7 +356,8 @@ export default function EnvironmentalDashboard({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-zinc-800">
-                  <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Job No</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">MP Ref No</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Order No</th>
                   <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Client</th>
                   <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Mode</th>
                   <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Route</th>
@@ -369,6 +370,7 @@ export default function EnvironmentalDashboard({
                 {topCO2Shipments.map((r, i) => (
                   <tr key={i} className="border-b border-slate-100 dark:border-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800/50">
                     <td className="py-2 px-2 font-mono text-xs text-slate-700 dark:text-slate-300">{r.JOBNO}</td>
+                    <td className="py-2 px-2 font-mono text-xs text-slate-600 dark:text-slate-400">{r.ORDERNO || '—'}</td>
                     <td className="py-2 px-2 text-slate-700 dark:text-slate-300">{r.CONNAME}</td>
                     <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{r.MODE}</td>
                     <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{r.POL} → {r.POD}</td>
@@ -458,6 +460,7 @@ export default function EnvironmentalDashboard({
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-zinc-800">
                     <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Order No</th>
+                    <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">MP Ref No</th>
                     <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Client</th>
                     <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Mode</th>
                     <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">POL</th>
@@ -472,6 +475,7 @@ export default function EnvironmentalDashboard({
                   {pagedShipments.map((r, i) => (
                     <tr key={i} className="border-b border-slate-100 dark:border-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800/50">
                       <td className="py-2 px-2 font-mono text-xs text-slate-700 dark:text-slate-300">{r.ORDERNO}</td>
+                      <td className="py-2 px-2 font-mono text-xs text-slate-600 dark:text-slate-400">{r.JOBNO}</td>
                       <td className="py-2 px-2 text-slate-700 dark:text-slate-300">{r.CONNAME}</td>
                       <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{r.MODE}</td>
                       <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{r.POL}</td>
