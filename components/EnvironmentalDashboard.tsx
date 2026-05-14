@@ -1,188 +1,95 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { PremiumPageShell } from "@/components/PremiumPageShell"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Leaf, Activity, DollarSign, MapPin, TrendingUp, TrendingDown, Ship, Plane, Layers, BarChart3, Calendar as CalendarIcon, FilterX } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Leaf, Activity, DollarSign, Trees, Ship, Plane, MapPin, BarChart3 } from "lucide-react"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, RadialBarChart, RadialBar, BarChart, Bar, CartesianGrid, XAxis, YAxis, Area, AreaChart } from "recharts"
-import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns"
-import { cleanNum, getComputedMode, calculateUniqueTEU, generateEmissions, getValidDate } from "@/lib/dashboard-logic"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
-import dynamic from "next/dynamic"
+import { RadialBarChart, RadialBar, PolarGrid, BarChart, Bar, CartesianGrid, XAxis, YAxis, Area, AreaChart } from "recharts"
 
-const Map = dynamic(() => import("@/components/ui/map").then(mod => ({ default: mod.Map })), {
-  ssr: false,
-  loading: () => <div className="h-[350px] flex items-center justify-center bg-slate-50 rounded-lg"><span className="text-slate-400 text-sm">Loading map...</span></div>
-})
+interface EnvironmentalDashboardProps {
+  co2Summary: any[]
+  monthlyCO2: any[]
+  originCO2: any[]
+  routeCO2: any[]
+  clientCO2: any[]
+  statusCO2: any[]
+  topCO2Shipments: any[]
+}
 
-export default function EnvironmentalDashboard({ data }: { data: any[] }) {
+export default function EnvironmentalDashboard({
+  co2Summary,
+  monthlyCO2,
+  originCO2,
+  routeCO2,
+  clientCO2,
+  statusCO2,
+  topCO2Shipments,
+}: EnvironmentalDashboardProps) {
   const { data: session } = useSession()
-  const clientName = session?.user?.email || session?.user?.name || 'Client'
+  const clientName = (session?.user as any)?.name || 'Client'
 
-  // --- STATE FOR FILTERS ---
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: undefined,
-    to: undefined
-  })
-  const [filterMode, setFilterMode] = useState<string>("ALL")
-  const [searchQuery, setSearchQuery] = useState("")
+  const {
+    totalCO2Tonnes,
+    totalCO2KG,
+    totalWeight,
+    totalShipments,
+    offsetCost,
+    treesToOffset,
+    seaMode,
+    airMode,
+    monthlyChartData,
+    radialData,
+  } = useMemo(() => {
+    const totalCO2KG = co2Summary.reduce((s, r) => s + (r.Total_CO2_KG || 0), 0)
+    const totalCO2Tonnes = co2Summary.reduce((s, r) => s + (r.Total_CO2_Tonnes || 0), 0)
+    const totalWeight = co2Summary.reduce((s, r) => s + (r.Total_CO2_KG / Math.max(r.CO2_Per_KG_Shipped || 1, 0.0001)), 0)
+    const totalShipments = co2Summary.reduce((s, r) => s + (r.Total_Shipments || 0), 0)
+    const offsetCost = Math.round(totalCO2Tonnes * 25)
+    const treesToOffset = clientCO2.reduce((s, r) => s + (r.Trees_To_Offset || 0), 0)
 
-  // --- DATA PROCESSING ---
-  const { kpis, modeStats, chartData, monthlyEmissions, mapMarkers } = useMemo(() => {
-    // 1. Enrich & Filter Data
-    const filteredData = data.map(row => {
-        const mode = getComputedMode(row);
-        const env = generateEmissions(row);
-        const date = getValidDate(row);
-        return { ...row, _mode: mode, _env: env, _date: date };
-    }).filter(row => {
-        if (filterMode !== "ALL" && row._mode !== filterMode) return false;
-        if (dateRange.from && dateRange.to && row._date) {
-            if (!isWithinInterval(row._date, { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) })) return false;
-        }
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase();
-            return (
-                row.JOBNO?.toString().toLowerCase().includes(q) ||
-                row.CONNAME?.toString().toLowerCase().includes(q)
-            );
-        }
-        return true;
-    });
+    const seaMode = co2Summary.find(r => r.MODE === 'SEA')
+    const airMode = co2Summary.find(r => r.MODE === 'AIR')
+    const seaAirMode = co2Summary.find(r => r.MODE === 'SEA-AIR')
 
-    // 2. KPIs
-    const totalShipments = filteredData.length;
-    const totalWeight = filteredData.reduce((sum, r) => sum + cleanNum(r.CONT_GRWT), 0);
-    const totalCO2 = filteredData.reduce((sum, r) => sum + (r._env?.co2 || 0), 0);
-    
-    // 3. Mode Stats
-    const modes: Record<string, number> = {};
-    filteredData.forEach(r => {
-      modes[r._mode] = (modes[r._mode] || 0) + 1;
-    });
-    const modeStatsArr = Object.entries(modes).map(([name, value]) => ({ name, value }));
+    // Build monthly chart: pivot monthlyCO2 rows into {month, SEA, AIR, 'SEA-AIR'} objects
+    const monthMap: Record<string, any> = {}
+    monthlyCO2.forEach(r => {
+      const key = String(r.Month)
+      if (!monthMap[key]) monthMap[key] = { month: key, SEA: 0, AIR: 0, 'SEA-AIR': 0 }
+      monthMap[key][r.MODE] = (monthMap[key][r.MODE] || 0) + (r.Total_CO2_Tonnes || 0)
+    })
+    const monthlyChartData = Object.values(monthMap).sort((a, b) => a.month.localeCompare(b.month))
 
-    // 4. Monthly Emissions for Gradient Area Chart
-    const monthlyData: Record<string, { sea: number, air: number, road: number }> = {};
-    filteredData.forEach(r => {
-        if (!r._date) return;
-        const key = format(r._date, 'MMM yyyy');
-        if (!monthlyData[key]) monthlyData[key] = { sea: 0, air: 0, road: 0 };
-        
-        const co2 = r._env?.co2 || 0;
-        const m = (r._mode || '').toUpperCase();
+    const radialData = co2Summary.map(r => ({
+      name: r.MODE,
+      value: Math.round(r.Total_CO2_Tonnes || 0),
+      fill: r.MODE === 'AIR' ? '#ef4444' : r.MODE === 'SEA' ? '#10b981' : '#f59e0b',
+    }))
 
-        if (m.includes('SEA')) monthlyData[key].sea += co2;
-        else if (m.includes('AIR')) monthlyData[key].air += co2;
-        else monthlyData[key].road += co2; // Assume everything else is Road/Rail for this chart
-    });
+    return { totalCO2Tonnes, totalCO2KG, totalWeight, totalShipments, offsetCost, treesToOffset, seaMode, airMode, monthlyChartData, radialData }
+  }, [co2Summary, monthlyCO2, clientCO2])
 
-    const monthlyEmissionsArr = Object.entries(monthlyData)
-        .map(([date, vals]) => ({ 
-            month: date, 
-            sea: Math.round(vals.sea / 1000), // tons
-            air: Math.round(vals.air / 1000), // tons
-            road: Math.round(vals.road / 1000) // tons
-        }))
-        .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
+  const hasData = co2Summary.length > 0
 
-    // 5. Map Markers (simplified)
-    const markers: any[] = []; 
-
-    return {
-      kpis: {
-        co2: totalCO2,
-        weight: totalWeight,
-        shipments: totalShipments
-      },
-      modeStats: modeStatsArr,
-      chartData: filteredData,
-      monthlyEmissions: monthlyEmissionsArr,
-      mapMarkers: markers
-    };
-  }, [data, filterMode, dateRange, searchQuery]);
-
-  // --- FILTERS COMPONENT ---
-  const filters = (
-    <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
-      <Select value={filterMode} onValueChange={setFilterMode}>
-        <SelectTrigger className="h-9 text-sm w-[140px] border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:bg-slate-50 dark:hover:bg-zinc-800">
-          <SelectValue placeholder="Mode" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="ALL">All Modes</SelectItem>
-          <SelectItem value="SEA">Sea</SelectItem>
-          <SelectItem value="AIR">Air</SelectItem>
-          <SelectItem value="SEA-AIR">Sea-Air</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline" className={cn("h-9 text-sm px-3 border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:bg-slate-50 dark:hover:bg-zinc-800", !dateRange.from && "text-slate-500 dark:text-slate-400")}>
-            <CalendarIcon className="w-4 h-4 mr-2" />
-            {dateRange.from ? (
-                dateRange.to ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}` : format(dateRange.from, "MMM dd")
-            ) : "Date range"}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="range"
-            defaultMonth={dateRange.from}
-            selected={dateRange}
-            onSelect={(range: any) => setDateRange(range || { from: undefined, to: undefined })}
-            numberOfMonths={2}
-          />
-        </PopoverContent>
-      </Popover>
-
-      <Input 
-        placeholder="Filter..." 
-        className="h-9 text-sm w-[200px] bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-900" 
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-      />
-      
-      <Button 
-        variant="outline" 
-        size="sm" 
-        className="h-9 text-sm border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 hover:bg-slate-50 dark:hover:bg-zinc-800"
-        onClick={() => {
-            setFilterMode("ALL");
-            setDateRange({ from: undefined, to: undefined });
-            setSearchQuery("");
-        }}
-      >
-        <FilterX className="w-4 h-4 mr-2" /> Reset
-      </Button>
-    </div>
-  )
-
-  // --- SECTIONS ---
-
-  // 1. KPI Cards
+  // --- KPI CARDS ---
   const kpiSection = (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
           <CardTitle className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
-            <Leaf className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> CO2 Emissions
+            <Leaf className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Total CO₂ Emissions
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">{(kpis.co2/1000).toFixed(1)}</div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+            {hasData ? totalCO2Tonnes.toFixed(1) : '—'}
+          </div>
           <div className="text-sm text-slate-500 dark:text-slate-400">Tonnes CO₂</div>
         </CardContent>
       </Card>
-      
+
       <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
           <CardTitle className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
@@ -190,11 +97,17 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">{(kpis.co2 / Math.max(kpis.weight, 1) * 100).toFixed(2)}</div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">kg CO₂ / ton cargo</div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+            {hasData
+              ? (co2Summary[0]?.CO2_Per_KG_Shipped
+                  ? (co2Summary.reduce((s, r) => s + (r.CO2_Per_KG_Shipped || 0), 0) / co2Summary.length * 1000).toFixed(2)
+                  : '—')
+              : '—'}
+          </div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">g CO₂ / kg shipped</div>
         </CardContent>
       </Card>
-      
+
       <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
           <CardTitle className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
@@ -203,316 +116,281 @@ export default function EnvironmentalDashboard({ data }: { data: any[] }) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
-            {kpis.co2 > 0 ? `$${((kpis.co2/1000) * 25).toFixed(0)}` : "N/A"}
+            {hasData ? `$${offsetCost.toLocaleString()}` : '—'}
           </div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Estimated offset cost (using $25/tonne)</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">Est. at $25/tonne</div>
         </CardContent>
       </Card>
-      
+
       <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
           <CardTitle className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-purple-600 dark:text-purple-400" /> Green Routes
+            <Leaf className="w-4 h-4 text-green-600 dark:text-green-400" /> Trees to Offset
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-slate-900 dark:text-slate-50">
-            {kpis.shipments > 0
-              ? `${Math.round((modeStats.find(m => m.name === 'SEA')?.value || 0) / Math.max(kpis.shipments, 1) * 100)}%`
-              : "N/A"}
+            {hasData ? treesToOffset.toLocaleString() : '—'}
           </div>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Low Carbon Shipments</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">@ 21 kg CO₂/tree/yr</div>
         </CardContent>
       </Card>
     </div>
   )
 
-  // 2. Charts Section
+  // --- MODE BREAKDOWN CARDS ---
+  const modeSection = (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {co2Summary.map(r => (
+        <Card key={r.MODE} className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
+              {r.MODE === 'AIR' ? <Plane className="w-4 h-4 text-red-500" /> : <Ship className="w-4 h-4 text-emerald-500" />}
+              {r.MODE} Freight
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <div className="text-xl font-bold text-slate-900 dark:text-slate-50">{Number(r.Total_CO2_Tonnes).toFixed(1)} t CO₂</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">{r.Total_Shipments} shipments</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">Avg {Number(r.Avg_CO2_Per_Order_KG).toFixed(1)} kg CO₂/order</div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+
+  // --- CHARTS: Radial + Monthly Trend ---
   const chartsSection = (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Radial Bar Chart */}
-        <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
+      <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50 flex items-center gap-2">
-            <Leaf className="w-4 h-4" /> Green Lane Efficiency
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Carbon impact by transport mode</CardDescription>
+          <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+            <Leaf className="w-4 h-4" /> CO₂ by Transport Mode
+          </CardTitle>
+          <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Total emissions in tonnes</CardDescription>
         </CardHeader>
         <CardContent>
+          {radialData.length > 0 ? (
             <ChartContainer
-            config={{
-                sea: { label: "Sea (Low Carbon)", color: "#10b981" },
-                air: { label: "Air (High Carbon)", color: "#ef4444" },
-            }}
-            className="h-[280px]"
+              config={{
+                SEA: { label: "Sea", color: "#10b981" },
+                AIR: { label: "Air", color: "#ef4444" },
+                'SEA-AIR': { label: "Sea-Air", color: "#f59e0b" },
+              }}
+              className="h-[280px]"
             >
-            <RadialBarChart
-                data={[
-                { name: "Air (High)", value: modeStats.find(m => m.name === 'AIR')?.value || 0, fill: "#ef4444" },
-                { name: "Sea (Low)", value: modeStats.find(m => m.name === 'SEA')?.value || 0, fill: "#10b981" },
-                ]}
+              <RadialBarChart
+                data={radialData}
                 innerRadius="20%"
                 outerRadius="90%"
                 startAngle={90}
                 endAngle={-270}
-            >
+              >
                 <PolarGrid gridType="circle" stroke="#e2e8f0" />
                 <RadialBar
-                dataKey="value"
-                background={{ fill: '#f1f5f9' }}
-                cornerRadius={4}
-                label={{
-                    position: 'insideStart',
-                    fill: '#fff',
-                    fontSize: 10,
-                    fontWeight: 600,
-                }}
+                  dataKey="value"
+                  background={{ fill: '#f1f5f9' }}
+                  cornerRadius={4}
+                  label={{ position: 'insideStart', fill: '#fff', fontSize: 10, fontWeight: 600 }}
                 />
-                <ChartTooltip
-                content={<ChartTooltipContent hideLabel />}
-                cursor={false}
-                />
-            </RadialBarChart>
+                <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={false} />
+              </RadialBarChart>
             </ChartContainer>
-            <div className="flex flex-wrap justify-center gap-4 mt-4">
-            <div className="flex items-center gap-2 text-xs">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span className="text-slate-600 dark:text-slate-400">Sea (Low)</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                <span className="text-slate-600 dark:text-slate-400">Air (High)</span>
-            </div>
-            </div>
+          ) : (
+            <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">No CO₂ data available</div>
+          )}
+          <div className="flex flex-wrap justify-center gap-4 mt-2">
+            {radialData.map(d => (
+              <div key={d.name} className="flex items-center gap-2 text-xs">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: d.fill }} />
+                <span className="text-slate-600 dark:text-slate-400">{d.name} ({d.value.toLocaleString()} t)</span>
+              </div>
+            ))}
+          </div>
         </CardContent>
-        </Card>
+      </Card>
 
-        {/* Radar Chart (Reintroduced as it adds "wow" factor) */}
-        <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
+      <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
         <CardHeader className="pb-2">
-        <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50 flex items-center gap-2">
-            <Activity className="w-4 h-4" /> {clientName} Eco-Radar
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Sustainability across dimensions</CardDescription>
+          <CardTitle className="text-base font-semibold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+            <Activity className="w-4 h-4" /> Monthly CO₂ Trend
+          </CardTitle>
+          <CardDescription className="text-xs text-slate-500 dark:text-slate-400">CO₂ tonnes per month by mode</CardDescription>
         </CardHeader>
         <CardContent>
+          {monthlyChartData.length > 0 ? (
             <ChartContainer
-            config={{
-                current: { label: "Current", color: "#10b981" },
-                target: { label: "Target", color: "#3b82f6" },
-            }}
-            className="h-[280px]"
+              config={{
+                SEA: { label: "Sea", color: "#10b981" },
+                AIR: { label: "Air", color: "#ef4444" },
+                'SEA-AIR': { label: "Sea-Air", color: "#f59e0b" },
+              }}
+              className="h-[280px] w-full"
             >
-                <RadarChart
-                data={[
-                { metric: "CO2", current: Math.min(100, (kpis.co2 / 50000) * 100), target: 60 },
-                { metric: "Distance", current: 75, target: 70 },
-                { metric: "Fuel", current: 65, target: 50 },
-                { metric: "Efficiency", current: 82, target: 90 },
-                { metric: "Offset", current: 45, target: 80 },
-                { metric: "Green Score", current: Math.round((modeStats.find(m => m.name === 'SEA')?.value || 0) / Math.max(kpis.shipments, 1) * 100), target: 75 },
-                ]}
-            >
-                <PolarGrid stroke="#e2e8f0" className="dark:stroke-zinc-800" />
-                <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11, fill: '#64748b' }} />
-                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} />
-                <Radar
-                name="Current"
-                dataKey="current"
-                stroke="#10b981"
-                fill="#10b981"
-                fillOpacity={0.3}
-                strokeWidth={2}
-                />
-                <Radar
-                name="Target"
-                dataKey="target"
-                stroke="#3b82f6"
-                fill="#3b82f6"
-                fillOpacity={0.1}
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                />
-                <ChartLegend content={<ChartLegendContent />} wrapperStyle={{ color: 'var(--color-muted-foreground)' }} />
-            </RadarChart>
+              <AreaChart data={monthlyChartData} margin={{ left: 8, right: 8 }}>
+                <CartesianGrid vertical={false} className="stroke-slate-200 dark:stroke-zinc-800" />
+                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={v => String(v).slice(4)} stroke="var(--color-muted-foreground)" />
+                <YAxis tickLine={false} axisLine={false} tickMargin={8} tickFormatter={v => `${v}t`} stroke="var(--color-muted-foreground)" />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                <defs>
+                  <linearGradient id="fillSea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
+                  </linearGradient>
+                  <linearGradient id="fillAir" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0.1} />
+                  </linearGradient>
+                  <linearGradient id="fillSeaAir" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.1} />
+                  </linearGradient>
+                </defs>
+                <Area dataKey="SEA" type="natural" fill="url(#fillSea)" stroke="#10b981" fillOpacity={0.4} stackId="a" />
+                <Area dataKey="AIR" type="natural" fill="url(#fillAir)" stroke="#ef4444" fillOpacity={0.4} stackId="a" />
+                <Area dataKey="SEA-AIR" type="natural" fill="url(#fillSeaAir)" stroke="#f59e0b" fillOpacity={0.4} stackId="a" />
+              </AreaChart>
             </ChartContainer>
+          ) : (
+            <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">No monthly data available</div>
+          )}
         </CardContent>
-        </Card>
+      </Card>
     </div>
   )
 
-  // 3. New Gradient Area Chart Section
-  const detailedBreakdownSection = (
+  // --- CLIENT CO2 FOOTPRINT ---
+  const clientSection = (
     <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
-        <CardHeader>
-            <CardTitle className="text-slate-900 dark:text-slate-50">Emissions by Transport Mode</CardTitle>
-            <CardDescription className="text-slate-500 dark:text-slate-400">Monthly CO₂ emissions (tonnes) breakdown by Sea, Air, and Road</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <ChartContainer 
-                config={{
-                    sea: { label: "Sea Freight", color: "var(--chart-1)" },
-                    air: { label: "Air Freight", color: "var(--chart-2)" },
-                    road: { label: "Road Freight", color: "var(--chart-3)" }
-                }}
-                className="h-[350px] w-full"
-            >
-                <AreaChart
-                    accessibilityLayer
-                    data={monthlyEmissions}
-                    margin={{ left: 12, right: 12 }}
-                >
-                    <CartesianGrid vertical={false} className="stroke-slate-200 dark:stroke-zinc-800" />
-                    <XAxis
-                        dataKey="month"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        tickFormatter={(value) => value.slice(0, 3)}
-                        stroke="var(--color-muted-foreground)"
-                    />
-                    <YAxis 
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        tickFormatter={(val) => `${val}t`}
-                        stroke="var(--color-muted-foreground)"
-                    />
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-                    <defs>
-                        <linearGradient id="fillSea" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--color-sea)" stopOpacity={0.8} />
-                            <stop offset="95%" stopColor="var(--color-sea)" stopOpacity={0.1} />
-                        </linearGradient>
-                        <linearGradient id="fillAir" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--color-air)" stopOpacity={0.8} />
-                            <stop offset="95%" stopColor="var(--color-air)" stopOpacity={0.1} />
-                        </linearGradient>
-                        <linearGradient id="fillRoad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--color-road)" stopOpacity={0.8} />
-                            <stop offset="95%" stopColor="var(--color-road)" stopOpacity={0.1} />
-                        </linearGradient>
-                    </defs>
-                    <Area
-                        dataKey="road"
-                        type="natural"
-                        fill="url(#fillRoad)"
-                        fillOpacity={0.4}
-                        stroke="var(--color-road)"
-                        stackId="a"
-                    />
-                    <Area
-                        dataKey="air"
-                        type="natural"
-                        fill="url(#fillAir)"
-                        fillOpacity={0.4}
-                        stroke="var(--color-air)"
-                        stackId="a"
-                    />
-                    <Area
-                        dataKey="sea"
-                        type="natural"
-                        fill="url(#fillSea)"
-                        fillOpacity={0.4}
-                        stroke="var(--color-sea)"
-                        stackId="a"
-                    />
-                </AreaChart>
-            </ChartContainer>
-        </CardContent>
-        <CardFooter>
-            <div className="flex w-full items-start gap-2 text-sm">
-              <div className="grid gap-2">
-                <div className="flex items-center gap-2 leading-none font-medium text-slate-900 dark:text-slate-50">
-                  Emissions trend will be available once historical data is connected
-                </div>
-                <div className="text-slate-500 dark:text-slate-400 leading-none">
-                  Time range will match the selected date filters
-                </div>
-              </div>
-            </div>
-        </CardFooter>
+      <CardHeader>
+        <CardTitle className="text-slate-900 dark:text-slate-50 flex items-center gap-2">
+          <BarChart3 className="w-4 h-4" /> Client CO₂ Footprint
+        </CardTitle>
+        <CardDescription className="text-slate-500 dark:text-slate-400">Total emissions per client (tonnes)</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {clientCO2.length > 0 ? (
+          <ChartContainer
+            config={{ Total_CO2_Tonnes: { label: "CO₂ Tonnes", color: "#10b981" } }}
+            className="h-[350px] w-full"
+          >
+            <BarChart data={clientCO2.slice(0, 15)} layout="vertical" margin={{ left: 8, right: 24 }}>
+              <CartesianGrid horizontal={false} className="stroke-slate-200 dark:stroke-zinc-800" />
+              <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={v => `${v}t`} stroke="var(--color-muted-foreground)" />
+              <YAxis type="category" dataKey="Client_Name" tickLine={false} axisLine={false} width={120} tick={{ fontSize: 11, fill: '#64748b' }} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="Total_CO2_Tonnes" fill="#10b981" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ChartContainer>
+        ) : (
+          <div className="h-[350px] flex items-center justify-center text-slate-400 text-sm">No client data available</div>
+        )}
+      </CardContent>
     </Card>
   )
 
-  // 4. Sustainability Initiatives Section (New)
-  const initiativesSection = (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-        <Card className="border border-emerald-100 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm">
-            <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
-                    <Leaf className="w-4 h-4" /> {clientName} Forest Initiative
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-300">N/A</div>
-                <div className="text-xs text-emerald-700 dark:text-emerald-500">
-                  Trees planted data will appear here once sustainability metrics are connected.
-                </div>
-            </CardContent>
-        </Card>
+  // --- ROUTE CO2 ---
+  const routeSection = (
+    <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
+      <CardHeader>
+        <CardTitle className="text-slate-900 dark:text-slate-50 flex items-center gap-2">
+          <MapPin className="w-4 h-4" /> Route CO₂ Emissions
+        </CardTitle>
+        <CardDescription className="text-slate-500 dark:text-slate-400">Top trade lanes by carbon footprint</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {routeCO2.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-zinc-800">
+                  <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Route</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Mode</th>
+                  <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Shipments</th>
+                  <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">CO₂ (t)</th>
+                  <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Avg CO₂/order (kg)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {routeCO2.slice(0, 15).map((r, i) => (
+                  <tr key={i} className="border-b border-slate-100 dark:border-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800/50">
+                    <td className="py-2 px-2 font-medium text-slate-800 dark:text-slate-200">{r.Route}</td>
+                    <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{r.MODE}</td>
+                    <td className="py-2 px-2 text-right text-slate-600 dark:text-slate-400">{r.Total_Shipments}</td>
+                    <td className="py-2 px-2 text-right font-semibold text-slate-900 dark:text-slate-100">{Number(r.Total_CO2_Tonnes).toFixed(2)}</td>
+                    <td className="py-2 px-2 text-right text-slate-600 dark:text-slate-400">{Number(r.Avg_CO2_Per_Order_KG).toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="h-[200px] flex items-center justify-center text-slate-400 text-sm">No route data available</div>
+        )}
+      </CardContent>
+    </Card>
+  )
 
-        <Card className="border border-blue-100 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20 shadow-sm">
-            <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-400 flex items-center gap-2">
-                    <Ship className="w-4 h-4" /> Clean Fuel Usage
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold text-blue-900 dark:text-blue-300">N/A</div>
-                <div className="text-xs text-blue-700 dark:text-blue-500">
-                  Clean fuel share will be calculated once route-level fuel data is available.
-                </div>
-            </CardContent>
-        </Card>
-
-        <Card className="border border-purple-100 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/20 shadow-sm">
-            <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-purple-800 dark:text-purple-400 flex items-center gap-2">
-                    <DollarSign className="w-4 h-4" /> Carbon Credit Spend
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold text-purple-900 dark:text-purple-300">N/A</div>
-                <div className="text-xs text-purple-700 dark:text-purple-500">
-                  Carbon credit spend will be shown here once finance data is connected.
-                </div>
-            </CardContent>
-        </Card>
-    </div>
+  // --- TOP 10 HIGH EMISSION SHIPMENTS ---
+  const topShipmentsSection = (
+    <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
+      <CardHeader>
+        <CardTitle className="text-slate-900 dark:text-slate-50">Top 10 High-Emission Shipments</CardTitle>
+        <CardDescription className="text-slate-500 dark:text-slate-400">Shipments flagged for review based on CO₂ output</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {topCO2Shipments.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-zinc-800">
+                  <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Job No</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Client</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Mode</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Route</th>
+                  <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">Weight (kg)</th>
+                  <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">CO₂ (kg)</th>
+                  <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400">ATD</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topCO2Shipments.map((r, i) => (
+                  <tr key={i} className="border-b border-slate-100 dark:border-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800/50">
+                    <td className="py-2 px-2 font-mono text-xs text-slate-700 dark:text-slate-300">{r.JOBNO}</td>
+                    <td className="py-2 px-2 text-slate-700 dark:text-slate-300">{r.CONNAME}</td>
+                    <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{r.MODE}</td>
+                    <td className="py-2 px-2 text-slate-600 dark:text-slate-400">{r.POL} → {r.POD}</td>
+                    <td className="py-2 px-2 text-right text-slate-600 dark:text-slate-400">{Number(r.Weight_KG).toLocaleString()}</td>
+                    <td className="py-2 px-2 text-right font-semibold text-red-600 dark:text-red-400">{Number(r.CO2_KG).toFixed(1)}</td>
+                    <td className="py-2 px-2 text-right text-slate-500 dark:text-slate-400">{r.ATD_Date || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="h-[200px] flex items-center justify-center text-slate-400 text-sm">No shipment data available</div>
+        )}
+      </CardContent>
+    </Card>
   )
 
   const sections = [
-    {
-      title: "Environmental Impact",
-      subtitle: "Key Sustainability Indicators",
-      content: kpiSection
-    },
-    {
-      title: "Analysis",
-      subtitle: "Deep dive into carbon footprint",
-      content: chartsSection
-    },
-    {
-      title: "Detailed Emissions Trend",
-      subtitle: "Comparison of high vs low carbon modes over time",
-      content: detailedBreakdownSection
-    },
-    {
-      title: "Sustainability Initiatives",
-      subtitle: "Active projects and investments",
-      content: initiativesSection
-    }
+    { title: "Environmental KPIs", subtitle: "Key sustainability indicators from shipment data", content: kpiSection },
+    { title: "Mode Breakdown", subtitle: "CO₂ emissions by transport mode", content: modeSection },
+    { title: "Analysis", subtitle: "CO₂ by mode and monthly trend", content: chartsSection },
+    { title: "Client Footprint", subtitle: "CO₂ emissions per client", content: clientSection },
+    { title: "Route Emissions", subtitle: "Trade lane carbon footprint", content: routeSection },
+    { title: "High-Emission Shipments", subtitle: "Flagged for review", content: topShipmentsSection },
   ]
 
   return (
     <PremiumPageShell
       title="Environmental Impact"
-      description="Track and analyze your carbon footprint and sustainability goals."
+      description="Carbon footprint and sustainability metrics from live shipment data."
       sections={sections}
-      active="customers" 
+      active="customers"
       columns={1}
-      filters={filters} // Passing the interactive filters here
     />
   )
 }

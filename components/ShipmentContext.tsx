@@ -25,6 +25,13 @@ interface ShipmentContextType {
     clientPerformance: any[];
     weekOfMonthPattern: any[];
     shipmentStatusBreakdown: any[];
+    co2Summary: any[];
+    monthlyCO2: any[];
+    originCO2: any[];
+    routeCO2: any[];
+    clientCO2: any[];
+    statusCO2: any[];
+    topCO2Shipments: any[];
     metadata: any;
     clientGroups: any[];
   } | null

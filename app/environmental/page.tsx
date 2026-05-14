@@ -10,12 +10,17 @@ export default function EnvironmentalPage() {
 
   if (loading) return <DashboardSkeleton />
 
-  // Extract rawShipments from the new data structure
-  const shipments = data?.rawShipments || []
-
   return (
     <Suspense fallback={<DashboardSkeleton />}>
-      <EnvironmentalDashboard data={shipments} />
+      <EnvironmentalDashboard
+        co2Summary={data?.co2Summary || []}
+        monthlyCO2={data?.monthlyCO2 || []}
+        originCO2={data?.originCO2 || []}
+        routeCO2={data?.routeCO2 || []}
+        clientCO2={data?.clientCO2 || []}
+        statusCO2={data?.statusCO2 || []}
+        topCO2Shipments={data?.topCO2Shipments || []}
+      />
     </Suspense>
   )
 }

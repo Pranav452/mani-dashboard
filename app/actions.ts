@@ -55,6 +55,13 @@ export async function getShipments(filters?: DashboardFilters) {
       clientPerformance: [],
       weekOfMonthPattern: [],
       shipmentStatusBreakdown: [],
+      co2Summary: [],
+      monthlyCO2: [],
+      originCO2: [],
+      routeCO2: [],
+      clientCO2: [],
+      statusCO2: [],
+      topCO2Shipments: [],
       metadata: {},
       clientGroups: []
     }
@@ -158,6 +165,15 @@ export async function getShipments(filters?: DashboardFilters) {
       
       // Airline Performance
       airlinePerformance: resultSets[23] || [],
+
+      // CO2 / Environmental (Indexes 24-30)
+      co2Summary: resultSets[24] || [],
+      monthlyCO2: resultSets[25] || [],
+      originCO2: resultSets[26] || [],
+      routeCO2: resultSets[27] || [],
+      clientCO2: resultSets[28] || [],
+      statusCO2: resultSets[29] || [],
+      topCO2Shipments: resultSets[30] || [],
 
       // Metadata
       metadata: resultSets[0]?.[0] || {},
