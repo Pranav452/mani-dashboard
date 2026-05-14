@@ -841,15 +841,15 @@ export default function Dashboard({ data }: DashboardProps) {
   }, [chartData])
 
   const clientStats = useMemo(() => {
-    const stats: Record<string, { shipments: number; tons: number }> = {}
+    const stats: Record<string, { jobs: Set<string>; tons: number }> = {}
     chartData.forEach(row => {
       const client = row.CONNAME || "Unknown"
-      if (!stats[client]) stats[client] = { shipments: 0, tons: 0 }
-      stats[client].shipments += 1
+      if (!stats[client]) stats[client] = { jobs: new Set(), tons: 0 }
+      if (row.JOBNO) stats[client].jobs.add(row.JOBNO)
       stats[client].tons += cleanNum(row.CONT_GRWT) / 1000
     })
     return Object.entries(stats)
-      .map(([name, info]) => ({ name, shipments: info.shipments, tons: Math.round(info.tons * 10) / 10 }))
+      .map(([name, info]) => ({ name, shipments: info.jobs.size, tons: Math.round(info.tons * 10) / 10 }))
       .sort((a, b) => b.shipments - a.shipments)
       .slice(0, 6)
   }, [chartData])
