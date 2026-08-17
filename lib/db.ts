@@ -1,13 +1,17 @@
 import net from 'node:net'
 import sql from 'mssql'
 
-// Helper to parse "Server,Port" format from .env
+// Helper to parse "Server,Port" format from .env. Port always comes from env — no hardcoded fallback.
 const getServerAndPort = (serverString: string | undefined) => {
-  if (!serverString) return { server: 'localhost', port: 1433 }
+  if (!process.env.DB_PORT) {
+    throw new Error('DB_PORT env var is required')
+  }
+  const envPort = parseInt(process.env.DB_PORT)
+  if (!serverString) return { server: 'localhost', port: envPort }
   const parts = serverString.split(',')
   return {
     server: parts[0],
-    port: parts[1] ? parseInt(parts[1]) : 1433
+    port: parts[1] ? parseInt(parts[1]) : envPort
   }
 }
 
