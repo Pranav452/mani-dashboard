@@ -969,6 +969,45 @@ export default function Dashboard({ data }: DashboardProps) {
     }
   }, [chartData])
 
+  // --- PERFORMANCE PULSE (extra headline metrics) ---
+  const pulse = useMemo(() => {
+    const jobs = new globalThis.Map<string, any>()
+    chartData.forEach((r: any, idx: number) => {
+      const key = r.JOBNO ? String(r.JOBNO) : `__${idx}`
+      if (!jobs.has(key)) jobs.set(key, r)
+    })
+    const rows = Array.from(jobs.values())
+    const n = rows.length || 1
+    const clients = new Set(rows.map(r => r.CONCODE || r.CONNAME).filter(Boolean)).size
+    const lanes: Record<string, number> = {}
+    const carriers: Record<string, number> = {}
+    let delivered = 0, lateDep = 0, depBase = 0
+    rows.forEach(r => {
+      const lane = `${r.POL || '?'} → ${r.POD || '?'}`
+      lanes[lane] = (lanes[lane] || 0) + 1
+      const c = getCarrier(r)
+      carriers[c] = (carriers[c] || 0) + 1
+      if (String(r.SHPTSTATUS || '').toUpperCase().includes('DELIVER')) delivered++
+      const atd = getValidDate({ ATD: r.ATD }), etd = getValidDate({ ETD: r.ETD })
+      if (atd && etd) { depBase++; if (atd > etd) lateDep++ }
+    })
+    const top = (m: Record<string, number>) => Object.entries(m).sort((a, b) => b[1] - a[1])[0] || ['—', 0]
+    const [topLane, topLaneN] = top(lanes)
+    const [topCarrier, topCarrierN] = top(carriers)
+    const tons = kpis.weight || 0
+    return {
+      clients,
+      avgTonsPerShipment: rows.length ? tons / rows.length : 0,
+      avgTeuPerShipment: rows.length ? kpis.teu / rows.length : 0,
+      deliveredPct: (delivered / n) * 100,
+      lateDepPct: depBase ? (lateDep / depBase) * 100 : 0,
+      topLane, topLaneShare: (topLaneN / n) * 100,
+      topCarrier, topCarrierShare: (topCarrierN / n) * 100,
+      co2PerTon: tons > 0 ? ((kpis.co2 || 0) * 1000) / tons : 0,
+      uniqueLanes: Object.keys(lanes).length,
+    }
+  }, [chartData, kpis])
+
   const recentShipments = useMemo(() => {
     // 1. Sort by Date (Newest first), handle missing dates safely
     const sorted = [...chartData].sort((a, b) => {
@@ -1522,6 +1561,48 @@ export default function Dashboard({ data }: DashboardProps) {
 
       {/* MAIN DASHBOARD CONTENT */}
       <main className="max-w-[1400px] mx-auto px-4 md:px-6 py-5 space-y-5">
+
+        {/* EXECUTIVE OVERVIEW (redesigned) */}
+        <section className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-zinc-800 bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 text-white p-6 md:p-8 shadow-xl">
+          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
+          <div className="pointer-events-none absolute -left-16 -bottom-24 h-64 w-64 rounded-full bg-sky-400/20 blur-3xl" />
+          <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-emerald-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" /> New · Dashboard 2.0
+              </span>
+              <h2 className="mt-3 text-2xl md:text-3xl font-bold tracking-tight !normal-case !text-white !text-2xl md:!text-3xl before:hidden">Your logistics, at a glance</h2>
+              <p className="mt-1 text-sm text-white/70 max-w-xl">Redesigned with faster loading, smoother navigation, transshipment insights and richer shipment details.</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3 md:gap-6 text-center">
+              <div><div className="text-2xl font-bold tabular-nums">{formatCompactNumber(kpis.shipments)}</div><div className="text-[11px] uppercase tracking-wider text-white/60">Shipments</div></div>
+              <div><div className="text-2xl font-bold tabular-nums">{formatCompactNumber(kpis.weight)}<span className="text-sm font-normal text-white/60"> t</span></div><div className="text-[11px] uppercase tracking-wider text-white/60">Tonnage</div></div>
+              <div><div className="text-2xl font-bold tabular-nums">{kpis.onTimePct.toFixed(0)}<span className="text-sm font-normal text-white/60">%</span></div><div className="text-[11px] uppercase tracking-wider text-white/60">On-time</div></div>
+            </div>
+          </div>
+        </section>
+
+        {/* PERFORMANCE PULSE (new metrics) */}
+        <section className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+          {[
+            { label: 'Active clients', value: pulse.clients.toLocaleString(), sub: 'in selection' },
+            { label: 'Avg load', value: pulse.avgTonsPerShipment >= 1 ? `${pulse.avgTonsPerShipment.toFixed(1)} t` : `${Math.round(pulse.avgTonsPerShipment * 1000)} kg`, sub: `${pulse.avgTeuPerShipment.toFixed(2)} TEU / shipment` },
+            { label: 'Delivered', value: `${pulse.deliveredPct.toFixed(0)}%`, sub: 'of shipments' },
+            { label: 'Late departures', value: `${pulse.lateDepPct.toFixed(0)}%`, sub: 'ATD after ETD', warn: pulse.lateDepPct > 30 },
+            { label: 'Transshipped', value: transshipment.total ? `${transshipment.transPct.toFixed(0)}%` : 'n/a', sub: 'of sea shipments' },
+            { label: 'Top lane', value: pulse.topLane, sub: `${pulse.topLaneShare.toFixed(0)}% · ${pulse.uniqueLanes} lanes`, small: true },
+            { label: 'Top carrier', value: pulse.topCarrier, sub: `${pulse.topCarrierShare.toFixed(0)}% share`, small: true },
+            { label: 'CO₂ intensity', value: pulse.co2PerTon ? `${pulse.co2PerTon.toFixed(0)} kg/t` : 'n/a', sub: 'per tonne shipped' },
+          ].map((m: any) => (
+            <Card key={m.label} className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900">
+              <CardContent className="p-4">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{m.label}</div>
+                <div className={cn("mt-1 font-bold tabular-nums truncate", m.small ? "text-sm" : "text-xl", m.warn ? "text-amber-600 dark:text-amber-400" : "text-slate-900 dark:text-slate-50")} title={String(m.value)}>{m.value}</div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">{m.sub}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
 
         {/* MAIN LAYOUT GRID */}
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4 lg:gap-5 items-stretch">
