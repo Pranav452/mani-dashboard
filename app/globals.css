@@ -132,3 +132,70 @@
 .leaflet-tile-container img {
   max-width: none !important;
 }
+
+
+/* ============ PREMIUM POLISH LAYER ============ */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+body {
+  background-image:
+    radial-gradient(1200px 500px at 85% -10%, oklch(0.93 0.03 250 / 0.55), transparent 60%),
+    radial-gradient(900px 400px at -10% 0%, oklch(0.95 0.03 160 / 0.4), transparent 55%);
+  background-attachment: fixed;
+}
+.dark body {
+  background-image:
+    radial-gradient(1200px 500px at 85% -10%, oklch(0.3 0.06 260 / 0.35), transparent 60%),
+    radial-gradient(900px 400px at -10% 0%, oklch(0.28 0.05 165 / 0.25), transparent 55%);
+}
+
+/* Section entrance */
+@keyframes rise-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+main > *, main section { animation: rise-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+main > *:nth-child(2) { animation-delay: 0.05s; }
+main > *:nth-child(3) { animation-delay: 0.1s; }
+main > *:nth-child(4) { animation-delay: 0.15s; }
+main > *:nth-child(n+5) { animation-delay: 0.2s; }
+
+/* Skip rendering offscreen dashboard sections until scrolled near */
+main > div.space-y-3 { content-visibility: auto; contain-intrinsic-size: auto 520px; }
+
+/* Cards: soft depth + lift */
+[data-slot="card"] {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+  box-shadow: 0 1px 2px oklch(0.2 0 0 / 0.04), 0 8px 24px -12px oklch(0.2 0.03 260 / 0.12);
+}
+[data-slot="card"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px oklch(0.2 0 0 / 0.05), 0 18px 40px -16px oklch(0.2 0.05 260 / 0.22);
+  border-color: oklch(0.8 0.03 250);
+}
+.dark [data-slot="card"]:hover { border-color: oklch(1 0 0 / 22%); }
+
+/* Section headings */
+main h2.uppercase { letter-spacing: 0.14em; font-size: 0.7rem; display: flex; align-items: center; gap: 0.6rem; }
+main h2.uppercase::before { content: ""; width: 18px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, #10b981, #3b82f6); }
+
+/* Chart interactions (replaces JS hover state) */
+.recharts-pie-sector { transition: filter 0.2s ease, transform 0.2s ease; transform-origin: center; }
+.recharts-pie-sector:hover { filter: brightness(1.12); }
+.recharts-bar-rectangle { transition: opacity 0.2s ease; }
+.recharts-bar-rectangle:hover { opacity: 0.85; }
+
+/* Scrollbars */
+.custom-scrollbar::-webkit-scrollbar, [data-lenis-prevent]::-webkit-scrollbar { width: 8px; height: 8px; }
+.custom-scrollbar::-webkit-scrollbar-thumb, [data-lenis-prevent]::-webkit-scrollbar-thumb { background: oklch(0.7 0.01 250 / 0.45); border-radius: 8px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+
+/* Buttons / interactive feedback */
+button, a { transition-property: color, background-color, border-color, box-shadow, transform, opacity; transition-duration: 0.18s; }
+button:active:not(:disabled) { transform: scale(0.97); }
+
+::selection { background: oklch(0.8 0.1 200 / 0.4); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

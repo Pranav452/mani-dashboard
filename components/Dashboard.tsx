@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 // Import Logic
+import { parseDateValue } from "@/lib/dashboard-logic"
 import { cleanNum, getValidDate, getComputedMode, generateFinancials, generateEmissions, filterData, calculateTransitStats, calculateLinerStats } from "@/lib/dashboard-logic"
 
 // Import Shadcn Chart Components
@@ -362,11 +363,9 @@ export default function Dashboard({ data }: DashboardProps) {
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [hoveredChart, setHoveredChart] = useState<string | null>(null)
   const [drilldowns, setDrilldowns] = useState<Record<string, boolean>>({})
   const [showSnow, setShowSnow] = useState(false)
   const [fullScreenCard, setFullScreenCard] = useState<{ type: string; data: any } | null>(null)
-  const [hoveredPieSegment, setHoveredPieSegment] = useState<{ chart: string; index: number } | null>(null)
   const [hawbStatusFilter, setHawbStatusFilter] = useState<string>("ALL")
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: filters.dateFrom ? parseYYYYMMDD(filters.dateFrom) : undefined,
@@ -444,7 +443,7 @@ export default function Dashboard({ data }: DashboardProps) {
   const handleExport = () => {
     if (!rawShipments?.length) return
     
-    const headers = ["JOBNO", "MODE", "PROVIDER", "CARRIER", "POL", "POD", "ETD", "ATD", "WEIGHT_KG", "TEU", "CBM"]
+    const headers = ["JOBNO", "MODE", "PROVIDER", "CARRIER", "POL", "POD", "ETD", "ATD", "ATA", "DELIVERY", "WEIGHT_KG", "TEU", "CBM", "DIRECT_VESSEL", "VESSEL", "MAWB", "STATUS"]
     
     const csvContent = [
       headers.join(","),
@@ -457,9 +456,15 @@ export default function Dashboard({ data }: DashboardProps) {
         row.POD || "",
         row.ETD || "",
         row.ATD || "",
+        row.ATA || "",
+        row.DELIVERY || "",
         row.CONT_GRWT || 0,
         row.CONT_TEU || 0,
-        row.CONT_CBM || 0
+        row.CONT_CBM || 0,
+        row.DIRECTVSL === "YES" ? "DIRECT" : row.DIRECTVSL === "NO" ? "TRANSSHIPPED" : "",
+        `"${String(row.VSL_NAME || row.CONT_VESSEL || "").replace(/"/g, '""')}"`,
+        row.MAWBNO || row.CONTMAWB || "",
+        `"${String(row.SHPTSTATUS || "").replace(/"/g, '""')}"`
       ].join(","))
     ].join("\n")
     
@@ -912,6 +917,56 @@ export default function Dashboard({ data }: DashboardProps) {
           stats[s] = (stats[s] || 0) + 1
       })
       return Object.entries(stats).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
+  }, [chartData])
+
+  // --- TRANSSHIPMENT (DIRECTVSL: YES = direct vessel, NO = transshipped) ---
+  const transshipment = useMemo(() => {
+    const jobs = new globalThis.Map<string, any>()
+    chartData.forEach((r: any, idx: number) => {
+      const flag = String(r.DIRECTVSL || '').trim().toUpperCase()
+      if (flag !== 'YES' && flag !== 'NO') return
+      const key = r.JOBNO ? String(r.JOBNO) : `__${idx}`
+      if (!jobs.has(key)) jobs.set(key, r)
+    })
+    const rows = Array.from(jobs.values())
+    const transitDays = (r: any) => {
+      const a = parseDateValue(r.ATD), b = parseDateValue(r.ATA)
+      if (!a || !b) return null
+      const d = differenceInDays(b, a)
+      return d >= 0 ? d : null
+    }
+    const summarize = (list: any[]) => {
+      const days = list.map(transitDays).filter((d): d is number => d !== null)
+      return {
+        count: list.length,
+        avgDays: days.length ? days.reduce((a, b) => a + b, 0) / days.length : 0,
+        tons: list.reduce((a, r) => a + cleanNum(r.CONT_GRWT), 0) / 1000,
+        teu: list.reduce((a, r) => a + cleanNum(r.CONT_TEU), 0),
+      }
+    }
+    const direct = rows.filter(r => String(r.DIRECTVSL).trim().toUpperCase() === 'YES')
+    const trans = rows.filter(r => String(r.DIRECTVSL).trim().toUpperCase() === 'NO')
+    const group = (keyFn: (r: any) => string) => {
+      const m: Record<string, { name: string; direct: number; trans: number }> = {}
+      rows.forEach(r => {
+        const k = keyFn(r) || 'Unknown'
+        m[k] = m[k] || { name: k, direct: 0, trans: 0 }
+        if (String(r.DIRECTVSL).trim().toUpperCase() === 'NO') m[k].trans++; else m[k].direct++
+      })
+      return Object.values(m)
+        .map(x => ({ ...x, total: x.direct + x.trans, transPct: (x.trans / (x.direct + x.trans)) * 100 }))
+        .filter(x => x.trans > 0)
+        .sort((a, b) => b.trans - a.trans)
+    }
+    return {
+      total: rows.length,
+      direct: summarize(direct),
+      trans: summarize(trans),
+      transPct: rows.length ? (trans.length / rows.length) * 100 : 0,
+      byCarrier: group(r => getCarrier(r)).slice(0, 8),
+      byLane: group(r => `${r.POL || '?'} → ${r.POD || '?'}`).slice(0, 10),
+      transJobs: trans,
+    }
   }, [chartData])
 
   const recentShipments = useMemo(() => {
@@ -2703,7 +2758,7 @@ export default function Dashboard({ data }: DashboardProps) {
                         >
                           {originModeTEU.map((entry: any, index: number) => {
                             const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316']
-                            const isHovered = hoveredPieSegment?.chart === 'teu-distribution' && hoveredPieSegment?.index === index
+                            const isHovered = false
                             return (
                               <Cell 
                                 key={`cell-${index}`} 
@@ -2714,8 +2769,6 @@ export default function Dashboard({ data }: DashboardProps) {
                                   transition: 'transform 0.2s ease-out',
                                   filter: isHovered ? 'brightness(1.1)' : 'brightness(1)'
                                 }}
-                                onMouseEnter={() => setHoveredPieSegment({ chart: 'teu-distribution', index })}
-                                onMouseLeave={() => setHoveredPieSegment(null)}
                               />
                             )
                           })}
@@ -3295,6 +3348,74 @@ export default function Dashboard({ data }: DashboardProps) {
         </div>
         )}
 
+        {/* TRANSSHIPMENT ANALYSIS */}
+        {transshipment.total > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Transshipment</h2>
+            <Card className="shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-slate-50">Direct vs Transshipped</CardTitle>
+                  <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Sea shipments that moved on a direct vessel vs. via a transshipment port</CardDescription>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFullScreenCard({ type: 'transshipment', data: { transshipment } })}>
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Transshipped', value: `${transshipment.trans.count}`, sub: `${transshipment.transPct.toFixed(1)}% of sea shipments` },
+                    { label: 'Direct', value: `${transshipment.direct.count}`, sub: `${(100 - transshipment.transPct).toFixed(1)}% of sea shipments` },
+                    { label: 'Avg Transit · Transshipped', value: `${transshipment.trans.avgDays.toFixed(1)} d`, sub: `${transshipment.trans.tons.toFixed(1)} t · ${transshipment.trans.teu.toFixed(0)} TEU` },
+                    { label: 'Avg Transit · Direct', value: `${transshipment.direct.avgDays.toFixed(1)} d`, sub: `${transshipment.direct.tons.toFixed(1)} t · ${transshipment.direct.teu.toFixed(0)} TEU` },
+                  ].map(k => (
+                    <div key={k.label} className="p-4 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{k.label}</div>
+                      <div className="text-2xl font-bold text-slate-900 dark:text-slate-50 mt-1">{k.value}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{k.sub}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <div className="text-sm font-semibold mb-2 text-slate-900 dark:text-slate-100">Transshipped by carrier</div>
+                    <div className="h-[260px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={transshipment.byCarrier} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+                          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                          <YAxis dataKey="name" type="category" width={130} interval={0} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v: string) => v.length > 18 ? v.slice(0, 17) + '…' : v} />
+                          <RechartsTooltip contentStyle={{ backgroundColor: 'var(--color-card)', borderRadius: '8px', border: '1px solid var(--color-border)', color: 'var(--color-card-foreground)' }} />
+                          <Bar dataKey="trans" name="Transshipped" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+                          <Bar dataKey="direct" name="Direct" fill="#10b981" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold mb-2 text-slate-900 dark:text-slate-100">Top transshipped lanes</div>
+                    <div className="space-y-2 max-h-[260px] overflow-y-auto custom-scrollbar pr-1">
+                      {transshipment.byLane.map(l => (
+                        <div key={l.name} className="p-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                          <div className="flex justify-between text-sm">
+                            <span className="font-semibold text-slate-900 dark:text-slate-100">{l.name}</span>
+                            <span className="font-bold text-amber-600 dark:text-amber-400">{l.trans} / {l.total}</span>
+                          </div>
+                          <div className="h-1.5 mt-2 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-amber-500" style={{ width: `${l.transPct}%` }} />
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{l.transPct.toFixed(0)}% transshipped</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* SHIPMENT STATUS BREAKDOWN */}
         {shipmentStatusBreakdown && shipmentStatusBreakdown.length > 0 && (
           <div className="space-y-3">
@@ -3343,7 +3464,7 @@ export default function Dashboard({ data }: DashboardProps) {
                         >
                           {shipmentStatusBreakdown.map((entry: any, index: number) => {
                             const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316']
-                            const isHovered = hoveredPieSegment?.chart === 'status-breakdown' && hoveredPieSegment?.index === index
+                            const isHovered = false
                             return (
                               <Cell 
                                 key={`cell-${index}`} 
@@ -3355,8 +3476,6 @@ export default function Dashboard({ data }: DashboardProps) {
                                   transition: 'transform 0.2s ease-out',
                                   filter: isHovered ? 'brightness(1.1)' : 'brightness(1)'
                                 }}
-                                onMouseEnter={() => setHoveredPieSegment({ chart: 'status-breakdown', index })}
-                                onMouseLeave={() => setHoveredPieSegment(null)}
                               />
                             )
                           })}
@@ -3424,7 +3543,7 @@ export default function Dashboard({ data }: DashboardProps) {
                           animationDuration={300}
                         >
                           {modeStats.map((entry, index) => {
-                            const isHovered = hoveredPieSegment?.chart === 'mode-insights-pie' && hoveredPieSegment?.index === index
+                            const isHovered = false
                             return (
                               <Cell 
                                 key={`full-mode-${index}`} 
@@ -3436,8 +3555,6 @@ export default function Dashboard({ data }: DashboardProps) {
                                   transition: 'transform 0.2s ease-out',
                                   filter: isHovered ? 'brightness(1.1)' : 'brightness(1)'
                                 }}
-                                onMouseEnter={() => setHoveredPieSegment({ chart: 'mode-insights-pie', index })}
-                                onMouseLeave={() => setHoveredPieSegment(null)}
                               />
                             )
                           })}
@@ -3526,7 +3643,7 @@ export default function Dashboard({ data }: DashboardProps) {
                                     dataKey="value"
                                 >
                                     {statusStats.map((entry, index) => {
-                                      const isHovered = hoveredPieSegment?.chart === 'mode-insights-status' && hoveredPieSegment?.index === index
+                                      const isHovered = false
                                       return (
                                         <Cell 
                                           key={`cell-${index}`} 
@@ -3538,8 +3655,6 @@ export default function Dashboard({ data }: DashboardProps) {
                                             transition: 'transform 0.2s ease-out',
                                             filter: isHovered ? 'brightness(1.1)' : 'brightness(1)'
                                           }}
-                                          onMouseEnter={() => setHoveredPieSegment({ chart: 'mode-insights-status', index })}
-                                          onMouseLeave={() => setHoveredPieSegment(null)}
                                         />
                                       )
                                     })}
@@ -3574,10 +3689,8 @@ export default function Dashboard({ data }: DashboardProps) {
             <Card 
               className={cn(
                 "shadow-none border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden transition-all bg-white dark:bg-zinc-900",
-                hoveredChart === 'carriers' && "shadow-lg border-slate-300 dark:border-zinc-700"
+                "hover:shadow-lg hover:border-slate-300 dark:hover:border-zinc-700"
               )}
-              onMouseEnter={() => setHoveredChart('carriers')}
-              onMouseLeave={() => setHoveredChart(null)}
             >
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -4031,7 +4144,8 @@ export default function Dashboard({ data }: DashboardProps) {
       'container-status': 'Container Delivery Status',
       'air-routings': 'Air Line Routings',
       'hawb-tracking': 'HAWB & Order Tracking',
-      'airline-performance': 'Airline Performance Details'
+      'airline-performance': 'Airline Performance Details',
+      'transshipment': 'Transshipment Analysis'
     }
     return titles[type] || 'Full Screen View'
   }
@@ -4056,7 +4170,8 @@ export default function Dashboard({ data }: DashboardProps) {
       'container-status': 'Track container performance with color-coded status indicators for planned vs actual transit days',
       'air-routings': 'Detailed view of all flight paths and volumes',
       'hawb-tracking': 'Comprehensive list of all House Air Waybills and tracking statuses',
-      'airline-performance': 'Detailed performance metrics for all airlines'
+      'airline-performance': 'Detailed performance metrics for all airlines',
+      'transshipment': 'Direct vs transshipped sea shipments by carrier, lane and job'
     }
     return descriptions[type] || ''
   }
@@ -4334,6 +4449,37 @@ export default function Dashboard({ data }: DashboardProps) {
             </PieChart>
           </ResponsiveContainer>
         )
+      case 'carrier-reliability':
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data.linerOnTimePerformance}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+              <XAxis dataKey="LINER_NAME" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#64748b'}} angle={-30} textAnchor="end" height={70} />
+              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} domain={[0, 100]} />
+              <RechartsTooltip contentStyle={{ backgroundColor: 'var(--color-card)', borderRadius: '12px', border: '1px solid var(--color-border)', color: 'var(--color-card-foreground)' }} formatter={(v: any) => [`${parseFloat(v).toFixed(1)}%`, 'On-Time']} />
+              <Bar dataKey="OnTime_Percentage" radius={[8, 8, 0, 0]} maxBarSize={60}>
+                {data.linerOnTimePerformance?.map((e: any, i: number) => {
+                  const pct = parseFloat(e.OnTime_Percentage || 0)
+                  return <Cell key={i} fill={pct >= 80 ? '#10b981' : pct >= 60 ? '#f59e0b' : '#ef4444'} />
+                })}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )
+      case 'transshipment':
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data.transshipment.byCarrier} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" className="dark:stroke-zinc-800" />
+              <XAxis type="number" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
+              <YAxis dataKey="name" type="category" width={140} axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#64748b'}} />
+              <RechartsTooltip contentStyle={{ backgroundColor: 'var(--color-card)', borderRadius: '8px', border: '1px solid var(--color-border)', color: 'var(--color-card-foreground)' }} />
+              <Legend />
+              <Bar dataKey="trans" name="Transshipped" stackId="a" fill="#f59e0b" />
+              <Bar dataKey="direct" name="Direct" stackId="a" fill="#10b981" />
+            </BarChart>
+          </ResponsiveContainer>
+        )
       case 'map':
         return <Map markers={data.mapMarkers} routes={data.mapRoutes} height="100%" />
       case 'slowest-shipments':
@@ -4381,6 +4527,50 @@ export default function Dashboard({ data }: DashboardProps) {
             ))}
           </div>
         )
+      case 'volume-analysis': {
+        const rows = data.monthlyTrendWithPrev || data.monthlyTrend || []
+        return <SimpleTable headers={['Period', data.metricConfig?.[data.trendMetric]?.label || 'Value', ...(data.compareEnabled ? ['Previous'] : [])]}
+          rows={rows.map((r: any) => [r.date || r.name, Number(r.val ?? r.value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 }), ...(data.compareEnabled ? [Number(r.prev ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })] : [])])} />
+      }
+      case 'tonnage-origin':
+        return <SimpleTable headers={['Origin (POL)', 'Tonnage (t)']} rows={(data.originStats || []).map((r: any) => [r.name, Number(r.val).toLocaleString()])} />
+      case 'top-lanes':
+        return <SimpleTable headers={['Lane', 'Weight (t)']} rows={(data.laneStats || []).map((l: any) => [l.name, Number(l.weight).toFixed(1)])} />
+      case 'transit-legs': {
+        const l = data.kpis?.legs || {}
+        return <SimpleTable headers={['Leg', 'Avg days']} rows={[
+          ['Pickup → Arrival', (l.pickupToArrival || 0).toFixed(1)],
+          ['Pickup → Delivery', (l.pickupToDelivery || 0).toFixed(1)],
+          ['Departure → Arrival', (l.depToArrival || 0).toFixed(1)],
+          ['Departure → Delivery', (l.depToDelivery || 0).toFixed(1)],
+          ['Cargo receipt → ATD', (l.cargoToATD || 0).toFixed(1)],
+          ['ATA → Delivery', (l.ataToDelivery || 0).toFixed(1)],
+        ]} />
+      }
+      case 'teu-distribution':
+        return <SimpleTable headers={['Origin', 'Mode', 'TEU']} rows={(data.originModeTEU || []).map((r: any) => [r.ORIGIN, r.MODE, Number(r.Total_TEU || 0).toFixed(1)])} />
+      case 'delay-distribution':
+        return <SimpleTable headers={['Category', 'Shipments']} rows={(data.delayDistribution || []).map((r: any) => [r.Delay_Category, r.Shipment_Count])} />
+      case 'container-size':
+        return <SimpleTable headers={['Size', 'Shipments', 'On-Time %']} rows={(data.containerSizeImpact || []).map((r: any) => [r.Container_Size, r.Total_Shipments, `${parseFloat(r.OnTime_Percentage || 0).toFixed(1)}%`])} />
+      case 'week-pattern':
+        return <SimpleTable headers={['Week of month', 'Shipments', 'On-Time %']} rows={(data.weekOfMonthPattern || []).map((r: any) => [r.Week_of_Month, r.Total_Shipments, `${parseFloat(r.OnTime_Percentage || 0).toFixed(1)}%`])} />
+      case 'status-breakdown':
+        return <SimpleTable headers={['Status', 'Count', '% of total', 'TEU']} rows={(data.shipmentStatusBreakdown || []).map((r: any) => [r.Status, r.Count, `${parseFloat(r.Percentage || 0).toFixed(1)}%`, parseFloat(r.Total_TEU || 0).toFixed(1)])} />
+      case 'transshipment': {
+        const t = data.transshipment
+        return (
+          <div className="space-y-6">
+            <SimpleTable headers={['Type', 'Jobs', 'Avg transit (d)', 'Tons', 'TEU']} rows={[
+              ['Transshipped', t.trans.count, t.trans.avgDays.toFixed(1), t.trans.tons.toFixed(1), t.trans.teu.toFixed(0)],
+              ['Direct', t.direct.count, t.direct.avgDays.toFixed(1), t.direct.tons.toFixed(1), t.direct.teu.toFixed(0)],
+            ]} />
+            <SimpleTable headers={['Carrier', 'Transshipped', 'Direct', '% transshipped']} rows={t.byCarrier.map((c: any) => [c.name, c.trans, c.direct, `${c.transPct.toFixed(0)}%`])} />
+            <SimpleTable headers={['Lane', 'Transshipped', 'Direct', '% transshipped']} rows={t.byLane.map((c: any) => [c.name, c.trans, c.direct, `${c.transPct.toFixed(0)}%`])} />
+            <SimpleTable headers={['Job', 'Client', 'Carrier', 'Lane', 'Vessel', 'ATD', 'ATA']} rows={t.transJobs.slice(0, 300).map((r: any) => [r.JOBNO, r.CONNAME, r._carrier || r.LINER_NAME, `${r.POL || '?'} → ${r.POD || '?'}`, r.VSL_NAME || r.CONT_VESSEL || '-', r.ATD ? format(parseDateValue(r.ATD) || new Date(0), 'dd MMM yyyy') : '-', r.ATA ? format(parseDateValue(r.ATA) || new Date(0), 'dd MMM yyyy') : '-'])} />
+          </div>
+        )
+      }
       case 'slowest-shipments':
         return <SlowestShipmentsTable data={data.slowestShipments} />
       case 'container-status':
@@ -4416,12 +4606,32 @@ export default function Dashboard({ data }: DashboardProps) {
           ))}
         </div>
       default:
-        return <div className="text-slate-500 dark:text-slate-400">Details view coming soon</div>
+        return null
     }
   }
 }
 
 // --- SUB-COMPONENTS ---
+function SimpleTable({ headers, rows }: { headers: string[]; rows: (string | number)[][] }) {
+  if (!rows.length) return <div className="text-slate-500 dark:text-slate-400 text-sm">No data for the current filters</div>
+  return (
+    <div className="border border-slate-200 dark:border-zinc-800 rounded-lg overflow-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50 dark:bg-zinc-900 text-slate-600 dark:text-slate-300">
+          <tr>{headers.map(h => <th key={h} className="text-left font-semibold px-4 py-2 whitespace-nowrap">{h}</th>)}</tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i} className="border-t border-slate-100 dark:border-zinc-800 text-slate-900 dark:text-slate-100">
+              {r.map((c, j) => <td key={j} className="px-4 py-2 whitespace-nowrap">{c ?? '-'}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function KPICard({ title, value, unit, sub, icon }: any) {
   return (
     <Card className="shadow-sm border-l-4 border-l-slate-800">

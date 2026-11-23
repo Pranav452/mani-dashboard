@@ -89,6 +89,8 @@ export function ShipmentProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (status === 'authenticated') {
       fetchData(filters)
+    } else if (status === 'loading') {
+      setLoading(true)
     } else if (status === 'unauthenticated') {
       setLoading(false)
       setData(null)

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { useState, useEffect } from 'react'
+import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,10 @@ import Link from 'next/link'
 
 export default function LoginPage() {
     const router = useRouter()
+    const { update } = useSession()
+
+    // Warm the dashboard route while the user types so navigation is instant
+    useEffect(() => { router.prefetch('/dashboard') }, [router])
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
     const [isLoading, setIsLoading] = useState(false)
@@ -34,7 +38,14 @@ export default function LoginPage() {
                     : result.error)
                 setIsLoading(false)
             } else if (result?.ok) {
-                router.push('/dashboard')
+                // Sync the client session BEFORE navigating, otherwise the dashboard
+                // mounts while status is still 'unauthenticated' and needs a manual refresh.
+                await update()
+                router.replace('/dashboard')
+                // keep the button in loading state until navigation completes
+            } else {
+                setError('Sign in failed. Please try again.')
+                setIsLoading(false)
             }
         } catch (err) {
             setError('An error occurred. Please try again.')

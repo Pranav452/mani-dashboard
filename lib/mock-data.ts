@@ -394,7 +394,7 @@ const generateShipment = (index: number): any => {
     CONNAME: randomFrom(CONSIGNEES),
     VSL_NAME: mode === 'SEA' ? `VESSEL ${randomInt(100, 999)}` : '',
     CONT_VESSEL: containerNo ? `V${randomInt(100, 999)}` : '',
-    DIRECTVSL: mode === 'SEA' ? (Math.random() > 0.5 ? 'DIRECT' : 'TRANSHIP') : '',
+    DIRECTVSL: mode === 'SEA' ? (Math.random() > 0.5 ? 'YES' : 'NO') : '',
     LINER_CODE: carrier.substring(0, 10).toUpperCase(),
     LINER_NAME: carrier,
     SHIPPER: randomFrom(SHIPPERS),
