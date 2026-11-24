@@ -362,6 +362,14 @@ export default function Dashboard({ data }: DashboardProps) {
   const [compareEnabled, setCompareEnabled] = useState<boolean>(true)
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [showWhatsNew, setShowWhatsNew] = useState(false)
+  useEffect(() => {
+    try { setShowWhatsNew(localStorage.getItem('mp-whatsnew-2.0') !== 'dismissed') } catch { setShowWhatsNew(true) }
+  }, [])
+  const dismissWhatsNew = () => {
+    setShowWhatsNew(false)
+    try { localStorage.setItem('mp-whatsnew-2.0', 'dismissed') } catch {}
+  }
   const [searchQuery, setSearchQuery] = useState("")
   const [drilldowns, setDrilldowns] = useState<Record<string, boolean>>({})
   const [showSnow, setShowSnow] = useState(false)
@@ -1563,24 +1571,23 @@ export default function Dashboard({ data }: DashboardProps) {
       <main className="max-w-[1400px] mx-auto px-4 md:px-6 py-5 space-y-5">
 
         {/* EXECUTIVE OVERVIEW (redesigned) */}
-        <section className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-zinc-800 bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 text-white p-6 md:p-8 shadow-xl">
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
-          <div className="pointer-events-none absolute -left-16 -bottom-24 h-64 w-64 rounded-full bg-sky-400/20 blur-3xl" />
-          <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-            <div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-emerald-200">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" /> New · Dashboard 2.0
-              </span>
-              <h2 className="mt-3 text-2xl md:text-3xl font-bold tracking-tight !normal-case !text-white !text-2xl md:!text-3xl before:hidden">Your logistics, at a glance</h2>
-              <p className="mt-1 text-sm text-white/70 max-w-xl">Redesigned with faster loading, smoother navigation, transshipment insights and richer shipment details.</p>
-            </div>
-            <div className="grid grid-cols-3 gap-3 md:gap-6 text-center">
-              <div><div className="text-2xl font-bold tabular-nums">{formatCompactNumber(kpis.shipments)}</div><div className="text-[11px] uppercase tracking-wider text-white/60">Shipments</div></div>
-              <div><div className="text-2xl font-bold tabular-nums">{formatCompactNumber(kpis.weight)}<span className="text-sm font-normal text-white/60"> t</span></div><div className="text-[11px] uppercase tracking-wider text-white/60">Tonnage</div></div>
-              <div><div className="text-2xl font-bold tabular-nums">{kpis.onTimePct.toFixed(0)}<span className="text-sm font-normal text-white/60">%</span></div><div className="text-[11px] uppercase tracking-wider text-white/60">On-time</div></div>
-            </div>
+        {showWhatsNew && (
+          <div className="flex items-center gap-3 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm">
+            <span className="shrink-0 rounded bg-slate-900 dark:bg-white px-1.5 py-0.5 text-[10px] font-semibold text-white dark:text-slate-900">New</span>
+            <p className="flex-1 min-w-0 truncate text-slate-600 dark:text-slate-300">
+              <span className="font-medium text-slate-900 dark:text-white">Dashboard 2.0</span>
+              <span className="hidden sm:inline"> — transshipment insights, richer shipment details and faster navigation.</span>
+            </p>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              onClick={dismissWhatsNew}
+              className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-zinc-800 dark:hover:text-white"
+            >
+              <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+            </button>
           </div>
-        </section>
+        )}
 
         {/* PERFORMANCE PULSE (new metrics) */}
         <section className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
