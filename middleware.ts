@@ -14,5 +14,6 @@ export const config = {
     '/fleet/:path*',
     '/reports/:path*',
     '/chat/:path*',
+    '/tracking/:path*',
   ]
 }
