@@ -57,19 +57,23 @@ export function ShipmentProvider({ children }: { children: ReactNode }) {
     office: null,
   })
   const { data: session, status } = useSession()
+  const requestSeq = useRef(0)
 
   const fetchData = useCallback(async (currentFilters: DashboardFilters) => {
+    const seq = ++requestSeq.current
     try {
       setLoading(true)
       const result = await getShipments(currentFilters)
+      if (seq !== requestSeq.current) return
       setData(result)
       setError(null)
     } catch (err) {
+      if (seq !== requestSeq.current) return
       setError(err)
       console.error("Failed to fetch shipment data:", err)
       setData(null)
     } finally {
-      setLoading(false)
+      if (seq === requestSeq.current) setLoading(false)
     }
   }, [])
 
@@ -85,17 +89,36 @@ export function ShipmentProvider({ children }: { children: ReactNode }) {
     setFiltersState(newFilters)
   }, [])
 
-  // Initial data fetch on authentication
+  // Identity of the signed-in user. Data and filters belong to exactly one user:
+  // whenever this changes (logout, or logging in as someone else without a
+  // logout in between) everything held in memory is wiped before refetching,
+  // so one client can never see another client's cached data or client list.
+  const userKey = status === 'authenticated'
+    ? `${(session?.user as any)?.name ?? ''}|${(session?.user as any)?.cmpid ?? ''}|${(session?.user as any)?.role ?? ''}`
+    : null
   useEffect(() => {
-    if (status === 'authenticated') {
-      fetchData(filters)
-    } else if (status === 'loading') {
+    const emptyFilters: DashboardFilters = { mode: null, client: null, dateFrom: null, dateTo: null, office: null }
+    requestSeq.current++ // invalidate any in-flight request for the previous user
+    setData(null)
+    setError(null)
+    setFiltersState(emptyFilters)
+
+    if (status === 'loading') {
       setLoading(true)
-    } else if (status === 'unauthenticated') {
-      setLoading(false)
-      setData(null)
+      return
     }
-  }, [status])
+    if (!userKey) {
+      setLoading(false)
+      return
+    }
+
+    const seq = requestSeq.current
+    setLoading(true)
+    getShipments(emptyFilters)
+      .then((result) => { if (seq === requestSeq.current) { setData(result); setError(null) } })
+      .catch((err) => { if (seq === requestSeq.current) { setError(err); setData(null) } })
+      .finally(() => { if (seq === requestSeq.current) setLoading(false) })
+  }, [userKey, status])
 
   return (
     <ShipmentContext.Provider value={{ 
